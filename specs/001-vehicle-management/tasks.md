@@ -31,10 +31,10 @@ description: "Task list for Vehicle Management feature implementation"
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Create backend project structure with NestJS CLI in `backend/`
-- [ ] T002 Create frontend project structure with Next.js in `frontend/`
-- [ ] T003 [P] Configure linting (ESLint) and formatting (Prettier) for both backend and frontend
-- [ ] T004 [P] Initialize PostgreSQL database and configure Prisma in `backend/prisma/schema.prisma`
+- [x] T001 Create backend project structure with NestJS CLI in `backend/`
+- [x] T002 Create frontend project structure with Next.js in `frontend/`
+- [x] T003 [P] Configure linting (ESLint) and formatting (Prettier) for both backend and frontend
+- [x] T004 [P] Initialize PostgreSQL database and configure Prisma in `backend/prisma/schema.prisma`
 
 ---
 

@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Vehicle {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  make           String   @db.VarChar(100)
+  model          String   @db.VarChar(100)
+  year           Int
+  vin            String?  @db.VarChar(25)
+  plateNumber    String?  @db.VarChar(20)
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([organizationId])
+  @@index([organizationId, make, model, year, vin, plateNumber])
+  @@index([organizationId, createdAt(sort: Desc)])
+}
+
+model VehicleAuditRecord {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  userId         String   @db.Uuid
+  entityId       String   @db.Uuid
+  action         String   @db.VarChar(50)
+  timestamp      DateTime @default(now()) @db.Timestamptz(6)
+  metadata       Json?
+
+  @@index([organizationId])
+  @@index([entityId])
+  @@index([organizationId, timestamp(sort: Desc)])
+}
