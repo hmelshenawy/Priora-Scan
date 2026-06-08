@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
   HttpCode,
@@ -14,6 +15,7 @@ import {
 import { Request } from 'express';
 import { CreateDiagnosticSessionDto } from '../dtos/create-diagnostic-session.dto';
 import { UpdateDiagnosticSessionDto } from '../dtos/update-diagnostic-session.dto';
+import { ListDiagnosticSessionsQueryDto } from '../dtos/list-diagnostic-sessions-query.dto';
 import { DiagnosticSessionsService } from '../services/diagnostic-sessions.service';
 import { AuthGuard } from '../../guards/auth.guard';
 import { TenantGuard } from '../../guards/tenant.guard';
@@ -50,12 +52,15 @@ export class DiagnosticSessionsController {
   @Permissions('read:diagnostic-session')
   async list(
     @Param('vehicleId') vehicleId: string,
+    @Query() query: ListDiagnosticSessionsQueryDto,
     @Req() req: Request,
   ) {
     const organizationId = req.organizationId!;
     return this.diagnosticSessionsService.listForVehicle(
       organizationId,
       vehicleId,
+      query.page,
+      query.limit,
     );
   }
 
@@ -78,9 +83,11 @@ export class DiagnosticSessionsController {
     @Req() req: Request,
   ) {
     const organizationId = req.organizationId!;
+    const userId = req.user!.sub;
     return this.diagnosticSessionsService.update(
       organizationId,
       sessionId,
+      userId,
       payload,
     );
   }

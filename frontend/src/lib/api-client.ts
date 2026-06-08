@@ -126,9 +126,17 @@ export async function createDiagnosticSession(
 
 export async function fetchVehicleDiagnosticSessions(
   vehicleId: string,
+  page = 1,
+  limit = 25,
 ): Promise<DiagnosticSession[]> {
   const response = await apiClient.get<DiagnosticSession[]>(
     `/api/v1/vehicles/${vehicleId}/diagnostic-sessions`,
+    {
+      params: {
+        page,
+        limit,
+      },
+    },
   );
   return response.data;
 }

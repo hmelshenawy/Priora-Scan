@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma, DiagnosticSession } from '@prisma/client';
+import { Prisma, DiagnosticSession, DiagnosticSessionStatus } from '@prisma/client';
 import { CreateDiagnosticSessionDto } from '../dtos/create-diagnostic-session.dto';
 import { UpdateDiagnosticSessionDto } from '../dtos/update-diagnostic-session.dto';
 
@@ -14,8 +14,9 @@ export class DiagnosticSessionRepository {
     number: string,
     createdBy: string,
     payload: CreateDiagnosticSessionDto,
+    prisma: Prisma.TransactionClient = this.prisma,
   ): Promise<DiagnosticSession> {
-    return this.prisma.diagnosticSession.create({
+    return prisma.diagnosticSession.create({
       data: {
         organizationId,
         vehicleId,
@@ -31,10 +32,15 @@ export class DiagnosticSessionRepository {
   async listForVehicle(
     organizationId: string,
     vehicleId: string,
+    page: number,
+    limit: number,
   ): Promise<DiagnosticSession[]> {
+    const skip = (page - 1) * limit;
     return this.prisma.diagnosticSession.findMany({
       where: { organizationId, vehicleId },
       orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
     });
   }
 
@@ -51,16 +57,12 @@ export class DiagnosticSessionRepository {
     organizationId: string,
     sessionId: string,
     payload: UpdateDiagnosticSessionDto,
+    prisma: Prisma.TransactionClient = this.prisma,
   ): Promise<DiagnosticSession | null> {
-    const existing = await this.getById(organizationId, sessionId);
-    if (!existing) {
-      return null;
-    }
-
     const data: Prisma.DiagnosticSessionUpdateInput = {};
 
     if (payload.status !== undefined) {
-      data.status = payload.status;
+      data.status = payload.status as DiagnosticSessionStatus;
     }
     if (payload.title !== undefined) {
       data.title = payload.title;
@@ -69,7 +71,7 @@ export class DiagnosticSessionRepository {
       data.description = payload.description;
     }
 
-    return this.prisma.diagnosticSession.update({
+    return prisma.diagnosticSession.update({
       where: { id: sessionId },
       data,
     });

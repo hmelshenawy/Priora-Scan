@@ -46,13 +46,13 @@
 
 ### Implementation for User Story 1
 
-- [ ] T021 [US1] Implement session creation logic in `backend/src/diagnostic-sessions/services/diagnostic-sessions.service.ts`
-- [ ] T022 [US1] Implement `POST /api/v1/vehicles/:vehicleId/diagnostic-sessions` endpoint in `backend/src/diagnostic-sessions/controllers/diagnostic-sessions.controller.ts`
-- [ ] T023 [US1] Add `create:diagnostic-session` RBAC enforcement in `backend/src/diagnostic-sessions/controllers/diagnostic-sessions.controller.ts`
-- [ ] T024 [US1] Validate `vehicleId` and create DTO payload in `backend/src/diagnostic-sessions/dtos/create-diagnostic-session.dto.ts`
-- [ ] T025 [US1] Add frontend create session form and submit flow in `frontend/src/app/vehicles/[vehicleId]/sessions/page.tsx`
-- [ ] T026 [US1] Add session number generation and initial status assignment (`OPEN`) in `backend/src/diagnostic-sessions/services/diagnostic-sessions.service.ts`
-- [ ] T027 [US1] Add frontend create-success feedback and navigation in `frontend/src/app/vehicles/[vehicleId]/sessions/page.tsx`
+- [x] T021 [US1] Implement session creation logic in `backend/src/diagnostic-sessions/services/diagnostic-sessions.service.ts`
+- [x] T022 [US1] Implement `POST /api/v1/vehicles/:vehicleId/diagnostic-sessions` endpoint in `backend/src/diagnostic-sessions/controllers/diagnostic-sessions.controller.ts`
+- [x] T023 [US1] Add `create:diagnostic-session` RBAC enforcement in `backend/src/diagnostic-sessions/controllers/diagnostic-sessions.controller.ts`
+- [x] T024 [US1] Validate `vehicleId` and create DTO payload in `backend/src/diagnostic-sessions/dtos/create-diagnostic-session.dto.ts`
+- [x] T025 [US1] Add frontend create session form and submit flow in `frontend/src/app/vehicles/[vehicleId]/sessions/page.tsx`
+- [x] T026 [US1] Add session number generation and initial status assignment (`OPEN`) in `backend/src/diagnostic-sessions/services/diagnostic-sessions.service.ts`
+- [x] T027 [US1] Add frontend create-success feedback and navigation in `frontend/src/app/vehicles/[vehicleId]/sessions/page.tsx`
 
 ---
 
@@ -64,14 +64,14 @@
 
 ### Implementation for User Story 2
 
-- [ ] T028 [US2] Implement vehicle session list query with pagination in `backend/src/diagnostic-sessions/services/diagnostic-sessions.service.ts`
-- [ ] T029 [US2] Implement `GET /api/v1/vehicles/:vehicleId/diagnostic-sessions` in `backend/src/diagnostic-sessions/controllers/diagnostic-sessions.controller.ts`
-- [ ] T030 [US2] Implement `GET /api/v1/diagnostic-sessions/:sessionId` in `backend/src/diagnostic-sessions/controllers/diagnostic-sessions.controller.ts`
-- [ ] T031 [US2] Implement session detail retrieval in `backend/src/diagnostic-sessions/services/diagnostic-sessions.service.ts`
-- [ ] T032 [US2] Render session list UI in `frontend/src/app/vehicles/[vehicleId]/sessions/page.tsx`
-- [ ] T033 [US2] Render session detail UI in `frontend/src/app/diagnostic-sessions/[sessionId]/page.tsx`
-- [ ] T034 [US2] Add empty state handling for vehicles with no sessions in `frontend/src/app/vehicles/[vehicleId]/sessions/page.tsx`
-- [ ] T035 [US2] Add tenant-scoped session filtering in `backend/src/diagnostic-sessions/repositories/diagnostic-session.repository.ts`
+- [X] T028 [US2] Implement vehicle session list query with pagination in `backend/src/diagnostic-sessions/services/diagnostic-sessions.service.ts`
+- [X] T029 [US2] Implement `GET /api/v1/vehicles/:vehicleId/diagnostic-sessions` in `backend/src/diagnostic-sessions/controllers/diagnostic-sessions.controller.ts`
+- [X] T030 [US2] Implement `GET /api/v1/diagnostic-sessions/:sessionId` in `backend/src/diagnostic-sessions/controllers/diagnostic-sessions.controller.ts`
+- [X] T031 [US2] Implement session detail retrieval in `backend/src/diagnostic-sessions/services/diagnostic-sessions.service.ts`
+- [X] T032 [US2] Render session list UI in `frontend/src/app/vehicles/[vehicleId]/sessions/page.tsx`
+- [X] T033 [US2] Render session detail UI in `frontend/src/app/diagnostic-sessions/[sessionId]/page.tsx`
+- [X] T034 [US2] Add empty state handling for vehicles with no sessions in `frontend/src/app/vehicles/[vehicleId]/sessions/page.tsx`
+- [X] T035 [US2] Add tenant-scoped session filtering in `backend/src/diagnostic-sessions/repositories/diagnostic-session.repository.ts`
 
 ---
 
@@ -83,12 +83,12 @@
 
 ### Implementation for User Story 3
 
-- [ ] T036 [US3] Implement lifecycle transition rules in `backend/src/diagnostic-sessions/services/diagnostic-sessions.service.ts`
-- [ ] T037 [US3] Implement `PATCH /api/v1/diagnostic-sessions/:sessionId` in `backend/src/diagnostic-sessions/controllers/diagnostic-sessions.controller.ts`
-- [ ] T038 [US3] Enforce invalid status transition rejection in `backend/src/diagnostic-sessions/services/diagnostic-sessions.service.ts`
-- [ ] T039 [US3] Enforce closed-session immutability in `backend/src/diagnostic-sessions/services/diagnostic-sessions.service.ts`
-- [ ] T040 [US3] Add session lifecycle controls to `frontend/src/app/diagnostic-sessions/[sessionId]/page.tsx`
-- [ ] T041 [US3] Add user-facing error handling for invalid transition attempts in `frontend/src/app/diagnostic-sessions/[sessionId]/page.tsx`
+- [X] T036 [US3] Implement lifecycle transition rules in `backend/src/diagnostic-sessions/services/diagnostic-sessions.service.ts`
+- [X] T037 [US3] Implement `PATCH /api/v1/diagnostic-sessions/:sessionId` in `backend/src/diagnostic-sessions/controllers/diagnostic-sessions.controller.ts`
+- [X] T038 [US3] Enforce invalid status transition rejection in `backend/src/diagnostic-sessions/services/diagnostic-sessions.service.ts`
+- [X] T039 [US3] Enforce closed-session immutability in `backend/src/diagnostic-sessions/services/diagnostic-sessions.service.ts`
+- [X] T040 [US3] Add session lifecycle controls to `frontend/src/app/diagnostic-sessions/[sessionId]/page.tsx`
+- [X] T041 [US3] Add user-facing error handling for invalid transition attempts in `frontend/src/app/diagnostic-sessions/[sessionId]/page.tsx`
 
 ---
 
@@ -100,11 +100,11 @@
 
 ### Implementation for User Story 4
 
-- [ ] T042 [US4] Write audit record on session creation in `backend/src/diagnostic-sessions/services/diagnostic-sessions.service.ts`
-- [ ] T043 [US4] Write audit record on session status change in `backend/src/diagnostic-sessions/services/diagnostic-sessions.service.ts`
-- [ ] T044 [US4] Ensure audit persistence is included in the same transaction as session mutations in `backend/src/diagnostic-sessions/services/diagnostic-sessions.service.ts`
-- [ ] T045 [US4] Create immutable audit persistence logic in `backend/src/diagnostic-sessions/repositories/diagnostic-session-audit.repository.ts`
-- [ ] T046 [US4] Prevent unauthorized audit record creation via public APIs in `backend/src/diagnostic-sessions/controllers/diagnostic-sessions.controller.ts`
+- [X] T042 [US4] Write audit record on session creation in `backend/src/diagnostic-sessions/services/diagnostic-sessions.service.ts`
+- [X] T043 [US4] Write audit record on session status change in `backend/src/diagnostic-sessions/services/diagnostic-sessions.service.ts`
+- [X] T044 [US4] Ensure audit persistence is included in the same transaction as session mutations in `backend/src/diagnostic-sessions/services/diagnostic-sessions.service.ts`
+- [X] T045 [US4] Create immutable audit persistence logic in `backend/src/diagnostic-sessions/repositories/diagnostic-session-audit.repository.ts`
+- [X] T046 [US4] Prevent unauthorized audit record creation via public APIs in `backend/src/diagnostic-sessions/controllers/diagnostic-sessions.controller.ts`
 
 ---
 

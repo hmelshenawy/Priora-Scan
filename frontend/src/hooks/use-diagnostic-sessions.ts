@@ -11,11 +11,16 @@ import {
   DiagnosticSession,
 } from '../lib/api-client';
 
-export function useVehicleSessions(vehicleId: string) {
+export function useVehicleSessions(
+  vehicleId: string,
+  page = 1,
+  limit = 25,
+) {
   return useQuery<DiagnosticSession[]>({
-    queryKey: ['vehicleSessions', vehicleId],
-    queryFn: () => fetchVehicleDiagnosticSessions(vehicleId),
+    queryKey: ['vehicleSessions', vehicleId, page, limit],
+    queryFn: () => fetchVehicleDiagnosticSessions(vehicleId, page, limit),
     enabled: !!vehicleId,
+    keepPreviousData: true,
   });
 }
 
