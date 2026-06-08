@@ -20,7 +20,6 @@ export function useVehicleSessions(
     queryKey: ['vehicleSessions', vehicleId, page, limit],
     queryFn: () => fetchVehicleDiagnosticSessions(vehicleId, page, limit),
     enabled: !!vehicleId,
-    keepPreviousData: true,
   });
 }
 

@@ -100,7 +100,7 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
                 id="session-title"
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                disabled={isClosed || updateSession.isLoading}
+                disabled={isClosed || updateSession.isPending}
                 className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
                 placeholder="Session title"
               />
@@ -114,7 +114,7 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
                 id="session-description"
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                disabled={isClosed || updateSession.isLoading}
+                disabled={isClosed || updateSession.isPending}
                 className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
                 rows={4}
               />
@@ -124,10 +124,10 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <button
                   type="submit"
-                  disabled={updateSession.isLoading}
+                  disabled={updateSession.isPending}
                   className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
                 >
-                  {updateSession.isLoading ? 'Saving…' : 'Save changes'}
+                  {updateSession.isPending ? 'Saving…' : 'Save changes'}
                 </button>
                 <p className="text-sm text-slate-500">
                   {session.status === 'OPEN'
@@ -164,20 +164,20 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
                   <button
                     type="button"
                     onClick={() => handleTransition('IN_PROGRESS')}
-                    disabled={updateSession.isLoading}
-                    className="w-full rounded-md bg-amber-600 px-4 py-3 text-sm font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-                  >
-                    {updateSession.isLoading ? 'Updating…' : 'Start session'}
+                      disabled={updateSession.isPending}
+                      className="w-full rounded-md bg-amber-600 px-4 py-3 text-sm font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    >
+                      {updateSession.isPending ? 'Updating…' : 'Start session'}
                   </button>
                 )}
                 {canClose && (
                   <button
                     type="button"
                     onClick={() => handleTransition('CLOSED')}
-                    disabled={updateSession.isLoading}
-                    className="w-full rounded-md bg-emerald-600 px-4 py-3 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-                  >
-                    {updateSession.isLoading ? 'Updating…' : 'Close session'}
+                      disabled={updateSession.isPending}
+                      className="w-full rounded-md bg-emerald-600 px-4 py-3 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    >
+                      {updateSession.isPending ? 'Updating…' : 'Close session'}
                   </button>
                 )}
               </>

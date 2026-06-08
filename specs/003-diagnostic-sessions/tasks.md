@@ -112,12 +112,12 @@
 
 **Purpose**: Complete cross-cutting enforcement, consistency, and cleanup for the feature.
 
-- [ ] T047 [P] Add RBAC guard usage to all diagnostic session controller routes in `backend/src/diagnostic-sessions/controllers/diagnostic-sessions.controller.ts`
-- [ ] T048 [P] Add tenant isolation enforcement to all diagnostic session repository methods in `backend/src/diagnostic-sessions/repositories/diagnostic-session.repository.ts`
-- [ ] T049 [P] Add consistent error handling for diagnostic session endpoints in `backend/src/diagnostic-sessions/controllers/diagnostic-sessions.controller.ts`
-- [ ] T050 [P] Update `frontend/src/lib/api-client.ts` error mapping for diagnostic session operations
-- [ ] T051 [P] Review and update `specs/003-diagnostic-sessions/DIAGNOSTIC_SESSIONS_PLAN.md` if implementation details change
-- [ ] T052 [P] Review `specs/003-diagnostic-sessions/spec.md` and `tasks.md` for scope alignment before `/speckit-plan` completion
+- [x] T047 [P] Add RBAC guard usage to all diagnostic session controller routes in `backend/src/diagnostic-sessions/controllers/diagnostic-sessions.controller.ts`
+- [x] T048 [P] Add tenant isolation enforcement to all diagnostic session repository methods in `backend/src/diagnostic-sessions/repositories/diagnostic-session.repository.ts`
+- [x] T049 [P] Add consistent error handling for diagnostic session endpoints in `backend/src/diagnostic-sessions/controllers/diagnostic-sessions.controller.ts`
+- [x] T050 [P] Update `frontend/src/lib/api-client.ts` error mapping for diagnostic session operations
+- [x] T051 [P] Review and update `specs/003-diagnostic-sessions/DIAGNOSTIC_SESSIONS_PLAN.md` if implementation details change
+- [x] T052 [P] Review `specs/003-diagnostic-sessions/spec.md` and `tasks.md` for scope alignment before `/speckit-plan` completion
 
 ---
 

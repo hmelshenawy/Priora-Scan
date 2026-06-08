@@ -1,6 +1,12 @@
 import axios from 'axios';
 import { getCsrfTokenFromCookie } from './csrf';
 
+export interface ApiError extends Error {
+  status?: number;
+  code?: string;
+  details?: unknown;
+}
+
 const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3101',
   withCredentials: true,
@@ -85,7 +91,15 @@ apiClient.interceptors.response.use(
       }
     }
 
-    return Promise.reject(error);
+    const normalizedError = new Error(
+      error.response?.data?.message || error.message || 'An unexpected API error occurred.',
+    ) as ApiError;
+
+    normalizedError.status = error.response?.status;
+    normalizedError.code = error.response?.data?.code;
+    normalizedError.details = error.response?.data;
+
+    return Promise.reject(normalizedError);
   },
 );
 

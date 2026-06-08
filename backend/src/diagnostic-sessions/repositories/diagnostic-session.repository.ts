@@ -71,6 +71,14 @@ export class DiagnosticSessionRepository {
       data.description = payload.description;
     }
 
+    const existingSession = await prisma.diagnosticSession.findFirst({
+      where: { id: sessionId, organizationId },
+    });
+
+    if (!existingSession) {
+      return null;
+    }
+
     return prisma.diagnosticSession.update({
       where: { id: sessionId },
       data,

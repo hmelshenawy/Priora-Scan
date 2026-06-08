@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import {
   useCreateDiagnosticSession,
   useVehicleSessions,
-} from '../../../hooks/use-diagnostic-sessions';
+} from '../../../../hooks/use-diagnostic-sessions';
+import type { DiagnosticSession } from '../../../../lib/api-client';
 
 interface VehicleSessionsPageProps {
   params: {
@@ -87,10 +88,10 @@ export default function VehicleSessionsPage({ params }: VehicleSessionsPageProps
             <div className="flex items-center justify-between gap-3">
               <button
                 type="submit"
-                disabled={createSession.isLoading}
+                disabled={createSession.isPending}
                 className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
               >
-                {createSession.isLoading ? 'Creating…' : 'Create session'}
+                {createSession.isPending ? 'Creating…' : 'Create session'}
               </button>
               {createSession.isError && (
                 <p className="text-sm text-red-600">
@@ -112,7 +113,7 @@ export default function VehicleSessionsPage({ params }: VehicleSessionsPageProps
           ) : sessionsQuery.data?.length ? (
             <>
               <ul className="mt-4 space-y-3">
-                {sessionsQuery.data.map((session) => (
+                {sessionsQuery.data.map((session: DiagnosticSession) => (
                   <li key={session.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                     <Link
                       href={`/diagnostic-sessions/${session.id}`}
