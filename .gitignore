@@ -36,3 +36,7 @@ Thumbs.db
 # Misc
 *.tmp
 *.temp
+
+.claude
+.specify
+.specs

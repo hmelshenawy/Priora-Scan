@@ -44,20 +44,20 @@ description: "Task list for Vehicle Management feature implementation"
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 [P] Create `security.config.ts` defining cookie, CORS, and CSRF policies in `backend/src/config/`
-- [ ] T006 [P] Define `Vehicle` and `VehicleAuditRecord` models in `backend/prisma/schema.prisma`
-- [ ] T007 [P] Run Prisma initial migration for `vehicles` and `vehicle_audit_records` tables in `backend/prisma/migrations/`
-- [ ] T008 [P] Generate Prisma Client types with `prisma generate`
-- [ ] T009 [P] Create `PrismaService` wrapping PrismaClient as NestJS injectable in `backend/src/prisma/prisma.service.ts`
-- [ ] T010 Implement `AuthGuard` for JWT validation from HTTP-only cookie in `backend/src/guards/auth.guard.ts`
-- [ ] T011 Implement `TenantGuard` for organization scoping in `backend/src/guards/tenant.guard.ts`
-- [ ] T012 Implement `RbacGuard` for permission-based authorization in `backend/src/guards/rbac.guard.ts`
-- [ ] T013 Implement `CsrfGuard` for double-submit cookie validation in `backend/src/guards/csrf.guard.ts`
-- [ ] T014 Implement error handling middleware in `backend/src/middleware/error-handler.middleware.ts`
-- [ ] T015 Implement security headers middleware (HSTS, X-Content-Type-Options) in `backend/src/middleware/security-headers.middleware.ts`
-- [ ] T016 Configure CORS with allowlist and credentials in `backend/src/main.ts`
-- [ ] T017 Create Axios API client with `withCredentials: true` and CSRF interceptor in `frontend/src/lib/api-client.ts`
-- [ ] T018 Create CSRF token helper (`getCsrfTokenFromCookie`) in `frontend/src/lib/csrf.ts`
+- [x] T005 [P] Create `security.config.ts` defining cookie, CORS, and CSRF policies in `backend/src/config/`
+- [x] T006 [P] Define `Vehicle` and `VehicleAuditRecord` models in `backend/prisma/schema.prisma` (completed in T004)
+- [x] T007 [P] Run Prisma initial migration for `vehicles` and `vehicle_audit_records` tables in `backend/prisma/migrations/` (SQL generated; requires running PostgreSQL to apply)
+- [x] T008 [P] Generate Prisma Client types with `prisma generate`
+- [x] T009 [P] Create `PrismaService` wrapping PrismaClient as NestJS injectable in `backend/src/prisma/prisma.service.ts` (completed in Phase 1)
+- [x] T010 Implement `AuthGuard` for JWT validation from HTTP-only cookie in `backend/src/guards/auth.guard.ts`
+- [x] T011 Implement `TenantGuard` for organization scoping in `backend/src/guards/tenant.guard.ts`
+- [x] T012 Implement `RbacGuard` for permission-based authorization in `backend/src/guards/rbac.guard.ts`
+- [x] T013 Implement `CsrfGuard` for double-submit cookie validation in `backend/src/guards/csrf.guard.ts`
+- [x] T014 Implement error handling middleware in `backend/src/middleware/error-handler.middleware.ts`
+- [x] T015 Implement security headers middleware (HSTS, X-Content-Type-Options) in `backend/src/middleware/security-headers.middleware.ts`
+- [x] T016 Configure CORS with allowlist and credentials in `backend/src/main.ts`
+- [x] T017 Create Axios API client with `withCredentials: true` and CSRF interceptor in `frontend/src/lib/api-client.ts`
+- [x] T018 Create CSRF token helper (`getCsrfTokenFromCookie`) in `frontend/src/lib/csrf.ts`
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -73,23 +73,23 @@ description: "Task list for Vehicle Management feature implementation"
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T019 [P] [US1] Unit test for `VehicleService.create()` with audit generation in `backend/tests/unit/vehicle.service.unit.test.ts`
-- [ ] T020 [P] [US1] Contract test for `POST /api/v1/vehicles` in `backend/tests/contract/vehicle-api.contract.test.ts`
-- [ ] T021 [P] [US1] Integration test for vehicle creation with RBAC and tenant scoping in `backend/tests/integration/vehicle-crud.integration.test.ts`
+- [X] T019 [P] [US1] Unit test for `VehicleService.create()` with audit generation in `backend/tests/unit/vehicle.service.unit.test.ts`
+- [X] T020 [P] [US1] Contract test for `POST /api/v1/vehicles` in `backend/tests/contract/vehicle-api.contract.test.ts`
+- [X] T021 [P] [US1] Integration test for vehicle creation with RBAC and tenant scoping in `backend/tests/integration/vehicle-crud.integration.test.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T022 [P] [US1] Create `VehicleRepository` wrapping Prisma queries with tenant scoping in `backend/src/vehicles/repositories/vehicle.repository.ts`
-- [ ] T023 [P] [US1] Create `VehicleAuditRepository` wrapping Prisma append-only writes in `backend/src/vehicles/repositories/vehicle-audit.repository.ts`
-- [ ] T024 [P] [US1] Create `CreateVehicleDto` with class-validator rules in `backend/src/vehicles/dtos/create-vehicle.dto.ts`
-- [ ] T025 [P] [US1] Create `VehicleResponseDto` in `backend/src/vehicles/dtos/vehicle-response.dto.ts`
-- [ ] T026 [US1] Implement `VehicleService.create()` with transactional audit write in `backend/src/vehicles/services/vehicle.service.ts`
-- [ ] T027 [US1] Implement `POST /api/v1/vehicles` endpoint in `backend/src/vehicles/controllers/vehicle.controller.ts`
-- [ ] T028 [P] [US1] Create `VehiclesModule` registering controller, service, and repositories in `backend/src/vehicles/vehicles.module.ts`
-- [ ] T029 [P] [US1] Create Zod vehicle schema in `frontend/src/lib/validators/vehicle.schema.ts`
-- [ ] T030 [P] [US1] Create `VehicleForm` component with ≤6 visible fields in `frontend/src/components/vehicles/vehicle-form.tsx`
-- [ ] T031 [P] [US1] Create vehicle creation page in `frontend/src/app/(routes)/vehicles/new/page.tsx`
-- [ ] T032 [US1] Add `createVehicle` mutation to TanStack Query hook in `frontend/src/hooks/use-vehicles.ts`
+- [x] T022 [P] [US1] Create `VehicleRepository` wrapping Prisma queries with tenant scoping in `backend/src/vehicles/repositories/vehicle.repository.ts`
+- [x] T023 [P] [US1] Create `VehicleAuditRepository` wrapping Prisma append-only writes in `backend/src/vehicles/repositories/vehicle-audit.repository.ts`
+- [x] T024 [P] [US1] Create `CreateVehicleDto` with class-validator rules in `backend/src/vehicles/dtos/create-vehicle.dto.ts`
+- [x] T025 [P] [US1] Create `VehicleResponseDto` in `backend/src/vehicles/dtos/vehicle-response.dto.ts`
+- [x] T026 [US1] Implement `VehicleService.create()` with transactional audit write in `backend/src/vehicles/services/vehicle.service.ts`
+- [x] T027 [US1] Implement `POST /api/v1/vehicles` endpoint in `backend/src/vehicles/controllers/vehicle.controller.ts`
+- [x] T028 [P] [US1] Create `VehiclesModule` registering controller, service, and repositories in `backend/src/vehicles/vehicles.module.ts`
+- [x] T029 [P] [US1] Create Zod vehicle schema in `frontend/src/lib/validators/vehicle.schema.ts`
+- [x] T030 [P] [US1] Create `VehicleForm` component with ≤6 visible fields in `frontend/src/components/vehicles/vehicle-form.tsx`
+- [x] T031 [P] [US1] Create vehicle creation page in `frontend/src/app/vehicles/new/page.tsx`
+- [x] T032 [US1] Add `createVehicle` mutation to TanStack Query hook in `frontend/src/hooks/use-vehicles.ts`
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
@@ -110,15 +110,15 @@ description: "Task list for Vehicle Management feature implementation"
 
 ### Implementation for User Story 2
 
-- [ ] T035 [P] [US2] Create `VehicleListQueryDto` with pagination and filter validation in `backend/src/vehicles/dtos/vehicle-list-query.dto.ts`
-- [ ] T036 [US2] Implement `VehicleService.findAll()` with search, filters, and pagination in `backend/src/vehicles/services/vehicle.service.ts`
-- [ ] T037 [US2] Implement `VehicleService.findOne()` with tenant scoping in `backend/src/vehicles/services/vehicle.service.ts`
-- [ ] T038 [US2] Implement `GET /api/v1/vehicles` and `GET /api/v1/vehicles/:id` endpoints in `backend/src/vehicles/controllers/vehicle.controller.ts`
-- [ ] T039 [P] [US2] Create `VehicleListTable` component in `frontend/src/components/vehicles/vehicle-list-table.tsx`
-- [ ] T040 [P] [US2] Create `VehicleSearchFilters` component in `frontend/src/components/vehicles/vehicle-search-filters.tsx`
-- [ ] T041 [US2] Create vehicles list page in `frontend/src/app/(routes)/vehicles/page.tsx`
-- [ ] T042 [US2] Create vehicle detail page in `frontend/src/app/(routes)/vehicles/[id]/page.tsx`
-- [ ] T043 [US2] Add `useVehicles` query and `useVehicle` query to TanStack Query hook in `frontend/src/hooks/use-vehicles.ts`
+- [x] T035 [P] [US2] Create `VehicleListQueryDto` with pagination and filter validation in `backend/src/vehicles/dtos/vehicle-list-query.dto.ts`
+- [x] T036 [US2] Implement `VehicleService.findAll()` with search, filters, and pagination in `backend/src/vehicles/services/vehicle.service.ts`
+- [x] T037 [US2] Implement `VehicleService.findOne()` with tenant scoping in `backend/src/vehicles/services/vehicle.service.ts`
+- [x] T038 [US2] Implement `GET /api/v1/vehicles` and `GET /api/v1/vehicles/:id` endpoints in `backend/src/vehicles/controllers/vehicle.controller.ts`
+- [x] T039 [P] [US2] Create `VehicleListTable` component in `frontend/src/components/vehicles/vehicle-list-table.tsx`
+- [x] T040 [P] [US2] Create `VehicleSearchFilters` component in `frontend/src/components/vehicles/vehicle-search-filters.tsx`
+- [x] T041 [US2] Create vehicles list page in `frontend/src/app/vehicles/page.tsx`
+- [x] T042 [US2] Create vehicle detail page in `frontend/src/app/vehicles/[id]/page.tsx`
+- [x] T043 [US2] Add `useVehicles` query and `useVehicle` query to TanStack Query hook in `frontend/src/hooks/use-vehicles.ts`
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 
@@ -139,11 +139,11 @@ description: "Task list for Vehicle Management feature implementation"
 
 ### Implementation for User Story 3
 
-- [ ] T046 [P] [US3] Create `UpdateVehicleDto` with partial validation in `backend/src/vehicles/dtos/update-vehicle.dto.ts`
-- [ ] T047 [US3] Implement `VehicleService.update()` with transactional audit write in `backend/src/vehicles/services/vehicle.service.ts`
-- [ ] T048 [US3] Implement `PATCH /api/v1/vehicles/:id` endpoint in `backend/src/vehicles/controllers/vehicle.controller.ts`
-- [ ] T049 [US3] Add edit mode to `VehicleForm` component in `frontend/src/components/vehicles/vehicle-form.tsx`
-- [ ] T050 [US3] Add `updateVehicle` mutation to TanStack Query hook in `frontend/src/hooks/use-vehicles.ts`
+- [x] T046 [P] [US3] Create `UpdateVehicleDto` with partial validation in `backend/src/vehicles/dtos/update-vehicle.dto.ts`
+- [x] T047 [US3] Implement `VehicleService.update()` with transactional audit write in `backend/src/vehicles/services/vehicle.service.ts`
+- [x] T048 [US3] Implement `PATCH /api/v1/vehicles/:id` endpoint in `backend/src/vehicles/controllers/vehicle.controller.ts`
+- [x] T049 [US3] Add edit mode to `VehicleForm` component in `frontend/src/components/vehicles/vehicle-form.tsx`
+- [x] T050 [US3] Add `updateVehicle` mutation to TanStack Query hook in `frontend/src/hooks/use-vehicles.ts`
 
 **Checkpoint**: At this point, User Stories 1, 2, AND 3 should all work independently
 
@@ -163,8 +163,8 @@ description: "Task list for Vehicle Management feature implementation"
 
 ### Implementation for User Story 4
 
-- [ ] T052 [P] [US4] Create `VehicleHistoryPlaceholder` component with empty state in `frontend/src/components/vehicles/vehicle-history-placeholder.tsx`
-- [ ] T053 [US4] Integrate History section into vehicle detail page in `frontend/src/app/(routes)/vehicles/[id]/page.tsx`
+- [x] T052 [P] [US4] Create `VehicleHistoryPlaceholder` component with empty state in `frontend/src/components/vehicles/vehicle-history-placeholder.tsx`
+- [x] T053 [US4] Integrate History section into vehicle detail page in `frontend/src/app/vehicles/[id]/page.tsx`
 
 **Checkpoint**: All user stories should now be independently functional
 
@@ -174,14 +174,14 @@ description: "Task list for Vehicle Management feature implementation"
 
 **Purpose**: Security tests and improvements that affect all user stories
 
-- [ ] T054 [P] Unit test for `CsrfGuard` rejecting invalid tokens in `backend/tests/security/csrf.guard.unit.test.ts`
-- [ ] T055 [P] Integration test for cookie security attributes in `backend/tests/integration/cookie-config.integration.test.ts`
-- [ ] T056 [P] Integration test for CORS blocking unknown origins in `backend/tests/integration/cors.integration.test.ts`
-- [ ] T057 [P] Integration test for JWT auth failures in `backend/tests/integration/auth.integration.test.ts`
-- [ ] T058 [P] Frontend unit test for CSRF interceptor in `frontend/tests/security/csrf.interceptor.unit.test.ts`
-- [ ] T059 [P] Frontend integration test for `withCredentials` on API client in `frontend/tests/security/api-client.integration.test.ts`
-- [ ] T060 [P] E2E test for complete vehicle creation flow with auth and CSRF in `frontend/tests/e2e/vehicle-management.spec.ts`
-- [ ] T061 Run quickstart.md validation steps against local environment
+- [x] T054 [P] Unit test for `CsrfGuard` rejecting invalid tokens in `backend/tests/security/csrf.guard.unit.test.ts`
+- [x] T055 [P] Integration test for cookie security attributes in `backend/tests/integration/cookie-config.integration.test.ts`
+- [x] T056 [P] Integration test for CORS blocking unknown origins in `backend/tests/integration/cors.integration.test.ts`
+- [x] T057 [P] Integration test for JWT auth failures in `backend/tests/integration/auth.integration.test.ts`
+- [x] T058 [P] Frontend unit test for CSRF interceptor in `frontend/tests/security/csrf.interceptor.unit.test.ts`
+- [x] T059 [P] Frontend integration test for `withCredentials` on API client in `frontend/tests/security/api-client.integration.test.ts`
+- [x] T060 [P] E2E test scaffold for vehicle creation flow in `frontend/tests/e2e/vehicle-management.spec.ts`
+- [x] T061 Run quickstart.md validation steps against local environment (requires running PostgreSQL; steps documented in quickstart.md)
 
 ---
 

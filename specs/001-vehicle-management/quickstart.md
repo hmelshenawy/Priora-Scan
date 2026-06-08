@@ -79,7 +79,7 @@ Start the development server:
 npm run start:dev
 ```
 
-The API will be available at `http://localhost:3001/api/v1`.
+The API will be available at `http://localhost:3101/api/v1`.
 
 ## 4. Frontend Setup
 

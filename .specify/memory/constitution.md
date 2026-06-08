@@ -144,6 +144,39 @@ PrioraScan is a diagnostic assistant. It is explicitly not a Dealer Management S
 
 **Rationale**: Scope creep is the primary killer of focused products. Maintaining a narrow mission delivers value faster, keeps the user interface comprehensible, and prevents the team from competing with established DMS vendors.
 
+### XVI. Backend-Centric Business Logic
+
+Business rules must reside in the backend.
+
+Frontend applications are clients of the API and must not contain business logic.
+
+Frontend responsibilities:
+- UI rendering
+- User input collection
+- Basic UX validation
+- API communication
+- Data presentation
+
+Backend responsibilities:
+- Business rules
+- Validation enforcement
+- RBAC enforcement
+- Tenant isolation
+- Audit generation
+- Search, filtering, and pagination
+- Diagnostic workflows
+- AI analysis workflows
+- Report generation
+
+The same backend APIs must support:
+- Web application
+- iOS application
+- Android application
+- Desktop applications
+- External integrations
+
+No business-critical behavior may exist exclusively in the frontend.
+
 ## Cross-Cutting Requirements
 
 ### Documentation Alignment
