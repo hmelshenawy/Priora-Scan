@@ -1,0 +1,259 @@
+openapi: 3.0.3
+info:
+  title: PrioraScan Authentication v1 API
+  version: 1.0.0
+  description: |
+    REST API for Authentication in PrioraScan.
+    All endpoints use HTTP-only cookies for token transport.
+    Mutating endpoints require a valid CSRF token.
+
+servers:
+  - url: /api/v1
+    description: Base API path
+
+paths:
+  /auth/login:
+    post:
+      summary: Authenticate a user
+      description: |
+        Validates email and password, issues `access_token`, `refresh_token`, and `csrf_token` cookies,
+        and returns the user's profile.
+      operationId: login
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginDto'
+      responses:
+        '200':
+          description: Login successful; cookies set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponseDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /auth/logout:
+    post:
+      summary: Terminate session
+      description: |
+        Clears all authentication cookies (`access_token`, `refresh_token`, `csrf_token`).
+        Does not require a valid access token; gracefully handles already-expired sessions.
+      operationId: logout
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: Logout successful; cookies cleared
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponseDto'
+
+  /auth/me:
+    get:
+      summary: Get current user profile
+      description: |
+        Returns the current authenticated user's profile derived from the JWT payload.
+        Requires a valid `access_token` cookie.
+      operationId: getCurrentUser
+      tags:
+        - Authentication
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/csrf:
+    get:
+      summary: Get a fresh CSRF token
+      description: |
+        Generates a fresh CSRF token and sets it as the `csrf_token` cookie.
+        Requires a valid `access_token` cookie.
+      operationId: getCsrfToken
+      tags:
+        - Authentication
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: CSRF token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsrfResponseDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      description: |
+        Reads the `refresh_token` cookie, validates it, and issues new `access_token` and `csrf_token` cookies.
+        Does not require the expired `access_token`.
+      operationId: refreshToken
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: New tokens issued; cookies set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshResponseDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token provided via `access_token` HTTP-only cookie
+
+  schemas:
+    LoginDto:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User email address
+          example: "tech@workshop.com"
+        password:
+          type: string
+          minLength: 6
+          description: User password
+          example: "password123"
+
+    LoginResponseDto:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/UserProfileDto'
+
+    LogoutResponseDto:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Logged out successfully."
+
+    UserProfileDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "00000000-0000-0000-0000-000000000001"
+        email:
+          type: string
+          example: "tech@workshop.com"
+        organizationId:
+          type: string
+          format: uuid
+          example: "00000000-0000-0000-0000-000000000002"
+        roles:
+          type: array
+          items:
+            type: string
+          example: ["technician"]
+        permissions:
+          type: array
+          items:
+            type: string
+          example: ["read:vehicle", "create:vehicle"]
+
+    CsrfResponseDto:
+      type: object
+      properties:
+        csrfToken:
+          type: string
+          example: "a1b2c3d4e5f6..."
+
+    RefreshResponseDto:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Token refreshed successfully."
+
+    ErrorResponseDto:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code
+          example: "INVALID_CREDENTIALS"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Invalid email or password."
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: "email"
+              message:
+                type: string
+                example: "Email must be a valid email address."
+          description: Optional field-level validation errors
+
+  responses:
+    BadRequest:
+      description: Invalid request payload or parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponseDto'
+          example:
+            code: "VALIDATION_ERROR"
+            message: "The request body contains invalid data."
+            details:
+              - field: "email"
+                message: "Email must be a valid email address."
+
+    Unauthorized:
+      description: Missing, invalid, or expired authentication token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponseDto'
+          example:
+            code: "UNAUTHORIZED"
+            message: "Authentication required. Please provide a valid bearer token."
+
+    TooManyRequests:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponseDto'
+          example:
+            code: "RATE_LIMIT_EXCEEDED"
+            message: "Too many login attempts. Please try again later."

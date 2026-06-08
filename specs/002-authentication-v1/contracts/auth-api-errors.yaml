@@ -1,0 +1,84 @@
+# Authentication API Error Contract
+
+**Feature**: Authentication v1
+**Date**: 2026-06-08
+**Related**: [auth-api.yaml](auth-api.yaml)
+
+---
+
+## Standard Error Response Shape
+
+Every Authentication API endpoint returns errors in a consistent JSON structure:
+
+```json
+{
+  "code": "ERROR_CODE",
+  "message": "Human-readable description of the error.",
+  "details": [
+    {
+      "field": "optional_field_name",
+      "message": "Description of what is wrong with this field."
+    }
+  ]
+}
+```
+
+### Field Definitions
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `code` | string | Yes | Machine-readable error code. Uppercase snake_case. |
+| `message` | string | Yes | Human-readable error message. Suitable for UI display. |
+| `details` | array | No | Array of field-level validation errors. Present only for `400 Bad Request`. |
+
+---
+
+## Error Code Catalog
+
+### Authentication & Authorization
+
+| HTTP Status | Error Code | Message | When It Occurs |
+|-------------|------------|---------|----------------|
+| 401 | `UNAUTHORIZED` | Authentication required. Please provide a valid bearer token. | Missing or invalid JWT access token |
+| 401 | `TOKEN_EXPIRED` | Your session has expired. Please log in again. | JWT access token expired |
+| 401 | `REFRESH_TOKEN_EXPIRED` | Your session has expired. Please log in again. | Refresh token expired or invalid |
+| 401 | `INVALID_CREDENTIALS` | Invalid email or password. | Wrong email or password on login |
+
+### Validation
+
+| HTTP Status | Error Code | Message | When It Occurs |
+|-------------|------------|---------|----------------|
+| 400 | `VALIDATION_ERROR` | The request body contains invalid data. | One or more fields fail validation |
+| 400 | `EMPTY_FIELD` | {field} is required and cannot be empty. | Required field missing or whitespace-only |
+| 400 | `INVALID_EMAIL` | Email must be a valid email address. | Email format violation |
+
+### Security & CSRF
+
+| HTTP Status | Error Code | Message | When It Occurs |
+|-------------|------------|---------|----------------|
+| 403 | `CSRF_INVALID` | Invalid or missing CSRF token. Please refresh the page and try again. | Missing `X-CSRF-Token` header or mismatched cookie/header value |
+| 403 | `CSRF_MISSING` | CSRF token is required for this action. | Mutating request without CSRF token |
+| 403 | `FORBIDDEN` | You do not have permission to perform this action. | Valid JWT but missing required permission |
+| 403 | `TENANT_MISMATCH` | You do not have access to this organization's data. | JWT organizationId doesn't match requested resource |
+
+### Rate Limiting
+
+| HTTP Status | Error Code | Message | When It Occurs |
+|-------------|------------|---------|----------------|
+| 429 | `RATE_LIMIT_EXCEEDED` | Too many login attempts. Please try again later. | Login endpoint rate limit exceeded |
+
+### Server
+
+| HTTP Status | Error Code | Message | When It Occurs |
+|-------------|------------|---------|----------------|
+| 500 | `INTERNAL_ERROR` | An unexpected error occurred. Please try again later. | Unhandled exception |
+
+---
+
+## Error Handling Rules
+
+1. **No credential leakage**: Login failure returns the same error (`INVALID_CREDENTIALS`) regardless of whether the email does not exist or the password is wrong.
+2. **Consistent HTTP status codes**: The same logical error always maps to the same HTTP status code.
+3. **No stack traces in production**: Internal errors (500) log stack traces server-side but return generic messages to clients.
+4. **Validation details**: `details` array is only included for `400 Bad Request` responses. It is omitted for all other error types.
+5. **Rate limit headers**: When `429` is returned, include `Retry-After` header when possible.

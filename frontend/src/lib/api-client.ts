@@ -20,12 +20,71 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+let isRefreshing = false;
+let refreshSubscribers: Array<(token: string) => void> = [];
+
+function onRefreshed(token: string) {
+  refreshSubscribers.forEach((cb) => cb(token));
+  refreshSubscribers = [];
+}
+
+function addRefreshSubscriber(cb: (token: string) => void) {
+  refreshSubscribers.push(cb);
+}
+
+function redirectToLogin() {
+  if (typeof window !== 'undefined') {
+    window.location.href = '/login';
+  }
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 403 && error.response?.data?.code?.startsWith('CSRF')) {
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (
+      error.response?.status === 403 &&
+      error.response?.data?.code?.startsWith('CSRF')
+    ) {
       window.location.reload();
+      return Promise.reject(error);
     }
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise((resolve) => {
+          addRefreshSubscriber((token: string) => {
+            originalRequest.headers['Authorization'] = `Bearer ${token}`;
+            resolve(apiClient(originalRequest));
+          });
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const refreshResponse = await axios.post(
+          `${apiClient.defaults.baseURL}/auth/refresh`,
+          {},
+          { withCredentials: true },
+        );
+
+        const newToken = refreshResponse.data.access_token;
+        isRefreshing = false;
+        onRefreshed(newToken);
+
+        originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+        return apiClient(originalRequest);
+      } catch {
+        isRefreshing = false;
+        refreshSubscribers = [];
+        redirectToLogin();
+        return Promise.reject(error);
+      }
+    }
+
     return Promise.reject(error);
   },
 );

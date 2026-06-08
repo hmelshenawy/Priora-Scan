@@ -45,10 +45,10 @@ description: "Task list for Vehicle Management feature implementation"
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
 - [x] T005 [P] Create `security.config.ts` defining cookie, CORS, and CSRF policies in `backend/src/config/`
-- [x] T006 [P] Define `Vehicle` and `VehicleAuditRecord` models in `backend/prisma/schema.prisma` (completed in T004)
-- [x] T007 [P] Run Prisma initial migration for `vehicles` and `vehicle_audit_records` tables in `backend/prisma/migrations/` (SQL generated; requires running PostgreSQL to apply)
+- [x] T006 [P] Define `Vehicle` and `VehicleAuditRecord` models in `backend/prisma/schema.prisma`
+- [x] T007 [P] Run Prisma initial migration for `vehicles` and `vehicle_audit_records` tables in `backend/prisma/migrations/`
 - [x] T008 [P] Generate Prisma Client types with `prisma generate`
-- [x] T009 [P] Create `PrismaService` wrapping PrismaClient as NestJS injectable in `backend/src/prisma/prisma.service.ts` (completed in Phase 1)
+- [x] T009 [P] Create `PrismaService` wrapping PrismaClient as NestJS injectable in `backend/src/prisma/prisma.service.ts`
 - [x] T010 Implement `AuthGuard` for JWT validation from HTTP-only cookie in `backend/src/guards/auth.guard.ts`
 - [x] T011 Implement `TenantGuard` for organization scoping in `backend/src/guards/tenant.guard.ts`
 - [x] T012 Implement `RbacGuard` for permission-based authorization in `backend/src/guards/rbac.guard.ts`
@@ -73,9 +73,9 @@ description: "Task list for Vehicle Management feature implementation"
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [X] T019 [P] [US1] Unit test for `VehicleService.create()` with audit generation in `backend/tests/unit/vehicle.service.unit.test.ts`
-- [X] T020 [P] [US1] Contract test for `POST /api/v1/vehicles` in `backend/tests/contract/vehicle-api.contract.test.ts`
-- [X] T021 [P] [US1] Integration test for vehicle creation with RBAC and tenant scoping in `backend/tests/integration/vehicle-crud.integration.test.ts`
+- [ ] T019 [P] [US1] Unit test for `VehicleService.create()` with audit generation in `backend/tests/unit/vehicle.service.unit.test.ts`
+- [ ] T020 [P] [US1] Contract test for `POST /api/v1/vehicles` in `backend/tests/contract/vehicle-api.contract.test.ts`
+- [ ] T021 [P] [US1] Integration test for vehicle creation with RBAC and tenant scoping in `backend/tests/integration/vehicle-crud.integration.test.ts`
 
 ### Implementation for User Story 1
 
@@ -144,6 +144,7 @@ description: "Task list for Vehicle Management feature implementation"
 - [x] T048 [US3] Implement `PATCH /api/v1/vehicles/:id` endpoint in `backend/src/vehicles/controllers/vehicle.controller.ts`
 - [x] T049 [US3] Add edit mode to `VehicleForm` component in `frontend/src/components/vehicles/vehicle-form.tsx`
 - [x] T050 [US3] Add `updateVehicle` mutation to TanStack Query hook in `frontend/src/hooks/use-vehicles.ts`
+- [x] T051 [US3] Create vehicle edit page in `frontend/src/app/vehicles/[id]/edit/page.tsx`
 
 **Checkpoint**: At this point, User Stories 1, 2, AND 3 should all work independently
 
@@ -159,12 +160,13 @@ description: "Task list for Vehicle Management feature implementation"
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T051 [P] [US4] Unit test for `VehicleHistoryPlaceholder` rendering in `frontend/tests/unit/vehicle-history-placeholder.unit.test.tsx`
+- [ ] T052 [P] [US4] Unit test for `VehicleHistoryPlaceholder` rendering in `frontend/tests/unit/vehicle-history-placeholder.unit.test.tsx`
 
 ### Implementation for User Story 4
 
-- [x] T052 [P] [US4] Create `VehicleHistoryPlaceholder` component with empty state in `frontend/src/components/vehicles/vehicle-history-placeholder.tsx`
-- [x] T053 [US4] Integrate History section into vehicle detail page in `frontend/src/app/vehicles/[id]/page.tsx`
+- [x] T053 [P] [US4] Create `VehicleHistoryPlaceholder` component with empty state in `frontend/src/components/vehicles/vehicle-history-placeholder.tsx`
+- [x] T054 [US4] Integrate History section into vehicle detail page in `frontend/src/app/vehicles/[id]/page.tsx`
+- [x] T055 [P] [US4] Create `VehicleDetailResponseDto` with history placeholder in `backend/src/vehicles/dtos/vehicle-detail-response.dto.ts`
 
 **Checkpoint**: All user stories should now be independently functional
 
@@ -174,14 +176,14 @@ description: "Task list for Vehicle Management feature implementation"
 
 **Purpose**: Security tests and improvements that affect all user stories
 
-- [x] T054 [P] Unit test for `CsrfGuard` rejecting invalid tokens in `backend/tests/security/csrf.guard.unit.test.ts`
-- [x] T055 [P] Integration test for cookie security attributes in `backend/tests/integration/cookie-config.integration.test.ts`
-- [x] T056 [P] Integration test for CORS blocking unknown origins in `backend/tests/integration/cors.integration.test.ts`
-- [x] T057 [P] Integration test for JWT auth failures in `backend/tests/integration/auth.integration.test.ts`
-- [x] T058 [P] Frontend unit test for CSRF interceptor in `frontend/tests/security/csrf.interceptor.unit.test.ts`
-- [x] T059 [P] Frontend integration test for `withCredentials` on API client in `frontend/tests/security/api-client.integration.test.ts`
-- [x] T060 [P] E2E test scaffold for vehicle creation flow in `frontend/tests/e2e/vehicle-management.spec.ts`
-- [x] T061 Run quickstart.md validation steps against local environment (requires running PostgreSQL; steps documented in quickstart.md)
+- [x] T056 [P] Unit test for `CsrfGuard` rejecting invalid tokens in `backend/tests/security/csrf.guard.unit.test.ts`
+- [x] T057 [P] Integration test for cookie security attributes in `backend/tests/integration/cookie-config.integration.test.ts`
+- [x] T058 [P] Integration test for CORS blocking unknown origins in `backend/tests/integration/cors.integration.test.ts`
+- [x] T059 [P] Integration test for JWT auth failures in `backend/tests/integration/auth.integration.test.ts`
+- [x] T060 [P] Frontend unit test for CSRF interceptor in `frontend/tests/security/csrf.interceptor.unit.test.ts`
+- [x] T061 [P] Frontend integration test for `withCredentials` on API client in `frontend/tests/security/api-client.integration.test.ts`
+- [x] T062 [P] E2E test scaffold for vehicle creation flow in `frontend/tests/e2e/vehicle-management.spec.ts`
+- [ ] T063 Run quickstart.md validation steps against local environment (requires running PostgreSQL; steps documented in quickstart.md)
 
 ---
 
@@ -237,7 +239,7 @@ Task: "Create VehiclesModule in backend/src/vehicles/vehicles.module.ts"
 
 # Frontend components can be built in parallel with backend:
 Task: "Create VehicleForm component in frontend/src/components/vehicles/vehicle-form.tsx"
-Task: "Create vehicle creation page in frontend/src/app/(routes)/vehicles/new/page.tsx"
+Task: "Create vehicle creation page in frontend/src/app/vehicles/new/page.tsx"
 ```
 
 ---
@@ -273,6 +275,24 @@ With multiple developers:
    - Developer C: User Story 3 (backend + frontend)
    - Developer D: User Story 4 (frontend placeholder)
 3. Stories complete and integrate independently
+
+---
+
+## Remaining Work Summary
+
+| Category | Completed | Pending |
+|----------|-----------|---------|
+| Setup / Foundational | 18 | 0 |
+| User Story 1 (Create) | 10 | 3 (tests) |
+| User Story 2 (View/Search) | 8 | 2 (tests) |
+| User Story 3 (Edit) | 6 | 2 (tests) |
+| User Story 4 (History) | 3 | 1 (test) |
+| Security / Polish | 7 | 1 (manual validation) |
+| **Total** | **52** | **9** |
+
+**All implementation code is complete.** The remaining 9 tasks are:
+- 8 automated tests (unit, contract, integration, frontend unit)
+- 1 manual quickstart validation step
 
 ---
 
