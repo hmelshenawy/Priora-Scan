@@ -1,0 +1,436 @@
+openapi: 3.0.3
+info:
+  title: PrioraScan Vehicle Management API
+  version: 1.0.0
+  description: |
+    REST API for Vehicle Management in PrioraScan.
+    All endpoints require authentication and enforce organization-level multi-tenancy.
+
+servers:
+  - url: /api/v1
+    description: Base API path
+
+paths:
+  /vehicles:
+    post:
+      summary: Create a new vehicle
+      description: |
+        Creates a vehicle record within the authenticated user's organization.
+        Generates an audit record (`vehicle:created`) synchronously.
+      operationId: createVehicle
+      tags:
+        - Vehicles
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVehicleDto'
+      responses:
+        '201':
+          description: Vehicle created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VehicleResponseDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    get:
+      summary: List and search vehicles
+      description: |
+        Returns a paginated list of vehicles scoped to the authenticated user's organization.
+        Supports search by Make, Model, VIN, Plate Number, and filtering by Year.
+      operationId: listVehicles
+      tags:
+        - Vehicles
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+          description: Free-text search across Make, Model, VIN, and Plate Number
+        - name: make
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+          description: Filter by vehicle make
+        - name: model
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+          description: Filter by vehicle model
+        - name: year
+          in: query
+          schema:
+            type: integer
+            minimum: 1900
+          description: Filter by model year
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: Page number
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 25
+            minimum: 1
+            maximum: 100
+          description: Items per page
+      responses:
+        '200':
+          description: Paginated vehicle list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedVehicleListDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /vehicles/{id}:
+    get:
+      summary: Get vehicle details
+      description: |
+        Returns a single vehicle record by ID, scoped to the user's organization.
+        Includes a History placeholder compatible with future Diagnostic Session linking.
+      operationId: getVehicleById
+      tags:
+        - Vehicles
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Vehicle UUID
+      responses:
+        '200':
+          description: Vehicle details including history placeholder
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VehicleDetailResponseDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      summary: Partially update a vehicle
+      description: |
+        Applies partial updates to a vehicle record. Only provided fields are modified.
+        Generates an audit record (`vehicle:updated`) synchronously.
+        Ignores unknown or read-only fields without raising an error.
+      operationId: updateVehicle
+      tags:
+        - Vehicles
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Vehicle UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateVehicleDto'
+      responses:
+        '200':
+          description: Vehicle updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VehicleResponseDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    CreateVehicleDto:
+      type: object
+      required:
+        - make
+        - model
+        - year
+      properties:
+        make:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Vehicle manufacturer
+          example: "Toyota"
+        model:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Vehicle model
+          example: "Corolla"
+        year:
+          type: integer
+          minimum: 1900
+          description: Model year
+          example: 2022
+        vin:
+          type: string
+          nullable: true
+          minLength: 3
+          maxLength: 25
+          pattern: '^[A-Za-z0-9]+$'
+          description: Vehicle Identification Number (optional)
+          example: "JTDBU4EE3B9123456"
+        plateNumber:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 20
+          description: License plate number (optional)
+          example: "ABC-1234"
+
+    UpdateVehicleDto:
+      type: object
+      properties:
+        make:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Vehicle manufacturer
+          example: "Toyota"
+        model:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Vehicle model
+          example: "Camry"
+        year:
+          type: integer
+          minimum: 1900
+          description: Model year
+          example: 2023
+        vin:
+          type: string
+          nullable: true
+          minLength: 3
+          maxLength: 25
+          pattern: '^[A-Za-z0-9]+$'
+          description: Vehicle Identification Number (optional)
+          example: "JTDBU4EE3B9123457"
+        plateNumber:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 20
+          description: License plate number (optional)
+          example: "XYZ-5678"
+      description: |
+        Partial update payload. Only fields present in the request are modified.
+        Unknown or read-only fields are silently ignored.
+
+    VehicleResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        organizationId:
+          type: string
+          format: uuid
+          example: "660e8400-e29b-41d4-a716-446655440001"
+        make:
+          type: string
+          example: "Toyota"
+        model:
+          type: string
+          example: "Corolla"
+        year:
+          type: integer
+          example: 2022
+        vin:
+          type: string
+          nullable: true
+          example: "JTDBU4EE3B9123456"
+        plateNumber:
+          type: string
+          nullable: true
+          example: "ABC-1234"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-06-08T14:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-06-08T14:30:00Z"
+
+    VehicleDetailResponseDto:
+      allOf:
+        - $ref: '#/components/schemas/VehicleResponseDto'
+        - type: object
+          properties:
+            history:
+              type: object
+              description: |
+                Placeholder for future diagnostic session history.
+                Currently returns an empty state structure.
+              properties:
+                sessions:
+                  type: array
+                  items:
+                    type: object
+                  description: Diagnostic sessions linked to this vehicle (empty in MVP)
+                  example: []
+                totalSessions:
+                  type: integer
+                  description: Total number of diagnostic sessions (0 in MVP)
+                  example: 0
+                emptyStateMessage:
+                  type: string
+                  example: "No diagnostic sessions yet. Diagnostic history will appear here once sessions are created."
+
+    PaginatedVehicleListDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/VehicleResponseDto'
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+              example: 1
+            limit:
+              type: integer
+              example: 25
+            total:
+              type: integer
+              example: 150
+            totalPages:
+              type: integer
+              example: 6
+
+    ErrorResponseDto:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code
+          example: "VEHICLE_NOT_FOUND"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "The requested vehicle does not exist or you do not have access to it."
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: "vin"
+              message:
+                type: string
+                example: "VIN must be alphanumeric and between 3 and 25 characters."
+          description: Optional field-level validation errors
+
+  responses:
+    BadRequest:
+      description: Invalid request payload or parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponseDto'
+          example:
+            code: "VALIDATION_ERROR"
+            message: "The request body contains invalid data."
+            details:
+              - field: "year"
+                message: "Year must be between 1900 and 2027."
+
+    Unauthorized:
+      description: Missing or invalid authentication token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponseDto'
+          example:
+            code: "UNAUTHORIZED"
+            message: "Authentication required. Please provide a valid bearer token."
+
+    Forbidden:
+      description: Authenticated user lacks permission for this action
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponseDto'
+          example:
+            code: "FORBIDDEN"
+            message: "You do not have permission to perform this action on vehicles."
+
+    NotFound:
+      description: Vehicle not found or not accessible in the user's organization
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponseDto'
+          example:
+            code: "VEHICLE_NOT_FOUND"
+            message: "The requested vehicle does not exist or you do not have access to it."
+
+    Conflict:
+      description: Duplicate VIN or Plate Number detected (warning-level in MVP)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponseDto'
+          example:
+            code: "DUPLICATE_VIN"
+            message: "A vehicle with this VIN already exists in your organization."

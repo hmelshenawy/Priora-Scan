@@ -1,0 +1,85 @@
+# Vehicle API Error Contract
+
+**Feature**: Vehicle Management
+**Date**: 2026-06-08
+**Related**: [vehicle-api.yaml](vehicle-api.yaml)
+
+---
+
+## Standard Error Response Shape
+
+Every Vehicle Management API endpoint returns errors in a consistent JSON structure:
+
+```json
+{
+  "code": "ERROR_CODE",
+  "message": "Human-readable description of the error.",
+  "details": [
+    {
+      "field": "optional_field_name",
+      "message": "Description of what is wrong with this field."
+    }
+  ]
+}
+```
+
+### Field Definitions
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `code` | string | Yes | Machine-readable error code. Uppercase snake_case. |
+| `message` | string | Yes | Human-readable error message. Suitable for UI display. |
+| `details` | array | No | Array of field-level validation errors. Present only for `400 Bad Request`. |
+
+---
+
+## Error Code Catalog
+
+### Authentication & Authorization
+
+| HTTP Status | Error Code | Message | When It Occurs |
+|-------------|------------|---------|----------------|
+| 401 | `UNAUTHORIZED` | Authentication required. Please provide a valid bearer token. | Missing or invalid JWT |
+| 401 | `TOKEN_EXPIRED` | Your session has expired. Please log in again. | JWT expired |
+| 403 | `FORBIDDEN` | You do not have permission to perform this action on vehicles. | Valid JWT but missing required permission |
+| 403 | `TENANT_MISMATCH` | You do not have access to this organization's data. | JWT organizationId doesn't match requested resource |
+
+### Security & CSRF
+
+| HTTP Status | Error Code | Message | When It Occurs |
+|-------------|------------|---------|----------------|
+| 403 | `CSRF_INVALID` | Invalid or missing CSRF token. Please refresh the page and try again. | Missing `X-CSRF-Token` header, mismatched cookie/header value, or expired CSRF token |
+| 403 | `CSRF_MISSING` | CSRF token is required for this action. | Mutating request without CSRF token |
+
+### Validation
+
+| HTTP Status | Error Code | Message | When It Occurs |
+|-------------|------------|---------|----------------|
+| 400 | `VALIDATION_ERROR` | The request body contains invalid data. | One or more fields fail validation |
+| 400 | `INVALID_YEAR` | Year must be between 1900 and {current_year + 1}. | Year out of range |
+| 400 | `INVALID_VIN` | VIN must be alphanumeric and between 3 and 25 characters. | VIN format violation |
+| 400 | `EMPTY_FIELD` | {field} is required and cannot be empty. | Required field missing or whitespace-only |
+
+### Resource
+
+| HTTP Status | Error Code | Message | When It Occurs |
+|-------------|------------|---------|----------------|
+| 404 | `VEHICLE_NOT_FOUND` | The requested vehicle does not exist or you do not have access to it. | Vehicle ID not found in user's organization |
+| 409 | `DUPLICATE_VIN` | A vehicle with this VIN already exists in your organization. | VIN duplicate detected (warning in MVP) |
+| 409 | `DUPLICATE_PLATE` | A vehicle with this plate number already exists in your organization. | Plate number duplicate detected (warning in MVP) |
+
+### Server
+
+| HTTP Status | Error Code | Message | When It Occurs |
+|-------------|------------|---------|----------------|
+| 500 | `INTERNAL_ERROR` | An unexpected error occurred. Please try again later. | Unhandled exception |
+| 500 | `AUDIT_WRITE_FAILED` | The operation succeeded but the audit record could not be created. | Audit generation failure (transaction must roll back) |
+
+---
+
+## Error Handling Rules
+
+1. **No data leakage across tenants**: When a vehicle is not found, the API must return the same error regardless of whether the vehicle doesn't exist or belongs to another organization. This prevents enumeration attacks.
+2. **Consistent HTTP status codes**: The same logical error always maps to the same HTTP status code.
+3. **No stack traces in production**: Internal errors (500) log stack traces server-side but return generic messages to clients.
+4. **Validation details**: `details` array is only included for `400 Bad Request` responses. It is omitted for all other error types.
