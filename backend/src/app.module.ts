@@ -4,6 +4,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaService } from './prisma/prisma.service';
 import { VehiclesModule } from './vehicles/vehicles.module';
 import { AuthModule } from './auth/auth.module';
+import { DiagnosticSessionsModule } from './diagnostic-sessions/diagnostic-sessions.module';
 import { securityConfig } from './config/security.config';
 
 @Module({
@@ -20,6 +21,7 @@ import { securityConfig } from './config/security.config';
     ]),
     VehiclesModule,
     AuthModule,
+    DiagnosticSessionsModule,
   ],
   providers: [PrismaService],
 })

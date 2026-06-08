@@ -89,4 +89,68 @@ apiClient.interceptors.response.use(
   },
 );
 
+export interface DiagnosticSession {
+  id: string;
+  organizationId: string;
+  vehicleId: string;
+  number: string;
+  status: 'OPEN' | 'IN_PROGRESS' | 'CLOSED';
+  title?: string | null;
+  description?: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateDiagnosticSessionInput {
+  title?: string;
+  description?: string;
+}
+
+export interface UpdateDiagnosticSessionInput {
+  status?: 'OPEN' | 'IN_PROGRESS' | 'CLOSED';
+  title?: string;
+  description?: string;
+}
+
+export async function createDiagnosticSession(
+  vehicleId: string,
+  payload: CreateDiagnosticSessionInput,
+): Promise<DiagnosticSession> {
+  const response = await apiClient.post<DiagnosticSession>(
+    `/api/v1/vehicles/${vehicleId}/diagnostic-sessions`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function fetchVehicleDiagnosticSessions(
+  vehicleId: string,
+): Promise<DiagnosticSession[]> {
+  const response = await apiClient.get<DiagnosticSession[]>(
+    `/api/v1/vehicles/${vehicleId}/diagnostic-sessions`,
+  );
+  return response.data;
+}
+
+export async function fetchDiagnosticSession(
+  sessionId: string,
+): Promise<DiagnosticSession> {
+  const response = await apiClient.get<DiagnosticSession>(
+    `/api/v1/diagnostic-sessions/${sessionId}`,
+  );
+  return response.data;
+}
+
+export async function updateDiagnosticSession(
+  sessionId: string,
+  payload: UpdateDiagnosticSessionInput,
+): Promise<DiagnosticSession> {
+  const response = await apiClient.patch<DiagnosticSession>(
+    `/api/v1/diagnostic-sessions/${sessionId}`,
+    payload,
+  );
+  return response.data;
+}
+
 export default apiClient;

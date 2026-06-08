@@ -2,7 +2,7 @@
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
 
-`specs/002-authentication-v1/plan.md`
+`specs/003-diagnostic-sessions/DIAGNOSTIC_SESSIONS_PLAN.md`
 
 # PrioraScan AI Agent Instructions
 

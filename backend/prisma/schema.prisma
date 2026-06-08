@@ -36,3 +36,41 @@ model VehicleAuditRecord {
   @@index([entityId])
   @@index([organizationId, timestamp(sort: Desc)])
 }
+
+model DiagnosticSession {
+  id             String                   @id @default(uuid()) @db.Uuid
+  organizationId String                   @db.Uuid
+  vehicleId      String                   @db.Uuid
+  number         String                   @db.VarChar(50)
+  status         DiagnosticSessionStatus @default(OPEN)
+  title          String?                  @db.VarChar(250)
+  description    String?                  @db.VarChar(250)
+  createdBy      String                   @db.Uuid
+  createdAt      DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime                 @updatedAt @db.Timestamptz(6)
+
+  @@index([organizationId])
+  @@index([vehicleId])
+  @@index([organizationId, createdAt(sort: Desc)])
+}
+
+model DiagnosticSessionAuditRecord {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  userId         String   @db.Uuid
+  sessionId      String   @db.Uuid
+  action         String   @db.VarChar(50)
+  status         DiagnosticSessionStatus?
+  metadata       Json?
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([organizationId])
+  @@index([sessionId])
+  @@index([organizationId, createdAt(sort: Desc)])
+}
+
+enum DiagnosticSessionStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
