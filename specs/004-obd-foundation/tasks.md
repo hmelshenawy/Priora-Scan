@@ -18,11 +18,11 @@
 
 **Purpose**: Project initialization, workspace creation, and tool configuration
 
-- [ ] T001 [P] Create `desktop-agent/` directory structure per plan.md (`desktop-agent/src/obd/`, `desktop-agent/src/models/`, `desktop-agent/tests/`, `desktop-agent/requirements.txt`)
-- [ ] T002 [P] Create `backend/src/obd/` module directory structure (`controllers/`, `services/`, `repositories/`, `dtos/`, `types/`)
-- [ ] T003 [P] Create `frontend/src/components/obd/` and `frontend/src/hooks/` directories for OBD UI components
-- [ ] T004 [P] Add `obd` module import and registration in `backend/src/app.module.ts`
-- [ ] T005 [P] Add new OBD permissions to `backend/src/auth/constants/role-permissions.ts` (`obd:scan:create`, `obd:scan:read`, `obd:scan:cancel`, `obd:agent:pair`, `obd:agent:read`, `obd:fault-code:read`)
+- [x] T001 [P] Create `desktop-agent/` directory structure per plan.md (`desktop-agent/src/obd/`, `desktop-agent/src/models/`, `desktop-agent/tests/`, `desktop-agent/requirements.txt`)
+- [x] T002 [P] Create `backend/src/obd/` module directory structure (`controllers/`, `services/`, `repositories/`, `dtos/`, `types/`)
+- [x] T003 [P] Create `frontend/src/components/obd/` and `frontend/src/hooks/` directories for OBD UI components
+- [x] T004 [P] Add `obd` module import and registration in `backend/src/app.module.ts`
+- [x] T005 [P] Add new OBD permissions to `backend/src/auth/constants/role-permissions.ts` (`obd:scan:create`, `obd:scan:read`, `obd:scan:cancel`, `obd:agent:pair`, `obd:agent:read`, `obd:fault-code:read`)
 
 ---
 
@@ -34,27 +34,27 @@
 
 ### Prisma Schema
 
-- [ ] T006 [P] Add `AgentStatus` enum to `backend/prisma/schema.prisma` (`ONLINE`, `OFFLINE`, `BUSY`)
-- [ ] T007 [P] Add `ScanJobStatus` enum to `backend/prisma/schema.prisma` (`PENDING`, `RUNNING`, `NEEDS_VEHICLE_CONFIRMATION`, `COMPLETED`, `FAILED`, `CANCELLED`)
-- [ ] T008 [P] Add `FaultCodeStatus` enum to `backend/prisma/schema.prisma` (`ACTIVE`, `PENDING`, `PERMANENT`)
-- [ ] T009 [P] Add `DesktopAgent` model to `backend/prisma/schema.prisma` with all fields, indexes, and `1 → Many ScanJob` relation
-- [ ] T010 [P] Add `PairingToken` model to `backend/prisma/schema.prisma` with all fields, indexes, and `tokenHash` index
-- [ ] T011 [P] Add `ScanJob` model to `backend/prisma/schema.prisma` with all fields, indexes, and relations to `DesktopAgent`, `Vehicle`, `DiagnosticSession`
-- [ ] T012 [P] Add `AdapterConnection` model to `backend/prisma/schema.prisma` with all fields and indexes
-- [ ] T013 [P] Add `SessionFaultCode` model to `backend/prisma/schema.prisma` with all fields, indexes, unique constraint `[diagnosticSessionId, scanJobId, code, status, ecu]`, and relations to `DiagnosticSession` and `ScanJob`
-- [ ] T014 [P] Add `ScanJobAuditRecord` model to `backend/prisma/schema.prisma` with all fields, indexes, and NO `updatedAt` field
-- [ ] T015 Add relations `scanJobs` and `faultCodes` to existing `DiagnosticSession` model in `backend/prisma/schema.prisma`
-- [ ] T016 Add relation `scanJobs` to existing `Vehicle` model in `backend/prisma/schema.prisma`
-- [ ] T017 Generate and run Prisma migration `npx prisma migrate dev --name add_obd_foundation`
-- [ ] T018 Regenerate Prisma Client with `npx prisma generate`
+- [x] T006 [P] Add `AgentStatus` enum to `backend/prisma/schema.prisma` (`ONLINE`, `OFFLINE`, `BUSY`)
+- [x] T007 [P] Add `ScanJobStatus` enum to `backend/prisma/schema.prisma` (`PENDING`, `RUNNING`, `NEEDS_VEHICLE_CONFIRMATION`, `COMPLETED`, `FAILED`, `CANCELLED`)
+- [x] T008 [P] Add `FaultCodeStatus` enum to `backend/prisma/schema.prisma` (`ACTIVE`, `PENDING`, `PERMANENT`)
+- [x] T009 [P] Add `DesktopAgent` model to `backend/prisma/schema.prisma` with all fields, indexes, and `1 → Many ScanJob` relation
+- [x] T010 [P] Add `PairingToken` model to `backend/prisma/schema.prisma` with all fields, indexes, and `tokenHash` index
+- [x] T011 [P] Add `ScanJob` model to `backend/prisma/schema.prisma` with all fields, indexes, and relations to `DesktopAgent`, `Vehicle`, `DiagnosticSession`
+- [x] T012 [P] Add `AdapterConnection` model to `backend/prisma/schema.prisma` with all fields and indexes
+- [x] T013 [P] Add `SessionFaultCode` model to `backend/prisma/schema.prisma` with all fields, indexes, unique constraint `[diagnosticSessionId, scanJobId, code, status, ecu]`, and relations to `DiagnosticSession` and `ScanJob`
+- [x] T014 [P] Add `ScanJobAuditRecord` model to `backend/prisma/schema.prisma` with all fields, indexes, and NO `updatedAt` field
+- [x] T015 Add relations `scanJobs` and `faultCodes` to existing `DiagnosticSession` model in `backend/prisma/schema.prisma`
+- [x] T016 Add relation `scanJobs` to existing `Vehicle` model in `backend/prisma/schema.prisma`
+- [x] T017 Generate and run Prisma migration `npx prisma migrate dev --name add_obd_foundation`
+- [x] T018 Regenerate Prisma Client with `npx prisma generate`
 
 ### Shared Types & Contracts
 
-- [ ] T019 [P] Create `backend/src/obd/types/scan-job-status.enum.ts` exporting `ScanJobStatus` enum mapping Prisma values
-- [ ] T020 [P] Create `backend/src/obd/types/agent-status.enum.ts` exporting `AgentStatus` enum mapping Prisma values
-- [ ] T021 [P] Create `backend/src/obd/types/fault-code-status.enum.ts` exporting `FaultCodeStatus` enum mapping Prisma values
-- [ ] T022 [P] Create `backend/src/obd/types/adapter-protocol.enum.ts` with supported protocol strings (`CAN`, `ISO`, `KWP`, `J1850`)
-- [ ] T023 [P] Create `backend/src/obd/types/scan-event-type.enum.ts` with agent event types (`ADAPTER_CONNECTED`, `ADAPTER_DISCONNECTED`, `VIN_READ`, `VIN_READ_FAILED`, `DTC_READ`, `DTC_READ_FAILED`, `ERROR`)
+- [x] T019 [P] Create `backend/src/obd/types/scan-job-status.enum.ts` exporting `ScanJobStatus` enum mapping Prisma values
+- [x] T020 [P] Create `backend/src/obd/types/agent-status.enum.ts` exporting `AgentStatus` enum mapping Prisma values
+- [x] T021 [P] Create `backend/src/obd/types/fault-code-status.enum.ts` exporting `FaultCodeStatus` enum mapping Prisma values
+- [x] T022 [P] Create `backend/src/obd/types/adapter-protocol.enum.ts` with supported protocol strings (`CAN`, `ISO`, `KWP`, `J1850`)
+- [x] T023 [P] Create `backend/src/obd/types/scan-event-type.enum.ts` with agent event types (`ADAPTER_CONNECTED`, `ADAPTER_DISCONNECTED`, `VIN_READ`, `VIN_READ_FAILED`, `DTC_READ`, `DTC_READ_FAILED`, `ERROR`)
 
 **Checkpoint**: Prisma schema migrated, client generated, all OBD types defined. Foundation ready.
 
@@ -74,28 +74,28 @@
 
 ### Backend — Pairing
 
-- [ ] T027 [P] [US1] Create `PairingTokenRequestDto` in `backend/src/obd/dtos/pairing-token-request.dto.ts` with optional `agentName` field and class-validator decorators
-- [ ] T028 [P] [US1] Create `PairingTokenResponseDto` in `backend/src/obd/dtos/pairing-token-response.dto.ts` with `token` and `expiresAt` fields
-- [ ] T029 [P] [US1] Create `DesktopAgentRepository` in `backend/src/obd/repositories/desktop-agent.repository.ts` with `create`, `findById`, `findByOrganization`, `updateStatus`, `delete` methods (all tenant-scoped)
-- [ ] T030 [P] [US1] Create `AgentPairingService` in `backend/src/obd/services/agent-pairing.service.ts` with `generatePairingToken`, `exchangePairingToken`, `unpairAgent` methods
-- [ ] T031 [US1] Implement `generatePairingToken` in `AgentPairingService`: create 12-char alphanumeric token, hash with SHA-256, store in `PairingToken` with 5-minute expiry, bind to `(organizationId, userId)`
-- [ ] T032 [US1] Implement `exchangePairingToken` in `AgentPairingService`: validate hash, mark consumed, create `DesktopAgent` record, return agent access token (256-bit random)
-- [ ] T033 [US1] Implement `unpairAgent` in `AgentPairingService`: delete `DesktopAgent`, invalidate access token, write audit-like cleanup (optional log)
-- [ ] T034 [US1] Create `AgentPairingController` in `backend/src/obd/controllers/agent-pairing.controller.ts` with `POST /obd/agents/pair` (JWT + RBAC `obd:agent:pair`) and `DELETE /obd/agents/:id/unpair` endpoints
-- [ ] T035 [US1] Create `AgentWebhookController` in `backend/src/obd/controllers/agent-webhook.controller.ts` with `POST /obd/agents/register` (pairing token exchange, no JWT)
+- [x] T027 [P] [US1] Create `PairingTokenRequestDto` in `backend/src/obd/dtos/pairing-token-request.dto.ts` with optional `agentName` field and class-validator decorators
+- [x] T028 [P] [US1] Create `PairingTokenResponseDto` in `backend/src/obd/dtos/pairing-token-response.dto.ts` with `token` and `expiresAt` fields
+- [x] T029 [P] [US1] Create `DesktopAgentRepository` in `backend/src/obd/repositories/desktop-agent.repository.ts` with `create`, `findById`, `findByOrganization`, `updateStatus`, `delete` methods (all tenant-scoped)
+- [x] T030 [P] [US1] Create `AgentPairingService` in `backend/src/obd/services/agent-pairing.service.ts` with `generatePairingToken`, `exchangePairingToken`, `unpairAgent` methods
+- [x] T031 [US1] Implement `generatePairingToken` in `AgentPairingService`: create 12-char alphanumeric token, hash with SHA-256, store in `PairingToken` with 5-minute expiry, bind to `(organizationId, userId)`
+- [x] T032 [US1] Implement `exchangePairingToken` in `AgentPairingService`: validate hash, mark consumed, create `DesktopAgent` record, return agent access token (256-bit random)
+- [x] T033 [US1] Implement `unpairAgent` in `AgentPairingService`: delete `DesktopAgent`, invalidate access token, write audit-like cleanup (optional log)
+- [x] T034 [US1] Create `AgentPairingController` in `backend/src/obd/controllers/agent-pairing.controller.ts` with `POST /obd/agents/pair` (JWT + RBAC `obd:agent:pair`) and `DELETE /obd/agents/:id/unpair` endpoints
+- [x] T035 [US1] Create `AgentWebhookController` in `backend/src/obd/controllers/agent-webhook.controller.ts` with `POST /obd/agents/register` (pairing token exchange, no JWT)
 
 ### Backend — Agent Status Queries
 
-- [ ] T036 [P] [US1] Create `AgentStatusResponseDto` in `backend/src/obd/dtos/agent-status-response.dto.ts`
-- [ ] T037 [US1] Add `GET /obd/agents` to `AgentPairingController` (list paired agents for tenant, JWT + RBAC)
-- [ ] T038 [US1] Add `GET /obd/agents/:id/status` to `AgentPairingController` (return agent status and adapter connection state)
+- [x] T036 [P] [US1] Create `AgentStatusResponseDto` in `backend/src/obd/dtos/agent-status-response.dto.ts`
+- [x] T037 [US1] Add `GET /obd/agents` to `AgentPairingController` (list paired agents for tenant, JWT + RBAC)
+- [x] T038 [US1] Add `GET /obd/agents/:id/status` to `AgentPairingController` (return agent status and adapter connection state)
 
 ### Desktop Agent — Pairing
 
-- [ ] T039 [P] [US1] Create `desktop-agent/src/config.py` with `PRIORASCAN_API_URL` env loading and validation
-- [ ] T040 [P] [US1] Create `desktop-agent/src/api_client.py` with base HTTP client (httpx), retry logic for 500/429, and `X-Agent-Token` header injection
-- [ ] T041 [US1] Create `desktop-agent/src/pairing.py` with `exchange_pairing_token(pairing_token, agent_name, version)` function that calls `POST /obd/agents/register` and stores returned `accessToken` and `agentId`
-- [ ] T042 [US1] Create `desktop-agent/src/main.py` CLI entry point with `pair` subcommand that prompts for token and calls pairing flow
+- [x] T039 [P] [US1] Create `desktop-agent/src/config.py` with `PRIORASCAN_API_URL` env loading and validation
+- [x] T040 [P] [US1] Create `desktop-agent/src/api_client.py` with base HTTP client (httpx), retry logic for 500/429, and `X-Agent-Token` header injection
+- [x] T041 [US1] Create `desktop-agent/src/pairing.py` with `exchange_pairing_token(pairing_token, agent_name, version)` function that calls `POST /obd/agents/register` and stores returned `accessToken` and `agentId`
+- [x] T042 [US1] Create `desktop-agent/src/main.py` CLI entry point with `pair` subcommand that prompts for token and calls pairing flow
 
 **Checkpoint**: Phase 3 complete. Pairing/unpairing works end-to-end.
 
@@ -114,17 +114,17 @@
 
 ### Backend — Heartbeat
 
-- [ ] T045 [P] Create `AgentHeartbeatDto` in `backend/src/obd/dtos/agent-heartbeat.dto.ts` with `version`, `adapterConnected`, `adapterType`, `protocol` fields and class-validator decorators
-- [ ] T046 Create `AgentHeartbeatService` in `backend/src/obd/services/agent-heartbeat.service.ts` with `processHeartbeat(agentId, dto)` and `markOfflineAgents()` methods
-- [ ] T047 Implement `processHeartbeat` in `AgentHeartbeatService`: update `DesktopAgent.lastSeenAt`, `status`, `version`, and adapter state in same transaction
-- [ ] T048 Implement `markOfflineAgents` in `AgentHeartbeatService`: query agents with `lastSeenAt < now - 60 seconds` and set `status = OFFLINE`
-- [ ] T049 Add `POST /obd/agents/:id/heartbeat` to `AgentWebhookController` (agent token auth, no JWT)
-- [ ] T050 Add a NestJS scheduled task (e.g., `@Interval(30000)` or cron) that calls `markOfflineAgents` every 30 seconds in `backend/src/obd/services/agent-heartbeat.service.ts`
+- [x] T045 [P] Create `AgentHeartbeatDto` in `backend/src/obd/dtos/agent-heartbeat.dto.ts` with `version`, `adapterConnected`, `adapterType`, `protocol` fields and class-validator decorators
+- [x] T046 Create `AgentHeartbeatService` in `backend/src/obd/services/agent-heartbeat.service.ts` with `processHeartbeat(agentId, dto)` and `markOfflineAgents()` methods
+- [x] T047 Implement `processHeartbeat` in `AgentHeartbeatService`: update `DesktopAgent.lastSeenAt`, `status`, `version`, and adapter state in same transaction
+- [x] T048 Implement `markOfflineAgents` in `AgentHeartbeatService`: query agents with `lastSeenAt < now - 60 seconds` and set `status = OFFLINE`
+- [x] T049 Add `POST /obd/agents/:id/heartbeat` to `AgentWebhookController` (agent token auth, no JWT)
+- [x] T050 Add a NestJS scheduled task (e.g., `@Interval(30000)` or cron) that calls `markOfflineAgents` every 30 seconds in `backend/src/obd/services/agent-heartbeat.service.ts`
 
 ### Desktop Agent — Heartbeat
 
-- [ ] T051 Create `desktop-agent/src/heartbeat.py` with `send_heartbeat(api_client, agent_id, version, adapter_state)` function
-- [ ] T052 Integrate heartbeat loop into `desktop-agent/src/main.py`: send heartbeat every 30 seconds while running
+- [x] T051 Create `desktop-agent/src/heartbeat.py` with `send_heartbeat(api_client, agent_id, version, adapter_state)` function
+- [x] T052 Integrate heartbeat loop into `desktop-agent/src/main.py`: send heartbeat every 30 seconds while running
 
 **Checkpoint**: Phase 4 complete. Heartbeat and offline detection functional.
 
@@ -144,27 +144,27 @@
 
 ### Backend — Scan Job Lifecycle
 
-- [ ] T056 [P] [US4] Create `CreateScanJobDto` in `backend/src/obd/dtos/create-scan-job.dto.ts` with optional `vehicleId` field
-- [ ] T057 [P] [US4] Create `ScanJobResponseDto` in `backend/src/obd/dtos/scan-job-response.dto.ts` with all fields from plan.md
-- [ ] T058 [P] [US4] Create `ScanJobRepository` in `backend/src/obd/repositories/scan-job.repository.ts` with `create`, `findById`, `findByOrganization`, `updateStatus`, `listForAgent` methods (all tenant-scoped)
-- [ ] T059 [US4] Create `ObdScanService` in `backend/src/obd/services/obd-scan.service.ts` with scan state machine
-- [ ] T060 [US4] Implement `ObdScanService.createScan` in `backend/src/obd/services/obd-scan.service.ts`: validate agent is `ONLINE` and adapter connected, create `ScanJob` (`PENDING`), write `SCAN_STARTED` audit in transaction
-- [ ] T061 [US4] Implement `ObdScanService.cancelScan` in `backend/src/obd/services/obd-scan.service.ts`: validate scan is `PENDING` or `RUNNING`, transition to `CANCELLED`, write `SCAN_CANCELLED` audit in transaction
-- [ ] T062 [US4] Implement scan state transition validation in `ObdScanService`: reject invalid transitions (e.g., `COMPLETED` → any) with `SCAN_JOB_INVALID_STATE` error
-- [ ] T063 [US4] Add `POST /obd/scans` to `ObdScanController` in `backend/src/obd/controllers/obd-scan.controller.ts` (JWT + RBAC `obd:scan:create` + TenantGuard)
-- [ ] T064 [US4] Add `GET /obd/scans` to `ObdScanController` (JWT + RBAC `obd:scan:read` + TenantGuard, paginated)
-- [ ] T065 [US4] Add `GET /obd/scans/:id` to `ObdScanController` (JWT + RBAC `obd:scan:read` + TenantGuard)
-- [ ] T066 [US4] Add `POST /obd/scans/:id/cancel` to `ObdScanController` (JWT + RBAC `obd:scan:cancel` + TenantGuard)
+- [x] T056 [P] [US4] Create `CreateScanJobDto` in `backend/src/obd/dtos/create-scan-job.dto.ts` with optional `vehicleId` field
+- [x] T057 [P] [US4] Create `ScanJobResponseDto` in `backend/src/obd/dtos/scan-job-response.dto.ts` with all fields from plan.md
+- [x] T058 [P] [US4] Create `ScanJobRepository` in `backend/src/obd/repositories/scan-job.repository.ts` with `create`, `findById`, `findByOrganization`, `updateStatus`, `listForAgent` methods (all tenant-scoped)
+- [x] T059 [US4] Create `ObdScanService` in `backend/src/obd/services/obd-scan.service.ts` with scan state machine
+- [x] T060 [US4] Implement `ObdScanService.createScan` in `backend/src/obd/services/obd-scan.service.ts`: validate agent is `ONLINE` and adapter connected, create `ScanJob` (`PENDING`), write `SCAN_STARTED` audit in transaction
+- [x] T061 [US4] Implement `ObdScanService.cancelScan` in `backend/src/obd/services/obd-scan.service.ts`: validate scan is `PENDING` or `RUNNING`, transition to `CANCELLED`, write `SCAN_CANCELLED` audit in transaction
+- [x] T062 [US4] Implement scan state transition validation in `ObdScanService`: reject invalid transitions (e.g., `COMPLETED` → any) with `SCAN_JOB_INVALID_STATE` error
+- [x] T063 [US4] Add `POST /obd/scans` to `ObdScanController` in `backend/src/obd/controllers/obd-scan.controller.ts` (JWT + RBAC `obd:scan:create` + TenantGuard)
+- [x] T064 [US4] Add `GET /obd/scans` to `ObdScanController` (JWT + RBAC `obd:scan:read` + TenantGuard, paginated)
+- [x] T065 [US4] Add `GET /obd/scans/:id` to `ObdScanController` (JWT + RBAC `obd:scan:read` + TenantGuard)
+- [x] T066 [US4] Add `POST /obd/scans/:id/cancel` to `ObdScanController` (JWT + RBAC `obd:scan:cancel` + TenantGuard)
 
 ### Backend — Agent Command Queue
 
-- [ ] T067 [US4] Add `GET /obd/agents/:id/scan-queue` to `AgentWebhookController` (agent token auth): return next `PENDING` scan job for this agent, or `204 No Content`
-- [ ] T068 [US4] Implement queue logic: when agent polls, find oldest `PENDING` `ScanJob` for that `agentId`, transition to `RUNNING`, write `SCAN_STARTED` audit, return job with command list
+- [x] T067 [US4] Add `GET /obd/agents/:id/scan-queue` to `AgentWebhookController` (agent token auth): return next `PENDING` scan job for this agent, or `204 No Content`
+- [x] T068 [US4] Implement queue logic: when agent polls, find oldest `PENDING` `ScanJob` for that `agentId`, transition to `RUNNING`, write `SCAN_STARTED` audit, return job with command list
 
 ### Desktop Agent — Command Execution
 
-- [ ] T069 [US4] Create `desktop-agent/src/models/scan_job.py` with `ScanJob` dataclass
-- [ ] T070 [US4] Add scan queue polling loop to `desktop-agent/src/main.py`: poll `GET /obd/agents/:id/scan-queue` every 2 seconds when idle, execute returned commands
+- [x] T069 [US4] Create `desktop-agent/src/models/scan_job.py` with `ScanJob` dataclass
+- [x] T070 [US4] Add scan queue polling loop to `desktop-agent/src/main.py`: poll `GET /obd/agents/:id/scan-queue` every 2 seconds when idle, execute returned commands
 
 **Checkpoint**: Phase 5 complete. Scan initiation, cancellation, and agent command queue work.
 
@@ -183,21 +183,21 @@
 
 ### Backend — VIN Resolution
 
-- [ ] T073 [P] [US3] Create `VinResolutionService` in `backend/src/obd/services/vin-resolution.service.ts`
-- [ ] T074 [US3] Implement `VinResolutionService.resolve(vin, organizationId)` in `backend/src/obd/services/vin-resolution.service.ts`: query `Vehicle` by `vin + organizationId`, return vehicle or `null` (cross-tenant matches treated as `null`)
-- [ ] T075 [US3] Implement `VinResolutionService.validateVin(vin)` in `backend/src/obd/services/vin-resolution.service.ts`: 17 chars, alphanumeric, no I/O/Q
-- [ ] T076 [US3] Add VIN handling to `ObdScanService`: on `VIN_READ` event from agent, call `VinResolutionService.resolve`, update `ScanJob.vin`, if match found set `vehicleId` and continue; if no match transition to `NEEDS_VEHICLE_CONFIRMATION`
+- [x] T073 [P] [US3] Create `VinResolutionService` in `backend/src/obd/services/vin-resolution.service.ts`
+- [x] T074 [US3] Implement `VinResolutionService.resolve(vin, organizationId)` in `backend/src/obd/services/vin-resolution.service.ts`: query `Vehicle` by `vin + organizationId`, return vehicle or `null` (cross-tenant matches treated as `null`)
+- [x] T075 [US3] Implement `VinResolutionService.validateVin(vin)` in `backend/src/obd/services/vin-resolution.service.ts`: 17 chars, alphanumeric, no I/O/Q
+- [x] T076 [US3] Add VIN handling to `ObdScanService`: on `VIN_READ` event from agent, call `VinResolutionService.resolve`, update `ScanJob.vin`, if match found set `vehicleId` and continue; if no match transition to `NEEDS_VEHICLE_CONFIRMATION`
 
 ### Backend — Vehicle Confirmation
 
-- [ ] T077 [P] [US3] Create `ConfirmVehicleDto` in `backend/src/obd/dtos/confirm-vehicle.dto.ts` with `make`, `model`, `year`, `vin`, `plateNumber` fields and class-validator decorators (vin must be exactly 17 chars)
-- [ ] T078 [US3] Add `POST /obd/scans/:id/confirm-vehicle` to `ObdScanController` (JWT + RBAC `obd:scan:create` + TenantGuard)
-- [ ] T079 [US3] Implement `ObdScanService.confirmVehicle(scanJobId, dto, organizationId, userId)`: create `Vehicle` via existing `VehicleService` or `VehicleRepository`, link to `ScanJob`, transition scan to `RUNNING`, write audit in transaction
+- [x] T077 [P] [US3] Create `ConfirmVehicleDto` in `backend/src/obd/dtos/confirm-vehicle.dto.ts` with `make`, `model`, `year`, `vin`, `plateNumber` fields and class-validator decorators (vin must be exactly 17 chars)
+- [x] T078 [US3] Add `POST /obd/scans/:id/confirm-vehicle` to `ObdScanController` (JWT + RBAC `obd:scan:create` + TenantGuard)
+- [x] T079 [US3] Implement `ObdScanService.confirmVehicle(scanJobId, dto, organizationId, userId)`: create `Vehicle` via existing `VehicleService` or `VehicleRepository`, link to `ScanJob`, transition scan to `RUNNING`, write audit in transaction
 
 ### Desktop Agent — VIN Command
 
-- [ ] T080 [P] [US3] Create `desktop-agent/src/obd/commands/vin.py` with `read_vin(adapter)` function that sends Mode 09 PID 02 and parses 17-char VIN response
-- [ ] T081 [US3] Integrate VIN read into agent scan execution flow: after `ADAPTER_CONNECTED`, send `VIN_READ` event with parsed VIN to backend
+- [x] T080 [P] [US3] Create `desktop-agent/src/obd/commands/vin.py` with `read_vin(adapter)` function that sends Mode 09 PID 02 and parses 17-char VIN response
+- [x] T081 [US3] Integrate VIN read into agent scan execution flow: after `ADAPTER_CONNECTED`, send `VIN_READ` event with parsed VIN to backend
 
 **Checkpoint**: Phase 6 complete. VIN reading and resolution work end-to-end.
 
@@ -215,13 +215,13 @@
 
 ### Backend — Session Creation
 
-- [ ] T083 [P] [US5] Create `ObdScanService.createSessionFromScan(scanJob, tx)` in `backend/src/obd/services/obd-scan.service.ts`: generate session number, create `DiagnosticSession` with `organizationId`, `vehicleId`, `createdBy`, `title`, `status: OPEN`, link `ScanJob.diagnosticSessionId`
-- [ ] T084 [US5] Ensure session creation happens inside the same Prisma transaction as scan status update and fault code import (defined in Phase 8 transaction boundary)
-- [ ] T085 [US5] Write `DiagnosticSessionAuditRecord` for `SESSION_CREATED` action when session is created from scan
+- [x] T083 [P] [US5] Create `ObdScanService.createSessionFromScan(scanJob, tx)` in `backend/src/obd/services/obd-scan.service.ts`: generate session number, create `DiagnosticSession` with `organizationId`, `vehicleId`, `createdBy`, `title`, `status: OPEN`, link `ScanJob.diagnosticSessionId`
+- [x] T084 [US5] Ensure session creation happens inside the same Prisma transaction as scan status update and fault code import (defined in Phase 8 transaction boundary)
+- [x] T085 [US5] Write `DiagnosticSessionAuditRecord` for `SESSION_CREATED` action when session is created from scan
 
 ### Desktop Agent — Continue After Session Created
 
-- [ ] T086 [US5] No agent changes needed — agent continues polling for next command (DTC read)
+- [x] T086 [US5] No agent changes needed — agent continues polling for next command (DTC read)
 
 **Checkpoint**: Phase 7 complete. Automatic diagnostic session creation works.
 
@@ -241,7 +241,7 @@
 
 ### Backend — Fault Code Import
 
-- [ ] T090 [P] [US6] Create `FaultCodeImportDto` in `backend/src/obd/dtos/fault-code-import.dto.ts` with `code` (5–10 chars), `status` (FaultCodeStatus), `ecu` (optional, 1–100 chars)
+- [x] T090 [P] [US6] Create `FaultCodeImportDto` in `backend/src/obd/dtos/fault-code-import.dto.ts` with `code` (5–10 chars), `status` (FaultCodeStatus), `ecu` (optional, 1–100 chars)
 - [ ] T091 [P] [US6] Create `SessionFaultCodeRepository` in `backend/src/obd/repositories/session-fault-code.repository.ts` with `bulkCreate`, `findBySession`, `findByScanJob` methods (all tenant-scoped)
 - [ ] T092 [US6] Create `FaultCodeImportService` in `backend/src/obd/services/fault-code-import.service.ts` with `importFaultCodes(scanJobId, codes, tx)` method
 - [ ] T093 [US6] Implement `FaultCodeImportService.importFaultCodes`: validate all DTOs, perform Prisma `createMany` (or transactional create loop) within transaction, write `FAULT_CODES_IMPORTED` audit with count in metadata

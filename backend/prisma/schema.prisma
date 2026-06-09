@@ -17,6 +17,7 @@ model Vehicle {
   plateNumber    String?  @db.VarChar(20)
   createdAt      DateTime @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+  scanJobs       ScanJob[]
 
   @@index([organizationId])
   @@index([organizationId, make, model, year, vin, plateNumber])
@@ -48,6 +49,8 @@ model DiagnosticSession {
   createdBy      String                   @db.Uuid
   createdAt      DateTime                 @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime                 @updatedAt @db.Timestamptz(6)
+  scanJobs       ScanJob[]
+  faultCodes     SessionFaultCode[]
 
   @@index([organizationId])
   @@index([vehicleId])
@@ -69,8 +72,140 @@ model DiagnosticSessionAuditRecord {
   @@index([organizationId, createdAt(sort: Desc)])
 }
 
+model DesktopAgent {
+  id             String      @id @default(uuid()) @db.Uuid
+  organizationId String      @db.Uuid
+  userId         String      @db.Uuid
+  name           String?     @db.VarChar(100)
+  version        String      @db.VarChar(20)
+  status         AgentStatus @default(OFFLINE)
+  pairedAt       DateTime    @default(now()) @db.Timestamptz(6)
+  lastSeenAt     DateTime?   @db.Timestamptz(6)
+  createdAt      DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime    @updatedAt @db.Timestamptz(6)
+  scanJobs       ScanJob[]
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, userId])
+}
+
+model PairingToken {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  userId         String    @db.Uuid
+  tokenHash      String    @db.VarChar(255)
+  expiresAt      DateTime  @db.Timestamptz(6)
+  consumedAt     DateTime? @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([tokenHash])
+  @@index([organizationId, userId])
+  @@index([expiresAt])
+}
+
+model ScanJob {
+  id                  String        @id @default(uuid()) @db.Uuid
+  organizationId      String        @db.Uuid
+  userId              String        @db.Uuid
+  agentId             String        @db.Uuid
+  vehicleId           String?       @db.Uuid
+  diagnosticSessionId String?       @db.Uuid
+  status              ScanJobStatus @default(PENDING)
+  adapterType         String?       @db.VarChar(50)
+  adapterProtocol     String?       @db.VarChar(20)
+  vin                 String?       @db.VarChar(25)
+  errorMessage        String?       @db.VarChar(500)
+  startedAt           DateTime?     @db.Timestamptz(6)
+  completedAt         DateTime?     @db.Timestamptz(6)
+  createdAt           DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime      @updatedAt @db.Timestamptz(6)
+  agent               DesktopAgent  @relation(fields: [agentId], references: [id])
+  vehicle             Vehicle?      @relation(fields: [vehicleId], references: [id])
+  diagnosticSession   DiagnosticSession? @relation(fields: [diagnosticSessionId], references: [id])
+  faultCodes          SessionFaultCode[]
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, userId])
+  @@index([diagnosticSessionId])
+}
+
+model AdapterConnection {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  agentId        String   @db.Uuid
+  adapterType    String   @db.VarChar(50)
+  connectionType String   @db.VarChar(20)
+  protocol       String?  @db.VarChar(20)
+  status         String   @db.VarChar(20)
+  startedAt      DateTime @default(now()) @db.Timestamptz(6)
+  endedAt        DateTime? @db.Timestamptz(6)
+  errorMessage   String?  @db.VarChar(500)
+
+  @@index([organizationId])
+  @@index([agentId])
+  @@index([organizationId, startedAt(sort: Desc)])
+}
+
+model SessionFaultCode {
+  id                  String          @id @default(uuid()) @db.Uuid
+  organizationId      String          @db.Uuid
+  diagnosticSessionId String          @db.Uuid
+  scanJobId           String          @db.Uuid
+  code                String          @db.VarChar(10)
+  status              FaultCodeStatus
+  ecu                 String?         @db.VarChar(100)
+  source              String          @default("OBD_SCAN") @db.VarChar(20)
+  importedAt          DateTime        @default(now()) @db.Timestamptz(6)
+  createdAt           DateTime        @default(now()) @db.Timestamptz(6)
+  diagnosticSession   DiagnosticSession @relation(fields: [diagnosticSessionId], references: [id])
+  scanJob             ScanJob           @relation(fields: [scanJobId], references: [id])
+
+  @@index([organizationId])
+  @@index([diagnosticSessionId])
+  @@index([organizationId, code])
+  @@unique([diagnosticSessionId, scanJobId, code, status, ecu])
+}
+
+model ScanJobAuditRecord {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String        @db.Uuid
+  userId         String        @db.Uuid
+  scanJobId      String        @db.Uuid
+  action         String        @db.VarChar(50)
+  status         ScanJobStatus?
+  metadata       Json?
+  createdAt      DateTime      @default(now()) @db.Timestamptz(6)
+
+  @@index([organizationId])
+  @@index([scanJobId])
+  @@index([organizationId, createdAt(sort: Desc)])
+}
+
 enum DiagnosticSessionStatus {
   OPEN
   IN_PROGRESS
   CLOSED
+}
+
+enum AgentStatus {
+  ONLINE
+  OFFLINE
+  BUSY
+}
+
+enum ScanJobStatus {
+  PENDING
+  RUNNING
+  NEEDS_VEHICLE_CONFIRMATION
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum FaultCodeStatus {
+  ACTIVE
+  PENDING
+  PERMANENT
 }
