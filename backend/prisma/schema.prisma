@@ -79,6 +79,7 @@ model DesktopAgent {
   name           String?     @db.VarChar(100)
   version        String      @db.VarChar(20)
   status         AgentStatus @default(OFFLINE)
+  accessTokenHash String?    @db.VarChar(255)
   pairedAt       DateTime    @default(now()) @db.Timestamptz(6)
   lastSeenAt     DateTime?   @db.Timestamptz(6)
   createdAt      DateTime    @default(now()) @db.Timestamptz(6)
@@ -88,6 +89,7 @@ model DesktopAgent {
   @@index([organizationId])
   @@index([organizationId, status])
   @@index([organizationId, userId])
+  @@index([accessTokenHash])
 }
 
 model PairingToken {

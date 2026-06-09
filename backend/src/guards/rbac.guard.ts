@@ -29,7 +29,7 @@ export class RbacGuard implements CanActivate {
     if (!user?.permissions || !Array.isArray(user.permissions)) {
       throw new ForbiddenException({
         code: 'FORBIDDEN',
-        message: 'You do not have permission to perform this action on vehicles.',
+        message: this.buildForbiddenMessage(requiredPermissions),
       });
     }
 
@@ -40,10 +40,22 @@ export class RbacGuard implements CanActivate {
     if (!hasPermission) {
       throw new ForbiddenException({
         code: 'FORBIDDEN',
-        message: 'You do not have permission to perform this action on vehicles.',
+        message: this.buildForbiddenMessage(requiredPermissions),
       });
     }
 
     return true;
+  }
+
+  private buildForbiddenMessage(requiredPermissions: string[]): string {
+    const resource = requiredPermissions.some((permission) =>
+      permission.includes('diagnostic-session'),
+    )
+      ? 'diagnostic sessions'
+      : requiredPermissions.some((permission) => permission.includes('vehicle'))
+        ? 'vehicles'
+        : 'this resource';
+
+    return `You do not have permission to perform this action on ${resource}.`;
   }
 }

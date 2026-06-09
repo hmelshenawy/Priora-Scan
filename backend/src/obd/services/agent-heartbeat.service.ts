@@ -18,14 +18,72 @@ export class AgentHeartbeatService {
     agentId: string,
     dto: AgentHeartbeatDto,
   ): Promise<void> {
+    const now = new Date();
     await this.prisma.desktopAgent.updateMany({
       where: { id: agentId },
       data: {
         version: dto.version,
         status: AgentStatus.ONLINE,
-        lastSeenAt: new Date(),
+        lastSeenAt: now,
       },
     });
+
+    const agent = await this.prisma.desktopAgent.findFirst({
+      where: { id: agentId },
+      select: { organizationId: true },
+    });
+
+    if (!agent) {
+      return;
+    }
+
+    const activeConnection = await this.prisma.adapterConnection.findFirst({
+      where: {
+        agentId,
+        organizationId: agent.organizationId,
+        status: { in: ['CONNECTED', 'READY'] },
+        endedAt: null,
+      },
+      orderBy: { startedAt: 'desc' },
+    });
+
+    if (dto.adapterConnected) {
+      const data = {
+        adapterType: dto.adapterType ?? 'ELM327',
+        connectionType: dto.adapterType === 'MOCK' ? 'MOCK' : 'USB',
+        protocol: dto.protocol,
+        status: 'CONNECTED',
+        endedAt: null,
+        errorMessage: null,
+      };
+
+      if (activeConnection) {
+        await this.prisma.adapterConnection.update({
+          where: { id: activeConnection.id },
+          data,
+        });
+        return;
+      }
+
+      await this.prisma.adapterConnection.create({
+        data: {
+          organizationId: agent.organizationId,
+          agentId,
+          ...data,
+        },
+      });
+      return;
+    }
+
+    if (activeConnection) {
+      await this.prisma.adapterConnection.update({
+        where: { id: activeConnection.id },
+        data: {
+          status: 'DISCONNECTED',
+          endedAt: now,
+        },
+      });
+    }
   }
 
   @Interval(30000)

@@ -73,6 +73,8 @@ export class AgentPairingService {
         data: { consumedAt: new Date() },
       });
 
+      const accessTokenHash = this.hashToken(accessToken);
+
       return tx.desktopAgent.create({
         data: {
           organizationId: tokenRecord.organizationId,
@@ -80,6 +82,7 @@ export class AgentPairingService {
           name: agentName || null,
           version,
           status: 'OFFLINE',
+          accessTokenHash,
         },
       });
     });

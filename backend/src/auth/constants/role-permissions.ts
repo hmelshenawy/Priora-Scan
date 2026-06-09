@@ -8,12 +8,16 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'obd:agent:pair',
     'obd:agent:read',
     'obd:fault-code:read',
+    'read:diagnostic-session',
+    'update:diagnostic-session',
   ],
   service_advisor: [
     'read:vehicle',
     'obd:scan:read',
     'obd:agent:read',
     'obd:fault-code:read',
+    'read:diagnostic-session',
+    'update:diagnostic-session',
   ],
   workshop_manager: [
     'read:vehicle',
@@ -25,5 +29,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'obd:agent:pair',
     'obd:agent:read',
     'obd:fault-code:read',
+    'read:diagnostic-session',
+    'update:diagnostic-session',
   ],
 };

@@ -6,6 +6,7 @@ import {
   useDiagnosticSession,
   useUpdateDiagnosticSession,
 } from '../../../hooks/use-diagnostic-sessions';
+import { useSessionFaultCodes } from '../../../hooks/useObdScan';
 
 interface DiagnosticSessionDetailPageProps {
   params: {
@@ -18,6 +19,8 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
   const updateSession = useUpdateDiagnosticSession(params.sessionId);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const session = sessionQuery.data;
+  const faultCodesQuery = useSessionFaultCodes(session?.id ?? null);
 
   useEffect(() => {
     if (sessionQuery.data) {
@@ -34,7 +37,7 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
     );
   }
 
-  if (sessionQuery.isError || !sessionQuery.data) {
+  if (sessionQuery.isError || !session) {
     return (
       <div className="p-6">
         <div className="mb-4 flex items-center justify-between">
@@ -49,7 +52,6 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
     );
   }
 
-  const session = sessionQuery.data;
   const isClosed = session.status === 'CLOSED';
   const canStart = session.status === 'OPEN';
   const canClose = session.status === 'IN_PROGRESS';
@@ -164,20 +166,20 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
                   <button
                     type="button"
                     onClick={() => handleTransition('IN_PROGRESS')}
-                      disabled={updateSession.isPending}
-                      className="w-full rounded-md bg-amber-600 px-4 py-3 text-sm font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-                    >
-                      {updateSession.isPending ? 'Updating…' : 'Start session'}
+                    disabled={updateSession.isPending}
+                    className="w-full rounded-md bg-amber-600 px-4 py-3 text-sm font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  >
+                    {updateSession.isPending ? 'Updating…' : 'Start session'}
                   </button>
                 )}
                 {canClose && (
                   <button
                     type="button"
                     onClick={() => handleTransition('CLOSED')}
-                      disabled={updateSession.isPending}
-                      className="w-full rounded-md bg-emerald-600 px-4 py-3 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-                    >
-                      {updateSession.isPending ? 'Updating…' : 'Close session'}
+                    disabled={updateSession.isPending}
+                    className="w-full rounded-md bg-emerald-600 px-4 py-3 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  >
+                    {updateSession.isPending ? 'Updating…' : 'Close session'}
                   </button>
                 )}
               </>
@@ -185,6 +187,47 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
           </div>
         </aside>
       </div>
+
+      {faultCodesQuery.data && faultCodesQuery.data.data.length > 0 && (
+        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">Fault Codes</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            {faultCodesQuery.data.data.length} code
+            {faultCodesQuery.data.data.length !== 1 ? 's' : ''} imported from OBD scan
+          </p>
+          <ul className="mt-4 divide-y divide-slate-100">
+            {faultCodesQuery.data.data.map((code) => (
+              <li
+                key={code.id}
+                className="flex items-center justify-between py-2"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-sm font-medium text-slate-700">
+                    {code.code}
+                  </span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      code.status === 'ACTIVE'
+                        ? 'bg-red-100 text-red-700'
+                        : code.status === 'PENDING'
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    {code.status}
+                  </span>
+                  {code.ecu && (
+                    <span className="text-xs text-slate-500">{code.ecu}</span>
+                  )}
+                </div>
+                <span className="text-xs text-slate-400">
+                  {new Date(code.importedAt).toLocaleString()}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
         <p className="text-sm text-slate-500">

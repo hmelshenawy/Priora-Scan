@@ -2,17 +2,19 @@ import {
   Body,
   Controller,
   Get,
-  Headers,
   NotFoundException,
   Param,
   Post,
-  UnauthorizedException,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AgentPairingService } from '../services/agent-pairing.service';
 import { AgentHeartbeatService } from '../services/agent-heartbeat.service';
 import { ObdScanService } from '../services/obd-scan.service';
 import { ScanJobRepository } from '../repositories/scan-job.repository';
+import { AgentAuthGuard } from '../../guards/agent-auth.guard';
 import { AgentHeartbeatDto } from '../dtos/agent-heartbeat.dto';
 import { ScanJobStatus } from '../types/scan-job-status.enum';
 import { ScanEventType } from '../types/scan-event-type.enum';
@@ -42,70 +44,93 @@ export class AgentWebhookController {
   }
 
   @Post(':id/heartbeat')
+  @UseGuards(AgentAuthGuard)
   async heartbeat(
     @Param('id') id: string,
     @Body() dto: AgentHeartbeatDto,
-    @Headers('x-agent-token') token: string,
+    @Req() req: Request,
   ) {
-    await this.validateAgentToken(id, token);
     await this.heartbeatService.processHeartbeat(id, dto);
     return { success: true };
   }
 
   @Post(':id/adapter-status')
+  @UseGuards(AgentAuthGuard)
   async adapterStatus(
     @Param('id') id: string,
     @Body() body: { status: string; adapterType?: string; connectionType?: string; protocol?: string; errorMessage?: string },
-    @Headers('x-agent-token') token: string,
+    @Req() req: Request,
   ) {
-    await this.validateAgentToken(id, token);
+    const agent = req.agent!;
     // TODO: Store adapter status in AdapterConnection model (Phase 10)
+    // Use agent.organizationId for tenant-scoped writes when implemented.
     return { success: true };
   }
 
   @Get(':id/scan-queue')
+  @UseGuards(AgentAuthGuard)
   async scanQueue(
     @Param('id') id: string,
-    @Headers('x-agent-token') token: string,
+    @Req() req: Request,
   ) {
-    const agent = await this.validateAgentToken(id, token);
+    const agent = req.agent!;
 
-    const job = await this.scanJobRepository.findPendingForAgent(
+    const pendingJob = await this.scanJobRepository.findPendingForAgent(
       id,
       agent.organizationId,
     );
+    const job =
+      pendingJob ??
+      (await this.scanJobRepository.findConfirmedRunningForAgent(
+        id,
+        agent.organizationId,
+      ));
     if (!job) {
-      return null;
+      return [];
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.scanJob.updateMany({
-        where: { id: job.id },
-        data: { status: ScanJobStatus.RUNNING, startedAt: new Date() },
-      });
+    if (pendingJob) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.scanJob.updateMany({
+          where: { id: job.id, organizationId: agent.organizationId },
+          data: { status: ScanJobStatus.RUNNING, startedAt: new Date() },
+        });
 
-      await tx.scanJobAuditRecord.create({
-        data: {
-          organizationId: job.organizationId,
-          userId: job.userId,
-          scanJobId: job.id,
-          action: 'SCAN_STARTED',
-          status: ScanJobStatus.RUNNING,
-        },
+        await tx.scanJobAuditRecord.create({
+          data: {
+            organizationId: job.organizationId,
+            userId: job.userId,
+            scanJobId: job.id,
+            action: 'SCAN_STARTED',
+            status: ScanJobStatus.RUNNING,
+          },
+        });
       });
-    });
+    }
 
-    return {
-      scanJobId: job.id,
-      commands: [
-        { type: 'CONNECT_ADAPTER', timeoutMs: 10000 },
-        { type: 'READ_VIN', timeoutMs: 30000 },
-        { type: 'READ_DTCS', timeoutMs: 30000 },
-      ],
-    };
+    return [
+      {
+        id: job.id,
+        status: ScanJobStatus.RUNNING,
+        createdAt: job.createdAt,
+        vin: job.vin,
+        diagnosticSessionId: job.diagnosticSessionId,
+        scanJobId: job.id,
+        commands: [
+          ...(job.vin
+            ? []
+            : [
+                { type: 'CONNECT_ADAPTER', timeoutMs: 10000 },
+                { type: 'READ_VIN', timeoutMs: 30000 },
+              ]),
+          { type: 'READ_DTCS', timeoutMs: 30000 },
+        ],
+      },
+    ];
   }
 
   @Post(':id/scan-events')
+  @UseGuards(AgentAuthGuard)
   async scanEvents(
     @Param('id') id: string,
     @Body() body: {
@@ -113,12 +138,12 @@ export class AgentWebhookController {
       event: ScanEventType;
       payload: Record<string, unknown>;
     },
-    @Headers('x-agent-token') token: string,
+    @Req() req: Request,
   ) {
-    await this.validateAgentToken(id, token);
+    const agent = req.agent!;
 
     const scan = await this.prisma.scanJob.findFirst({
-      where: { id: body.scanJobId, agentId: id },
+      where: { id: body.scanJobId, agentId: id, organizationId: agent.organizationId },
     });
     if (!scan) {
       throw new NotFoundException({
@@ -158,6 +183,13 @@ export class AgentWebhookController {
           status: c.status as FaultCodeStatus,
           ecu: c.ecu,
         }));
+        if (!scan.diagnosticSessionId && scan.vehicleId) {
+          await this.scanService.createSessionFromScan(
+            scan.id,
+            scan.organizationId,
+            scan.userId,
+          );
+        }
         await this.scanService.completeScan(
           scan.id,
           scan.organizationId,
@@ -181,30 +213,5 @@ export class AgentWebhookController {
       default:
         return { status: 'OK' };
     }
-  }
-
-  private async validateAgentToken(
-    agentId: string,
-    token: string,
-  ) {
-    if (!token) {
-      throw new UnauthorizedException({
-        code: 'AGENT_TOKEN_MISSING',
-        message: 'Agent token is missing.',
-      });
-    }
-
-    const agent = await this.prisma.desktopAgent.findFirst({
-      where: { id: agentId },
-    });
-    if (!agent) {
-      throw new UnauthorizedException({
-        code: 'AGENT_NOT_FOUND',
-        message: 'Agent not found.',
-      });
-    }
-
-    // TODO: Hash and compare access token (Phase 10)
-    return agent;
   }
 }

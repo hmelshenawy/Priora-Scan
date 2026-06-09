@@ -242,22 +242,22 @@
 ### Backend — Fault Code Import
 
 - [x] T090 [P] [US6] Create `FaultCodeImportDto` in `backend/src/obd/dtos/fault-code-import.dto.ts` with `code` (5–10 chars), `status` (FaultCodeStatus), `ecu` (optional, 1–100 chars)
-- [ ] T091 [P] [US6] Create `SessionFaultCodeRepository` in `backend/src/obd/repositories/session-fault-code.repository.ts` with `bulkCreate`, `findBySession`, `findByScanJob` methods (all tenant-scoped)
-- [ ] T092 [US6] Create `FaultCodeImportService` in `backend/src/obd/services/fault-code-import.service.ts` with `importFaultCodes(scanJobId, codes, tx)` method
-- [ ] T093 [US6] Implement `FaultCodeImportService.importFaultCodes`: validate all DTOs, perform Prisma `createMany` (or transactional create loop) within transaction, write `FAULT_CODES_IMPORTED` audit with count in metadata
-- [ ] T094 [US6] Handle duplicate codes across ECUs: the composite unique key `[diagnosticSessionId, scanJobId, code, status, ecu]` preserves distinct ECU sources
-- [ ] T095 [US6] Implement `ObdScanService.completeScan(scanJobId, faultCodes)` in `backend/src/obd/services/obd-scan.service.ts`: validate scan is `RUNNING`, call `FaultCodeImportService.importFaultCodes`, transition to `COMPLETED`, set `completedAt`, write `SCAN_COMPLETED` audit in same transaction
-- [ ] T096 [US6] Add `GET /obd/scans/:id/results` to `ObdScanController` (JWT + RBAC `obd:fault-code:read` + TenantGuard): return `SessionFaultCode` list for the scan job
+- [x] T091 [P] [US6] Create `SessionFaultCodeRepository` in `backend/src/obd/repositories/session-fault-code.repository.ts` with `bulkCreate`, `findBySession`, `findByScanJob` methods (all tenant-scoped)
+- [x] T092 [US6] Create `FaultCodeImportService` in `backend/src/obd/services/fault-code-import.service.ts` with `importFaultCodes(scanJobId, codes, tx)` method
+- [x] T093 [US6] Implement `FaultCodeImportService.importFaultCodes`: validate all DTOs, perform Prisma `createMany` (or transactional create loop) within transaction, write `FAULT_CODES_IMPORTED` audit with count in metadata
+- [x] T094 [US6] Handle duplicate codes across ECUs: the composite unique key `[diagnosticSessionId, scanJobId, code, status, ecu]` preserves distinct ECU sources
+- [x] T095 [US6] Implement `ObdScanService.completeScan(scanJobId, faultCodes)` in `backend/src/obd/services/obd-scan.service.ts`: validate scan is `RUNNING`, call `FaultCodeImportService.importFaultCodes`, transition to `COMPLETED`, set `completedAt`, write `SCAN_COMPLETED` audit in same transaction
+- [x] T096 [US6] Add `GET /obd/scans/:id/results` to `ObdScanController` (JWT + RBAC `obd:fault-code:read` + TenantGuard): return `SessionFaultCode` list for the scan job
 
 ### Desktop Agent — DTC Commands
 
-- [ ] T097 [P] [US6] Create `desktop-agent/src/obd/commands/dtc.py` with three functions: `read_current_dtcs(adapter)`, `read_pending_dtcs(adapter)`, `read_permanent_dtcs(adapter)`
-- [ ] T098 [US6] Implement DTC parsing in `desktop-agent/src/obd/commands/dtc.py`: parse Mode 03 (current), Mode 07 (pending), Mode 0A (permanent) responses into `{ code, status, ecu }` objects
-- [ ] T099 [US6] Integrate DTC read into agent scan execution flow: after session creation, read all three DTC types, aggregate, and send `DTC_READ` event to backend
+- [x] T097 [P] [US6] Create `desktop-agent/src/obd/commands/dtc.py` with three functions: `read_current_dtcs(adapter)`, `read_pending_dtcs(adapter)`, `read_permanent_dtcs(adapter)`
+- [x] T098 [US6] Implement DTC parsing in `desktop-agent/src/obd/commands/dtc.py`: parse Mode 03 (current), Mode 07 (pending), Mode 0A (permanent) responses into `{ code, status, ecu }` objects
+- [x] T099 [US6] Integrate DTC read into agent scan execution flow: after session creation, read all three DTC types, aggregate, and send `DTC_READ` event to backend
 
 ### Desktop Agent — Error Handling
 
-- [ ] T100 [US6] Add error event handling to agent scan flow: if any command fails, send `ERROR` event with message and abort scan gracefully
+- [x] T100 [US6] Add error event handling to agent scan flow: if any command fails, send `ERROR` event with message and abort scan gracefully
 
 **Checkpoint**: Phase 8 complete. Fault code reading, import, and viewing work end-to-end.
 
@@ -277,24 +277,24 @@
 
 ### Frontend — Hooks
 
-- [ ] T104 [P] [US8] Create `frontend/src/hooks/useAgentStatus.ts` with TanStack Query: poll `GET /obd/agents` every 5 seconds
-- [ ] T105 [P] [US8] Create `frontend/src/hooks/useObdScan.ts` with TanStack Query: `startScan` mutation, `getScanJob` query with 2-second polling when active, `cancelScan` mutation
-- [ ] T106 [P] [US8] Create `frontend/src/hooks/useAdapterStatus.ts` with TanStack Query: poll agent adapter state
+- [x] T104 [P] [US8] Create `frontend/src/hooks/useAgentStatus.ts` with TanStack Query: poll `GET /obd/agents` every 5 seconds
+- [x] T105 [P] [US8] Create `frontend/src/hooks/useObdScan.ts` with TanStack Query: `startScan` mutation, `getScanJob` query with 2-second polling when active, `cancelScan` mutation
+- [x] T106 [P] [US8] Create `frontend/src/hooks/useAdapterStatus.ts` with TanStack Query: poll agent adapter state
 
 ### Frontend — Components
 
-- [ ] T107 [P] [US8] Create `frontend/src/components/obd/AgentStatusCard.tsx`: show agent online/offline/busy status, version, last seen, "Pair Agent" button when no agents
-- [ ] T108 [P] [US8] Create `frontend/src/components/obd/ScanControlPanel.tsx`: "Start Scan" button (disabled when agent offline or no adapter), adapter type/protocol display
-- [ ] T109 [P] [US8] Create `frontend/src/components/obd/ScanProgressTimeline.tsx`: visual timeline of scan stages, highlight current stage, show completed/failed states
-- [ ] T110 [P] [US8] Create `frontend/src/components/obd/FaultCodeList.tsx`: display imported fault codes grouped by ECU, with code, status badge, source
-- [ ] T111 [P] [US8] Create `frontend/src/components/obd/VehicleConfirmModal.tsx`: modal with pre-filled VIN-derived data (make/model/year from VIN decode if available), editable fields, confirm button resumes scan
-- [ ] T112 [P] [US8] Create `frontend/src/components/obd/PairAgentModal.tsx`: modal showing pairing token with copy button, instructions, expiry countdown
+- [x] T107 [P] [US8] Create `frontend/src/components/obd/AgentStatusCard.tsx`: show agent online/offline/busy status, version, last seen, "Pair Agent" button when no agents
+- [x] T108 [P] [US8] Create `frontend/src/components/obd/ScanControlPanel.tsx`: "Start Scan" button (disabled when agent offline or no adapter), adapter type/protocol display
+- [x] T109 [P] [US8] Create `frontend/src/components/obd/ScanProgressTimeline.tsx`: visual timeline of scan stages, highlight current stage, show completed/failed states
+- [x] T110 [P] [US8] Create `frontend/src/components/obd/FaultCodeList.tsx`: display imported fault codes grouped by ECU, with code, status badge, source
+- [x] T111 [P] [US8] Create `frontend/src/components/obd/VehicleConfirmModal.tsx`: modal with pre-filled VIN-derived data (make/model/year from VIN decode if available), editable fields, confirm button resumes scan
+- [x] T112 [P] [US8] Create `frontend/src/components/obd/PairAgentModal.tsx`: modal showing pairing token with copy button, instructions, expiry countdown
 
 ### Frontend — Page
 
-- [ ] T113 [US8] Create `frontend/src/app/obd/page.tsx`: OBD dashboard page composing AgentStatusCard, ScanControlPanel, ScanProgressTimeline, and conditional FaultCodeList
-- [ ] T114 [US8] Add navigation link to `/obd` in the main application layout/menu
-- [ ] T115 [US8] Update `frontend/src/app/diagnostic-sessions/[id]/page.tsx` (or detail component) to display `SessionFaultCode` list when fault codes exist
+- [x] T113 [US8] Create `frontend/src/app/obd/page.tsx`: OBD dashboard page composing AgentStatusCard, ScanControlPanel, ScanProgressTimeline, and conditional FaultCodeList
+- [x] T114 [US8] Add navigation link to `/obd` in the main application layout/menu
+- [x] T115 [US8] Update `frontend/src/app/diagnostic-sessions/[id]/page.tsx` (or detail component) to display `SessionFaultCode` list when fault codes exist
 
 **Checkpoint**: Phase 9 complete. Full OBD UI functional.
 
@@ -308,35 +308,35 @@
 
 ### Tests for Phase 10
 
-- [ ] T116 [P] Write security test for cross-tenant scan access in `backend/tests/security/obd-tenant-isolation.security.test.ts`
-- [ ] T117 [P] Write security test for unauthorized scan cancellation in `backend/tests/security/obd-rbac.security.test.ts`
-- [ ] T118 [P] Write security test for agent token validation in `backend/tests/security/obd-agent-auth.security.test.ts`
+- [x] T116 [P] Write security test for cross-tenant scan access in `backend/tests/security/obd-tenant-isolation.security.test.ts`
+- [x] T117 [P] Write security test for unauthorized scan cancellation in `backend/tests/security/obd-rbac.security.test.ts`
+- [x] T118 [P] Write security test for agent token validation in `backend/tests/security/obd-agent-auth.security.test.ts`
 
 ### RBAC & Guards
 
-- [ ] T119 Add `@RequirePermission('obd:scan:create')` to `POST /obd/scans` in `ObdScanController`
-- [ ] T120 Add `@RequirePermission('obd:scan:read')` to `GET /obd/scans` and `GET /obd/scans/:id` in `ObdScanController`
-- [ ] T121 Add `@RequirePermission('obd:scan:cancel')` to `POST /obd/scans/:id/cancel` in `ObdScanController`
-- [ ] T122 Add `@RequirePermission('obd:agent:pair')` to `POST /obd/agents/pair` and `DELETE /obd/agents/:id/unpair` in `AgentPairingController`
-- [ ] T123 Add `@RequirePermission('obd:agent:read')` to `GET /obd/agents` and `GET /obd/agents/:id/status` in `AgentPairingController`
-- [ ] T124 Add `@RequirePermission('obd:fault-code:read')` to `GET /obd/scans/:id/results` in `ObdScanController`
-- [ ] T125 Ensure `TenantGuard` runs on ALL OBD controller methods (already implied by existing auth setup, verify for new controllers)
+- [x] T119 Add `@Permissions('obd:scan:create')` to `POST /obd/scans` in `ObdScanController`
+- [x] T120 Add `@Permissions('obd:scan:read')` to `GET /obd/scans` and `GET /obd/scans/:id` in `ObdScanController`
+- [x] T121 Add `@Permissions('obd:scan:cancel')` to `POST /obd/scans/:id/cancel` in `ObdScanController`
+- [x] T122 Add `@Permissions('obd:agent:pair')` to `POST /obd/agents/pair` and `DELETE /obd/agents/:id/unpair` in `AgentPairingController`
+- [x] T123 Add `@Permissions('obd:agent:read')` to `GET /obd/agents` and `GET /obd/agents/:id/status` in `AgentPairingController`
+- [x] T124 Add `@Permissions('obd:fault-code:read')` to `GET /obd/scans/:id/results` in `ObdScanController`
+- [x] T125 Ensure `TenantGuard` runs on ALL OBD controller methods (already implied by existing auth setup, verify for new controllers)
 
 ### Agent Token Authentication
 
-- [ ] T126 Create `AgentAuthGuard` in `backend/src/guards/agent-auth.guard.ts`: validate `X-Agent-Token` header against `DesktopAgent` access token hash, reject with 401 if invalid
-- [ ] T127 Apply `AgentAuthGuard` to all `AgentWebhookController` endpoints (`/obd/agents/:id/heartbeat`, `/obd/agents/:id/scan-queue`, `/obd/agents/:id/scan-events`, `/obd/agents/:id/adapter-status`, `/obd/agents/register` uses pairing token instead)
+- [x] T126 Create `AgentAuthGuard` in `backend/src/guards/agent-auth.guard.ts`: validate `X-Agent-Token` header against `DesktopAgent` access token hash, reject with 401 if invalid
+- [x] T127 Apply `AgentAuthGuard` to all `AgentWebhookController` endpoints (`/obd/agents/:id/heartbeat`, `/obd/agents/:id/scan-queue`, `/obd/agents/:id/scan-events`, `/obd/agents/:id/adapter-status`, `/obd/agents/register` uses pairing token instead)
 
 ### Tenant Isolation Verification
 
-- [ ] T128 Verify every repository query in `ScanJobRepository`, `DesktopAgentRepository`, `SessionFaultCodeRepository`, `AdapterConnectionRepository` includes `where: { organizationId }`
-- [ ] T129 Verify `VinResolutionService.resolve` strictly filters by `organizationId` (cross-tenant VINs treated as non-matches)
-- [ ] T130 Verify `AgentPairingController` list endpoints only return agents where `organizationId` matches the authenticated user's tenant
+- [x] T128 Verify every repository query in `ScanJobRepository`, `DesktopAgentRepository`, `SessionFaultCodeRepository`, `AdapterConnectionRepository` includes `where: { organizationId }`
+- [x] T129 Verify `VinResolutionService.resolve` strictly filters by `organizationId` (cross-tenant VINs treated as non-matches)
+- [x] T130 Verify `AgentPairingController` list endpoints only return agents where `organizationId` matches the authenticated user's tenant
 
 ### Audit Verification
 
-- [ ] T131 Verify `ScanJobAuditRecord` is written in the same Prisma transaction as every `ScanJob` status mutation (`SCAN_STARTED`, `SCAN_COMPLETED`, `SCAN_FAILED`, `SCAN_CANCELLED`, `FAULT_CODES_IMPORTED`)
-- [ ] T132 Verify `ScanJobAuditRecord` has no `updatedAt` field and no update/delete endpoints exist
+- [x] T131 Verify `ScanJobAuditRecord` is written in the same Prisma transaction as every `ScanJob` status mutation (`SCAN_STARTED`, `SCAN_COMPLETED`, `SCAN_FAILED`, `SCAN_CANCELLED`, `FAULT_CODES_IMPORTED`)
+- [x] T132 Verify `ScanJobAuditRecord` has no `updatedAt` field and no update/delete endpoints exist
 
 **Checkpoint**: Phase 10 complete. Security and tenant isolation hardened.
 
@@ -348,15 +348,15 @@
 
 ### Backend Unit Tests
 
-- [ ] T133 [P] Write unit test for `AgentPairingService.generatePairingToken` in `backend/tests/unit/obd/agent-pairing.service.unit.test.ts`
-- [ ] T134 [P] Write unit test for `AgentPairingService.exchangePairingToken` in `backend/tests/unit/obd/agent-pairing.service.unit.test.ts`
-- [ ] T135 [P] Write unit test for `AgentHeartbeatService.processHeartbeat` in `backend/tests/unit/obd/agent-heartbeat.service.unit.test.ts`
-- [ ] T136 [P] Write unit test for `AgentHeartbeatService.markOfflineAgents` in `backend/tests/unit/obd/agent-heartbeat.service.unit.test.ts`
-- [ ] T137 [P] Write unit test for `ObdScanService.createScan` state validation in `backend/tests/unit/obd/obd-scan.service.unit.test.ts`
-- [ ] T138 [P] Write unit test for `ObdScanService.stateTransition` validation in `backend/tests/unit/obd/obd-scan.service.unit.test.ts`
-- [ ] T139 [P] Write unit test for `VinResolutionService.resolve` tenant isolation in `backend/tests/unit/obd/vin-resolution.service.unit.test.ts`
-- [ ] T140 [P] Write unit test for `VinResolutionService.validateVin` in `backend/tests/unit/obd/vin-resolution.service.unit.test.ts`
-- [ ] T141 [P] Write unit test for `FaultCodeImportService.importFaultCodes` in `backend/tests/unit/obd/fault-code-import.service.unit.test.ts`
+- [x] T133 [P] Write unit test for `AgentPairingService.generatePairingToken` in `backend/tests/unit/obd/agent-pairing.service.unit.test.ts`
+- [x] T134 [P] Write unit test for `AgentPairingService.exchangePairingToken` in `backend/tests/unit/obd/agent-pairing.service.unit.test.ts`
+- [x] T135 [P] Write unit test for `AgentHeartbeatService.processHeartbeat` in `backend/tests/unit/obd/agent-heartbeat.service.unit.test.ts`
+- [x] T136 [P] Write unit test for `AgentHeartbeatService.markOfflineAgents` in `backend/tests/unit/obd/agent-heartbeat.service.unit.test.ts`
+- [x] T137 [P] Write unit test for `ObdScanService.createScan` state validation in `backend/tests/unit/obd/obd-scan.service.unit.test.ts`
+- [x] T138 [P] Write unit test for `ObdScanService.stateTransition` validation in `backend/tests/unit/obd/obd-scan.service.unit.test.ts`
+- [x] T139 [P] Write unit test for `VinResolutionService.resolve` tenant isolation in `backend/tests/unit/obd/vin-resolution.service.unit.test.ts`
+- [x] T140 [P] Write unit test for `VinResolutionService.validateVin` in `backend/tests/unit/obd/vin-resolution.service.unit.test.ts`
+- [x] T141 [P] Write unit test for `FaultCodeImportService.importFaultCodes` in `backend/tests/unit/obd/fault-code-import.service.unit.test.ts`
 
 ### Backend Integration Tests
 
@@ -367,8 +367,8 @@
 
 ### Desktop Agent Tests
 
-- [ ] T146 [P] Write unit test for `desktop-agent/src/obd/commands/vin.py` with mock ELM327 response
-- [ ] T147 [P] Write unit test for `desktop-agent/src/obd/commands/dtc.py` with mock Mode 03/07/0A responses
+- [x] T146 [P] Write unit test for `desktop-agent/src/obd/commands/vin.py` with mock ELM327 response
+- [x] T147 [P] Write unit test for `desktop-agent/src/obd/commands/dtc.py` with mock Mode 03/07/0A responses
 - [ ] T148 [P] Write unit test for `desktop-agent/src/pairing.py` token exchange (mock HTTP server)
 - [ ] T149 [P] Write unit test for `desktop-agent/src/heartbeat.py` loop timing and payload
 - [ ] T150 [P] Write integration test for agent startup, pairing, and heartbeat against local backend

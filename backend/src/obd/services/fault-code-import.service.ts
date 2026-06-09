@@ -16,6 +16,7 @@ export class FaultCodeImportService {
     scanJobId: string,
     diagnosticSessionId: string,
     organizationId: string,
+    userId: string,
     codes: FaultCodeImportDto[],
     tx?: Prisma.TransactionClient,
   ): Promise<void> {
@@ -36,7 +37,7 @@ export class FaultCodeImportService {
     await client.scanJobAuditRecord.create({
       data: {
         organizationId,
-        userId: '',
+        userId,
         scanJobId,
         action: 'FAULT_CODES_IMPORTED',
         status: ScanJobStatus.RUNNING,

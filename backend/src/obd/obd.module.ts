@@ -11,8 +11,11 @@ import { DesktopAgentRepository } from './repositories/desktop-agent.repository'
 import { ScanJobRepository } from './repositories/scan-job.repository';
 import { SessionFaultCodeRepository } from './repositories/session-fault-code.repository';
 import { AdapterConnectionRepository } from './repositories/adapter-connection.repository';
+import { PrismaModule } from '../prisma/prisma.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
+  imports: [PrismaModule, AuthModule],
   controllers: [
     AgentPairingController,
     AgentWebhookController,
@@ -29,5 +32,9 @@ import { AdapterConnectionRepository } from './repositories/adapter-connection.r
     SessionFaultCodeRepository,
     AdapterConnectionRepository,
   ],
+  exports: [
+    AgentPairingService,
+    PrismaModule
+  ]
 })
 export class ObdModule {}

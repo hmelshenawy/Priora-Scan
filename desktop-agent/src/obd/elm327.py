@@ -7,6 +7,7 @@ class Elm327Adapter:
         self.port = port
         self._connection = None
         self.protocol = "ISO_15765_4_CAN"
+        self.adapter_type = "ELM327"
 
     def is_connected(self) -> bool:
         try:

@@ -74,4 +74,17 @@ export class ScanJobRepository {
       orderBy: { createdAt: 'asc' },
     });
   }
+
+  async findConfirmedRunningForAgent(agentId: string, organizationId: string) {
+    return this.prisma.scanJob.findFirst({
+      where: {
+        agentId,
+        organizationId,
+        status: ScanJobStatus.RUNNING,
+        vin: { not: null },
+        vehicleId: { not: null },
+      },
+      orderBy: { startedAt: 'asc' },
+    });
+  }
 }

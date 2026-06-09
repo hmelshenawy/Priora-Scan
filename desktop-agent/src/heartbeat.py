@@ -18,10 +18,16 @@ def send_heartbeat(
     return response.json() if response else None
 
 
-def heartbeat_loop(api_client: ApiClient, adapter_connected: bool, interval: int = 30):
+def heartbeat_loop(
+    api_client: ApiClient,
+    adapter_connected: bool,
+    adapter_type: str = None,
+    protocol: str = None,
+    interval: int = 30,
+):
     while True:
         try:
-            send_heartbeat(api_client, adapter_connected)
+            send_heartbeat(api_client, adapter_connected, adapter_type, protocol)
         except Exception as e:
             print(f"Heartbeat failed: {e}")
         time.sleep(interval)

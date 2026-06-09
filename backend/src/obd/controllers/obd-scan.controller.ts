@@ -111,4 +111,15 @@ export class ObdScanController {
     );
     return { data: codes };
   }
+
+  @Get('sessions/:id/results')
+  @Permissions('obd:fault-code:read')
+  async getSessionResults(@Param('id') id: string, @Req() req: Request) {
+    const organizationId = req.organizationId!;
+    const codes = await this.faultCodeRepository.findBySession(
+      id,
+      organizationId,
+    );
+    return { data: codes };
+  }
 }

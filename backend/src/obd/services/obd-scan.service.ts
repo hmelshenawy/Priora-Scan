@@ -326,6 +326,7 @@ export class ObdScanService {
         scanJobId,
         scan.diagnosticSessionId!,
         organizationId,
+        scan.userId,
         faultCodes,
         tx,
       );

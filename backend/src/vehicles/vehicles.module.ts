@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
 import { VehicleController } from './controllers/vehicle.controller';
 import { VehicleService } from './services/vehicle.service';
 import { VehicleRepository } from './repositories/vehicle.repository';
@@ -15,7 +14,6 @@ import { AuthModule } from '../auth/auth.module';
     VehicleRepository,
     VehicleAuditRepository,
     PrismaService,
-    AuthModule,
   ],
 })
 export class VehiclesModule {}

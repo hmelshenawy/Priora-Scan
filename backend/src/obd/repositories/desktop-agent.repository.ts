@@ -46,6 +46,12 @@ export class DesktopAgentRepository {
     });
   }
 
+  async findByAccessTokenHash(accessTokenHash: string) {
+    return this.prisma.desktopAgent.findFirst({
+      where: { accessTokenHash },
+    });
+  }
+
   async findOfflineAgents(thresholdMs: number) {
     const cutoff = new Date(Date.now() - thresholdMs);
     return this.prisma.desktopAgent.findMany({

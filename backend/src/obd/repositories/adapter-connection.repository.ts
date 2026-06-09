@@ -18,6 +18,22 @@ export class AdapterConnectionRepository {
     });
   }
 
+  async findCurrentByAgentIds(agentIds: string[], organizationId: string) {
+    if (agentIds.length === 0) {
+      return [];
+    }
+
+    return this.prisma.adapterConnection.findMany({
+      where: {
+        agentId: { in: agentIds },
+        organizationId,
+        endedAt: null,
+        status: { in: ['CONNECTED', 'READY'] },
+      },
+      orderBy: { startedAt: 'desc' },
+    });
+  }
+
   async updateStatus(
     id: string,
     organizationId: string,

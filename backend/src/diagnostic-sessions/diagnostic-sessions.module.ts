@@ -5,7 +5,6 @@ import { DiagnosticSessionRepository } from './repositories/diagnostic-session.r
 import { DiagnosticSessionAuditRepository } from './repositories/diagnostic-session-audit.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthModule } from '../auth/auth.module';
-import { AuthGuard } from '../guards/auth.guard';
 import { TenantGuard } from '../guards/tenant.guard';
 import { RbacGuard } from '../guards/rbac.guard';
 import { CsrfGuard } from '../guards/csrf.guard';
@@ -18,7 +17,6 @@ import { CsrfGuard } from '../guards/csrf.guard';
     DiagnosticSessionRepository,
     DiagnosticSessionAuditRepository,
     PrismaService,
-    AuthGuard,
     TenantGuard,
     RbacGuard,
     CsrfGuard,

@@ -1,3 +1,5 @@
+import { DesktopAgent } from '@prisma/client';
+
 export interface JwtPayload {
   sub: string;
   email: string;
@@ -13,6 +15,7 @@ declare global {
     interface Request {
       user?: JwtPayload;
       organizationId?: string;
+      agent?: DesktopAgent;
     }
   }
 }

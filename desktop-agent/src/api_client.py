@@ -35,6 +35,10 @@ class ApiClient:
                 if e.response.status_code >= 500 and attempt < retries - 1:
                     time.sleep(1)
                     continue
+                print(
+                    f"HTTP {e.response.status_code} {method} {url}: "
+                    f"{e.response.text}"
+                )
                 raise
             except httpx.RequestError:
                 if attempt < retries - 1:
