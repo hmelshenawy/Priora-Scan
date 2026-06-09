@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function fetchUser() {
       try {
-        const response = await apiClient.get('/auth/me');
+        const response = await apiClient.get('/api/v1/auth/me');
         setUser(response.data);
       } catch {
         setUser(null);
@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await apiClient.post('/auth/logout');
+      await apiClient.post('/api/v1/auth/logout');
     } finally {
       setUser(null);
       window.location.href = '/login';

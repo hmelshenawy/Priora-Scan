@@ -9,6 +9,7 @@ export interface ApiError extends Error {
 
 const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3101',
+  timeout: 10000,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -27,19 +28,30 @@ apiClient.interceptors.request.use((config) => {
 });
 
 let isRefreshing = false;
-let refreshSubscribers: Array<(token: string) => void> = [];
+let refreshSubscribers: Array<{
+  resolve: () => void;
+  reject: (error: unknown) => void;
+}> = [];
 
-function onRefreshed(token: string) {
-  refreshSubscribers.forEach((cb) => cb(token));
+function onRefreshed() {
+  refreshSubscribers.forEach(({ resolve }) => resolve());
   refreshSubscribers = [];
 }
 
-function addRefreshSubscriber(cb: (token: string) => void) {
-  refreshSubscribers.push(cb);
+function onRefreshFailed(error: unknown) {
+  refreshSubscribers.forEach(({ reject }) => reject(error));
+  refreshSubscribers = [];
+}
+
+function addRefreshSubscriber(
+  resolve: () => void,
+  reject: (error: unknown) => void,
+) {
+  refreshSubscribers.push({ resolve, reject });
 }
 
 function redirectToLogin() {
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
     window.location.href = '/login';
   }
 }
@@ -59,11 +71,11 @@ apiClient.interceptors.response.use(
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
-        return new Promise((resolve) => {
-          addRefreshSubscriber((token: string) => {
-            originalRequest.headers['Authorization'] = `Bearer ${token}`;
-            resolve(apiClient(originalRequest));
-          });
+        return new Promise((resolve, reject) => {
+          addRefreshSubscriber(
+            () => resolve(apiClient(originalRequest)),
+            reject,
+          );
         });
       }
 
@@ -72,20 +84,18 @@ apiClient.interceptors.response.use(
 
       try {
         const refreshResponse = await axios.post(
-          `${apiClient.defaults.baseURL}/auth/refresh`,
+          `${apiClient.defaults.baseURL}/api/v1/auth/refresh`,
           {},
           { withCredentials: true },
         );
 
-        const newToken = refreshResponse.data.access_token;
         isRefreshing = false;
-        onRefreshed(newToken);
+        onRefreshed();
 
-        originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
         return apiClient(originalRequest);
-      } catch {
+      } catch (refreshError) {
         isRefreshing = false;
-        refreshSubscribers = [];
+        onRefreshFailed(refreshError);
         redirectToLogin();
         return Promise.reject(error);
       }

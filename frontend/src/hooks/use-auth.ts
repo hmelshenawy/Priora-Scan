@@ -19,7 +19,7 @@ export function useAuth() {
   const { data: user, isLoading } = useQuery<AuthUser>({
     queryKey: ['auth', 'me'],
     queryFn: async () => {
-      const response = await apiClient.get('/auth/me');
+      const response = await apiClient.get('/api/v1/auth/me');
       return response.data;
     },
     retry: false,
@@ -28,7 +28,7 @@ export function useAuth() {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: { email: string; password: string }) => {
-      const response = await apiClient.post('/auth/login', credentials);
+      const response = await apiClient.post('/api/v1/auth/login', credentials);
       return response.data.user as AuthUser;
     },
     onSuccess: () => {
@@ -39,7 +39,7 @@ export function useAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await apiClient.post('/auth/logout');
+      await apiClient.post('/api/v1/auth/logout');
     },
     onSuccess: () => {
       queryClient.clear();

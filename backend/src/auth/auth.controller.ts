@@ -7,6 +7,7 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
@@ -67,7 +68,10 @@ export class AuthController {
   ): Promise<{ message: string }> {
     const refreshToken = req.cookies?.refresh_token;
     if (!refreshToken) {
-      return { message: 'No refresh token provided.' };
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'No refresh token provided.',
+      });
     }
     return this.authService.refreshToken(refreshToken, res);
   }

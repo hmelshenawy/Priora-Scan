@@ -1,3 +1,6 @@
+const configuredOrigins =
+  `${process.env.ALLOWED_ORIGINS || ''},${process.env.CORS_ORIGIN || ''},http://localhost:3000,http://localhost:3001,http://localhost:3100`;
+
 export const securityConfig = {
   jwt: {
     secret: process.env.JWT_SECRET || 'dev-secret-change-me',
@@ -30,7 +33,14 @@ export const securityConfig = {
     },
   },
   cors: {
-    allowedOrigins: (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(','),
+    allowedOrigins: Array.from(
+      new Set(
+        configuredOrigins
+          .split(',')
+          .map((origin) => origin.trim())
+          .filter(Boolean),
+      ),
+    ),
     allowedMethods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'X-CSRF-Token', 'Authorization'],
     credentials: true,

@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LoginForm } from '../../components/auth/login-form';
 import { useAuth } from '../../hooks/use-auth';
+import { LoginSchema } from '../../lib/validators/login.schema';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,6 +16,14 @@ export default function LoginPage() {
       router.push('/vehicles');
     }
   }, [isAuthenticated, isLoading, router]);
+
+  async function handleLogin(credentials: LoginSchema) {
+    try {
+      await login(credentials);
+    } catch {
+      // React Query exposes the error through loginError for the form.
+    }
+  }
 
   if (isLoading) {
     return (
@@ -38,7 +47,7 @@ export default function LoginPage() {
 
         <div className="rounded-lg bg-white p-6 shadow">
           <LoginForm
-            onSubmit={login}
+            onSubmit={handleLogin}
             error={loginError}
             isLoading={isLoggingIn}
           />

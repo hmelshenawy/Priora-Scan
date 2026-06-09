@@ -1,3 +1,4 @@
+import './config/load-env';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import * as cookieParser from 'cookie-parser';
@@ -34,7 +35,7 @@ async function bootstrap() {
 
   app.use(errorHandlerMiddleware);
 
-  const port = process.env.PORT || 3001;
+  const port = process.env.PORT || 3101;
   await app.listen(port);
   console.log(`Application is running on: http://localhost:${port}`);
 }
