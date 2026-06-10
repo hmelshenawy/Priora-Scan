@@ -60,15 +60,24 @@
 
 ## 3. Deferred Items
 
-### Moved to Phase 005 — Fault Code Intelligence
+### Moved to Feature 005 — Fault Code Intelligence
 - AI-powered fault code explanation and root cause analysis
 - Repair recommendation engine
+
+### Moved to Feature 006 — Live Data & Sensor Monitoring
+- Live Data and PID streaming
+- Sensor dashboard and live PID decoding
+
+### Moved to Feature 009 — PrioraFlow Integration
 - PrioraFlow integration hooks for scan results
 
 ### Moved to Future Hardware Validation Phase
 - Real USB ELM327 end-to-end validation (T167)
 - Real Bluetooth ELM327 end-to-end validation (T168)
 - Live adapter protocol negotiation testing (CAN, ISO, KWP, J1850)
+
+### Long-Term Future Scope
+- Programming, flashing, and coding remain long-term future scope and are not reopened by Feature 004 closure.
 
 ### Moved to Future Testing Phase
 - Backend integration test suite (T024–T026, T043–T044, T053–T055, T071–T072, T082, T087–T089, T142–T145)
@@ -113,6 +122,9 @@ Results Displayed
 - All audit records verified in database
 - Tenant isolation confirmed by security test suite
 - Next.js build passes with all 8 routes generated
+- Real USB ELM327 validation deferred
+- Bluetooth validation deferred
+- Live Data deferred to Feature 006
 
 ---
 

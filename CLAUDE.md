@@ -158,11 +158,14 @@ Never commit automatically.
 Feature order:
 
 1. Vehicle Management
-2. Diagnostic Sessions
-3. Fault Code Library
-4. AI Analysis
-5. Reports
-6. PrioraFlow Integration
+2. Authentication
+3. Diagnostic Sessions
+4. OBD Foundation - MVP COMPLETE
+5. Fault Code Intelligence
+6. Live Data & Sensor Monitoring
+7. AI Analysis
+8. Reports
+9. PrioraFlow Integration
 
 Do not jump ahead to future modules unless explicitly instructed.
 

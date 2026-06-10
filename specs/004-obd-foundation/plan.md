@@ -1019,7 +1019,7 @@ This ensures atomicity: if any step fails, no partial session or orphaned fault 
 
 For OBD Foundation, fault codes are stored as `SessionFaultCode` records directly linked to `DiagnosticSession`. This is intentionally simple and does **not** yet reference a `MasterFaultCode` or `FaultCode` entity.
 
-**Rationale**: The Fault Code Library feature (Phase 3 on the roadmap) will introduce `MasterFaultCode` intelligence. Decoupling now avoids premature abstraction and migration complexity later.
+**Rationale**: Feature 005 Fault Code Intelligence will introduce `MasterFaultCode` intelligence. Decoupling now avoids premature abstraction and migration complexity later.
 
 ### Storage Fields
 
@@ -1305,34 +1305,35 @@ Invalid transitions return `SCAN_JOB_INVALID_STATE`.
 
 The OBD Foundation schema and architecture are designed to support the following future features without schema redesign:
 
-### Live Data (Phase 5+)
+### Live Data & Sensor Monitoring (Feature 006)
 
 - `ScanJob` can be extended with a `mode: 'SCAN' | 'LIVE_DATA'` enum.
 - `AdapterConnection` already tracks `protocol`; live data PIDs are protocol-specific.
 - Agent polling loop can be repurposed for periodic PID reads.
+- Live Data is mandatory for PrioraScan's Intelligent Diagnostic Scanner positioning, but it is not part of Feature 004.
 
-### Freeze Frame (Phase 5+)
+### Freeze Frame Data (Feature 010)
 
 - `ScanJob` metadata JSON can store freeze frame snapshots.
 - `SessionFaultCode` metadata JSON can store associated freeze frame data.
 
-### AI Analysis (Phase 4)
+### AI Analysis (Feature 007)
 
 - `DiagnosticSession` already exists. AI Analysis attaches to it.
 - `SessionFaultCode` provides the raw input for AI recommendation generation.
 - No OBD schema changes required.
 
-### Reports (Phase 5+)
+### Reports (Feature 008)
 
 - `DiagnosticSession` with `SessionFaultCode` records is the source data for PDF report generation.
 - `ScanJob` provides metadata (adapter type, protocol) for report context.
 
-### PrioraFlow Integration (Phase 6)
+### PrioraFlow Integration (Feature 009)
 
 - `DiagnosticSession` is the integration payload. OBD Foundation does not alter the session model.
 - `ScanJob` can include a `prioraFlowJobCardId` foreign key in a future migration.
 
-### Master Fault Code Library (Phase 3)
+### Fault Code Intelligence (Feature 005)
 
 - `SessionFaultCode` remains the session-specific instance.
 - A future `MasterFaultCode` table is introduced with a `code` primary key.
@@ -1360,7 +1361,7 @@ The OBD Foundation schema and architecture are designed to support the following
 | Desktop Agent authentication | Short-lived pairing token | Simplest to implement; secure; no long-lived API keys to manage; user explicitly controls pairing. |
 | Scan workflow automation | Hybrid (auto + pause for new vehicle) | Speeds common case (known vehicle); prevents accidental vehicle creation from misread VIN; balances UX and data integrity. |
 | Agent-to-backend transport | HTTPS REST polling | Simplest cross-platform solution. WebSocket/SSE deferred to future phase for real-time live data. |
-| Fault code intelligence model | Deferred to Phase 3 | `SessionFaultCode` is sufficient for scan import. `MasterFaultCode` introduces unnecessary complexity for MVP. |
+| Fault code intelligence model | Deferred to Feature 005 | `SessionFaultCode` is sufficient for scan import. `MasterFaultCode` introduces unnecessary complexity for MVP. |
 | Python agent libraries | `pyserial` (USB), `bleak` (Bluetooth) | `pyserial` is mature and cross-platform. `bleak` is the modern asyncio-native BLE library. Both are actively maintained. |
 | Heartbeat interval | 30 seconds; offline threshold 60 seconds | Balances liveness detection with network load. 2 missed heartbeats = offline. |
 | Pairing token lifetime | 5 minutes | Long enough for user to copy-paste; short enough to limit exposure. |

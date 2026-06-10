@@ -62,7 +62,7 @@
 - The scan event payload is small; polling every 2 seconds is acceptable for non-real-time scans.
 - WebSockets introduce connection state management, reconnection logic, and load balancer sticky-session concerns that are unnecessary for the scan workflow.
 
-**Future path**: WebSocket or SSE can be introduced later for Live Data streaming without changing the event schema.
+**Future path**: WebSocket or SSE can be introduced later for Feature 006 Live Data & Sensor Monitoring without changing the event schema.
 
 ---
 
@@ -71,7 +71,7 @@
 **Decision**: `SessionFaultCode` directly linked to `DiagnosticSession`. No `MasterFaultCode` in this phase.
 
 **Rationale**:
-- The Fault Code Library (Phase 3 on roadmap) will define the master intelligence model. Introducing it now would create premature coupling.
+- Feature 005 Fault Code Intelligence will define the master intelligence model. Introducing it now would create premature coupling.
 - `SessionFaultCode` is sufficient to store raw scan results: code, status, ECU, source, timestamp.
 - Future enrichment can be done via a lookup table without schema migration on `SessionFaultCode`.
 

@@ -121,7 +121,7 @@ Needs:
 
 # 6. Product Scope
 
-## Included in MVP
+## MVP Complete Through Feature 004
 
 ### Vehicle Management
 
@@ -140,11 +140,29 @@ Needs:
 * Record mileage
 * Save diagnostic history
 
-### Fault Code Library
+### OBD Foundation
+
+* Desktop Agent pairing and heartbeat
+* ELM327 OBD-II scan workflow
+* VIN read and vehicle confirmation
+* Fault code read and import
+* OBD dashboard and scan results
+
+## Planned Roadmap Capabilities
+
+### Fault Code Intelligence
 
 * Standard fault code database
 * Search fault codes
 * View fault descriptions
+* Severity, common causes, and recommended checks
+
+### Live Data & Sensor Monitoring
+
+* PID discovery and live PID polling
+* Sensor dashboard
+* Model-specific PID decoding
+* Mandatory capability for PrioraScan's Intelligent Diagnostic Scanner positioning, deferred from Feature 004 to Feature 006
 
 ### AI Diagnostic Assistant
 
@@ -302,33 +320,41 @@ The platform focuses on helping technicians make decisions, not simply reading c
 
 ---
 
-# 13. Future Roadmap
+# 13. Product Roadmap
 
-## Version 2
+## Completed
 
-* OBD-II device integration
-* VIN auto-detection
-* Basic live data acquisition
+001 Vehicle Management ✅
 
-## Version 3
+002 Authentication ✅
 
-* Mobile applications
-* Bluetooth OBD support
-* Offline mode
+003 Diagnostic Sessions ✅
 
-## Version 4
+004 OBD Foundation ✅ MVP COMPLETE
 
-* Advanced diagnostic workflows
-* Brand-specific knowledge bases
-* Guided troubleshooting
-* Repair time estimation
+## Next
 
-## Version 5
+005 Fault Code Intelligence
 
-* OEM integrations
-* ECU programming workflows
-* Software update management
-* Predictive maintenance analytics
+006 Live Data & Sensor Monitoring
+
+007 AI Analysis
+
+008 Reports
+
+009 PrioraFlow Integration
+
+## Future
+
+010 Freeze Frame Data
+
+011 Graphing & Trend Analysis
+
+012 Service Functions & Special Tests
+
+013 OEM Integrations
+
+014 Coding & Programming
 
 ---
 

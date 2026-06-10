@@ -51,7 +51,7 @@ Dashboard
 Diagnostics
 ├── Sessions
 ├── New Scan
-├── Fault Code Library
+├── Fault Code Intelligence
 
 Vehicles
 ├── Vehicles
@@ -215,7 +215,7 @@ Actions:
 
 ---
 
-## Fault Code Library Page
+## Fault Code Intelligence Page
 
 Purpose:
 
