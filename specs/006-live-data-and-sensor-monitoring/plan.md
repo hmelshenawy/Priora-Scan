@@ -662,3 +662,62 @@ Feature 006 explicitly does **NOT** include:
 - Generic scripting in the formula engine (Correction 5: restricted grammar only)
 - User-defined PID formulas (Correction 5)
 
+## Phase B.2 Status — Live Data Thin Vertical Slice (Complete)
+
+Phase B.2 ships the **end-to-end live data MVP slice** described in the B.2 implement command. It is the first sub-phase of Phase B that produces a user-visible feature: a technician can open a Diagnostic Session, press Start, see the six MVP sensor values updating in the dashboard, and press Stop. **Snapshots, discovery, cadence configuration, and reconnect handling are explicitly deferred to B.3, B.4, B.5 respectively** (out of scope for the B.2 thin slice).
+
+### Delivered in Phase B.2
+
+- `LiveDataSession` Prisma model — child of `DiagnosticSession` (Correction 1). Fields: `id`, `organizationId`, `diagnosticSessionId`, `agentId`, `status` (`ACTIVE | STOPPED | STALE`), `cadenceMs` (default 1000 — Correction 3), `startedAt`, `stoppedAt`, `lastActivityAt`, `latestValues` (JSONB), `createdAt`, `updatedAt`. Migration: `20260617_add_live_data_session`.
+- `LiveDataCommand` Prisma model — agent command queue. Fields: `id`, `organizationId`, `agentId`, `liveDataSessionId`, `commandType` (`LIVE_DATA_POLL | LIVE_DATA_STOP`), `payload` (JSONB), `consumedAt`, `createdAt`. FIFO via `createdAt ASC`. `consumedAt = NULL` ⇒ pending.
+- `backend/src/live-data/repositories/live-data-session.repository.ts` — Prisma CRUD with tenant-scoped lookups. `create`, `findById`, `findActiveByDiagnosticSession`, `listByDiagnosticSession`, `stopActiveForDiagnosticSession`, `stop`, `recordPollResult`.
+- `backend/src/live-data/repositories/live-data-command.repository.ts` — FIFO command queue. `enqueue`, `findNextPendingForAgent`, `markConsumed`, `countPendingForSession`, `findByTypeAndSession`.
+- `backend/src/live-data/services/live-data-session.service.ts` — orchestrates start/stop, decode pipeline, and command queue. **Default cadence 1000 ms; clamped to `[200, 5000]` (Correction 3).** Six MVP PIDs only: `rpm`, `speed`, `coolantTemp`, `batteryVoltage`, `throttlePosition`, `engineLoad`. `latestValues` is a `shortName → { value, unit, name, rawValue, status, errorCode }` map decoded by the Phase B.1 `PidDecoderService`. `start()` returns 404 `AGENT_NOT_FOUND` / 404 `DIAGNOSTIC_SESSION_NOT_FOUND` / 409 `AGENT_OFFLINE`; `stop()` is idempotent; `ingestPollResult()` validates ownership + `ACTIVE` status + decodes via the existing `PidDecoderService`.
+- `backend/src/live-data/controllers/live-data.controller.ts` (web) — `POST /api/v1/diagnostic-sessions/:id/live-data/start` (returns `{ liveDataSessionId, status, cadenceMs }`), `POST /api/v1/diagnostic-sessions/:id/live-data/stop`, `GET /api/v1/diagnostic-sessions/:id/live-data/current` (returns the dashboard payload).
+- `backend/src/live-data/controllers/live-data-agent.controller.ts` (agent) — `GET /api/v1/obd/agents/:id/live-data/command-queue` (returns at most one pending command, marks consumed), `POST /api/v1/obd/agents/:id/live-data/:liveDataSessionId/poll-result` (decodes the readings and stores them as `latestValues`).
+- `backend/src/live-data/live-data.module.ts` — wires repositories, service, controllers, and re-exports `DesktopAgentRepository` from `ObdModule`.
+- `desktop-agent/src/live_data/__init__.py`, `generator.py`, `poller.py`, `queue.py` — mock data generator for the six MVP PIDs (RPM drifts ~850 ± 10 RPM, speed stays 0, coolant ~92 °C, battery ~13.9 V, throttle 0 %, load ~20 %), background `LiveDataPoller` thread (clamps cadence to the same 200–5000 ms window), and a `poll_live_data_command_queue` driver wired into the agent's main loop.
+- `frontend/src/hooks/useLiveData.ts` — TanStack Query hooks for start / stop / current, with 1 s refetch on `ACTIVE`.
+- `frontend/src/components/live-data/LiveDataCard.tsx` — five-state card (Not started / Starting / Active / Stopped / Error). Six PID rows (RPM, Speed, Coolant Temp, Battery Voltage, Throttle Position, Engine Load). Last-updated timestamp. Auto-picks the first ONLINE agent from `useAgentStatus`.
+- Diagnostic session detail page (`/diagnostic-sessions/[sessionId]/page.tsx`) — wired to render `<LiveDataCard sessionId={session.id} />` below the existing fault-codes section.
+
+### Test coverage added in Phase B.2
+
+| Test file | Suites | Tests | Purpose |
+|---|---|---|---|
+| `backend/tests/unit/live-data/live-data-session.service.unit.test.ts` | 8 | 15 | start (creates ACTIVE + queues LIVE_DATA_POLL), 404 AGENT_NOT_FOUND, 409 AGENT_OFFLINE, 404 DIAGNOSTIC_SESSION_NOT_FOUND, cadence clamp to 200, stop (mark STOPPED + queue LIVE_DATA_STOP), stop idempotency, 404 unknown session, ingestPollResult (decodes + persists), ingestPollResult rejects wrong agent, ingestPollResult rejects non-ACTIVE, tenant isolation, consumeNextCommand null + consumed, toCurrentPayload shape |
+| `backend/tests/contract/live-data.endpoint.contract.test.ts` | 1 | 8 | POST start (200 with shape, passes cadenceMs, 400 AGENT_ID_REQUIRED, 404 AGENT_NOT_FOUND), POST stop (200, 400 LIVE_DATA_SESSION_ID_REQUIRED), GET current (200 with values, null/empty body) |
+| `backend/tests/contract/live-data-agent.endpoint.contract.test.ts` | 1 | 6 | command-queue 401 missing token, 200 with command, 200 empty array, poll-result 201 with decoded values, 400 READINGS_REQUIRED, 404 LIVE_DATA_SESSION_NOT_FOUND |
+| `desktop-agent/tests/test_live_data.py` | 4 | 27 | MockLiveDataGenerator (8 tests for byte-builder + shortName), CadenceClamp (4 tests for 200/5000/1000 default), LiveDataPoller (7 tests for start/stop/replace/404/409/transient/replace-running), CommandQueue (8 tests for start/stop/empty/error/non-JSON/unknown/missing-session/no-agent-id) |
+| `frontend/src/components/live-data/__tests__/LiveDataCard.test.tsx` | 1 | 11 | start button renders, agent selector lists ONLINE agents, disabled when no agent, calls start mutation with selected agent, loading state, active state with current values, stop button, calls stop mutation with active session, stopped state, error display, NO_DATA graceful handling |
+
+### Acceptance Criteria for Phase B.2 (from the implement command)
+
+| # | Criterion | Status |
+|---|---|---|
+| 1 | User can open Diagnostic Session page. | ✅ `<LiveDataCard>` rendered on `/diagnostic-sessions/[sessionId]/page.tsx` |
+| 2 | User can click Start Live Data. | ✅ Button calls `POST /live-data/start`; mutation wired |
+| 3 | Mock agent begins sending values. | ✅ `desktop-agent/src/live_data/poller.py` posts on cadence |
+| 4 | Frontend shows live RPM, speed, coolant temp, battery voltage, throttle position, and engine load. | ✅ All six rows in `LiveDataCard`; values flow from `latestValues` |
+| 5 | User can stop live data. | ✅ Stop button calls `POST /live-data/stop`; service is idempotent |
+| 6 | All tests pass. | ✅ 223 backend + 59 desktop-agent + 20 frontend unit tests (the 6 new live-data suites are listed above) |
+| 7 | TypeScript clean. | ✅ `tsc --noEmit` clean on backend, frontend, and all new code paths |
+
+### Regression check
+
+Full backend test suite: **223/223 green** (was 188 after Phase B.1; +35 net new from 15 service unit + 8 web contract + 6 agent contract + 6 from existing suites that re-exercised the new controllers). Desktop-agent suite: **59/59 green** (was 32 before Phase B.2; +27 from `test_live_data.py`). Frontend unit tests: **20/20 green** (was 9 before Phase B.2; +11 from `LiveDataCard.test.tsx`).
+
+### Out of Phase B.2 scope (per the implement command's explicit "Do NOT" list)
+
+- **Snapshot persistence** and **snapshot retention** (Phase B.3)
+- **Graphing** and **trend analysis**
+- **Reports** and **AI analysis** (Feature 007+)
+- **PrioraFlow integration** (Feature 009+)
+- **Real ELM327 hardware polling** — only the mock adapter is wired
+- **Freeze frame data** and **ControlUnitScan** (Correction 7, backlog only)
+- **PID discovery** (Phase B.4)
+- **Cadence configuration UI** (Phase B.5) — the backend clamp is in place; the UI always sends the default 1000 ms in B.2
+- **Reconnect handling (Correction 4)** — the agent's command-queue probe and the `STOPPED` short-circuit on poll-result 404 ship in B.2; the `STALE` sweep and 30-second resume rule are deferred to B.4
+
+These land in Phase B.3, B.4, and B.5 (see `tasks.md`).
+

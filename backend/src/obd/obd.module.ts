@@ -35,7 +35,8 @@ import { FaultCodesModule } from '../fault-codes/fault-codes.module';
   ],
   exports: [
     AgentPairingService,
-    PrismaModule
+    PrismaModule,
+    DesktopAgentRepository,
   ]
 })
 export class ObdModule {}

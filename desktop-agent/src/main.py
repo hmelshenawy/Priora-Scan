@@ -2,6 +2,8 @@ import argparse
 from src.pairing import exchange_pairing_token
 from src.api_client import ApiClient
 from src.heartbeat import heartbeat_loop
+from src.live_data.poller import LiveDataPoller
+from src.live_data.queue import poll_live_data_command_queue
 from src.obd.elm327 import Elm327Adapter
 from src.obd.commands.vin import read_vin
 from src.obd.commands.dtc import read_fault_codes
@@ -112,11 +114,17 @@ def main() -> None:
     )
     hb.start()
 
+    live_data_poller = LiveDataPoller(api_client, api_client.agent_id)
+
     while True:
         try:
             poll_scan_queue(api_client, adapter)
         except Exception as e:
             print(f"Scan poll error: {e}")
+        try:
+            poll_live_data_command_queue(api_client, live_data_poller)
+        except Exception as e:
+            print(f"Live data command queue error: {e}")
         import time
 
         time.sleep(SCAN_QUEUE_INTERVAL_SECONDS)

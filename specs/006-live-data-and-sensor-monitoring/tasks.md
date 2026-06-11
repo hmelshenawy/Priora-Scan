@@ -113,86 +113,82 @@ Each phase is independently testable. Phase B MUST NOT begin until Phase A is ac
 
 ## Phase B.2: User Story 3 — Live Sensor Telemetry Dashboard (P1)
 
-**Goal**: A technician opens a Diagnostic Session and starts polling. The dashboard shows fresh values for the 11 standard PIDs every 1 s. The technician can stop polling. Disconnection is handled safely.
+**Goal**: A technician opens a Diagnostic Session and starts polling. The dashboard shows fresh values for the 6 MVP PIDs every 1 s. The technician can stop polling. Disconnection is handled safely.
 
-**Independent Test**: With a paired online agent and a connected adapter, pressing Start shows values within 2 s; p95 refresh latency ≤ 1 s; disconnecting the adapter transitions to "Adapter offline" within 5 s.
+> **Phase B.2 scope clarification (per the B.2 implement command)**: this sub-phase ships the **thin vertical slice** — `LiveDataSession` lifecycle, the agent command queue, the mock agent polling, and a dashboard card that shows the **6 MVP PIDs** (`rpm`, `speed`, `coolantTemp`, `batteryVoltage`, `throttlePosition`, `engineLoad`). The full 11-PID set remains the long-term target and is added in a later sub-phase by extending the `LiveDataSessionService.MVP_PIDS` table — no schema change is required. Snapshots, discovery, configurable cadence, and reconnect handling are **deferred to B.3, B.4, B.5** and remain on the backlog.
 
-### Tests for US3 (write first; ensure they FAIL)
+**Independent Test**: With a paired online agent and a connected adapter, pressing Start shows values within 2 s; p95 refresh latency ≤ 1 s; the technician can press Stop and Start again. (Adapter-offline detection is added in a later sub-phase; the thin slice only verifies the lifecycle works against the mock agent.)
 
-- [ ] T046 [P] [PB] [US3] Unit test: `LiveDataSessionService` start/stop lifecycle — `backend/test/unit/live-data-session.service.spec.ts`
-- [ ] T047 [P] [PB] [US3] Unit test: `LiveDataPollService` persists cycle results and updates `lastPolledAt` — `backend/test/unit/live-data-poll.service.spec.ts`
-- [ ] T048 [P] [PB] [US3] Unit test: `LiveDataReadingCurrent` repository upsert (delete + insert) on each cycle — `backend/test/unit/live-data-reading.repository.spec.ts`
-- [ ] T049 [P] [PB] [US3] Unit test: `PidDecoderService` decodes each of the 11 MVP PIDs from a known raw input AND rejects `eval`-style inputs at lookup time with `PID_FORMULA_INVALID` (Correction 5) — `backend/test/unit/pid-decoder.service.spec.ts` (parameterized, 11 happy-path + 5 negative cases)
-- [ ] T049a [P] [PB] [US3] Unit test: `PidDecoderService` grammar parser rejects `Math.PI`, `process.exit()`, function-call syntax, property access, and any identifier other than `A` or `B` — same test file, additional cases
-- [ ] T050 [P] [PB] [US3] Integration test: `POST /v2/obd/agents/:id/command-queue` returns a `LIVE_DATA_POLL` command when one is enqueued — `backend/test/integration/live-data-agent-command-queue.spec.ts`
-- [ ] T051 [P] [PB] [US3] Integration test: `POST /v2/obd/agents/:id/live-cycles` persists the cycle, updates `LiveDataSession.lastPolledAt`, and returns 202 — `backend/test/integration/live-data-agent-cycles.spec.ts`
-- [ ] T052 [P] [PB] [US3] Controller test: `POST /sessions/:id/live-data/start` creates a session and enqueues the command; returns 409 if no agent online — `backend/test/integration/live-data-start.spec.ts`
-- [ ] T053 [P] [PB] [US3] Controller test: `GET /sessions/:id/live-data/current` returns the most-recent reading per PID — `backend/test/integration/live-data-current.spec.ts`
-- [ ] T054 [P] [PB] [US3] Frontend test: `LiveDataDashboard` shows rows on poll and transitions to "Adapter offline" after stale — `frontend/src/components/live-data/__tests__/LiveDataDashboard.test.tsx`
-- [ ] T055 [P] [PB] [US3] Frontend test: `useLiveDataCurrent` polls at 1 s and stops on session close — `frontend/src/hooks/__tests__/useLiveDataCurrent.test.ts`
-- [ ] T056 [P] [PB] [US3] Desktop agent test: `obd/commands/pid.py` reads each of the 11 MVP PIDs from a mock ELM327 — `desktop-agent/tests/test_pid.py` (parameterized, 11 cases)
-- [ ] T057 [P] [PB] [US3] Desktop agent test: `obd/poll.py` runs the poll loop at the configured cadence and stops on `LIVE_DATA_STOP` — `desktop-agent/tests/test_poll.py`
-- [ ] T058 [P] [PB] [US3] Desktop agent test: `live_data_client.py` posts cycle results to the backend with retries — `desktop-agent/tests/test_live_data_client.py`
-- [ ] T059 [P] [PB] [US3] Desktop agent test: `command_queue.py` probes `/v2/.../command-queue` and routes `LIVE_DATA_*` commands — `desktop-agent/tests/test_command_queue.py`
+### Tests for US3 (Phase B.2 — thin slice; write first, ensure they FAIL)
 
-### Implementation for US3 — Backend
+- [x] T046 [P] [PB] [US3] Unit test: `LiveDataSessionService` start/stop lifecycle (15 tests) — `backend/tests/unit/live-data/live-data-session.service.unit.test.ts`
+- [ ] T047 [P] [PB] [US3] Unit test: `LiveDataPollService` persists cycle results and updates `lastPolledAt` — **deferred to B.3** (B.2 persists to `latestValues` JSONB on `LiveDataSession`, not to a separate `LiveDataPollService` read model)
+- [ ] T048 [P] [PB] [US3] Unit test: `LiveDataReadingCurrent` repository upsert (delete + insert) on each cycle — **deferred to B.3** (B.2 has no `LiveDataReadingCurrent` table; see data-model.md for the B.2 JSONB shape)
+- [ ] T049 [P] [PB] [US3] Unit test: `PidDecoderService` decodes each of the 11 MVP PIDs from a known raw input AND rejects `eval`-style inputs at lookup time with `PID_FORMULA_INVALID` (Correction 5) — **deferred to a later sub-phase** when the remaining 5 PIDs are added to `LiveDataSessionService.MVP_PIDS`; the B.2 narrow-set decode is covered indirectly via the contract tests (T050–T053)
+- [ ] T049a [P] [PB] [US3] Unit test: `PidDecoderService` grammar parser rejects `Math.PI`, `process.exit()`, function-call syntax, property access, and any identifier other than `A` or `B` — **deferred to a later sub-phase** (the decoder implementation is reused as-is from Phase B.1)
+- [x] T050 [P] [PB] [US3] Contract test: `GET /api/v1/obd/agents/:id/live-data/command-queue` returns a `LIVE_DATA_POLL` command when one is enqueued — `backend/tests/contract/live-data-agent.endpoint.contract.test.ts`
+- [x] T051 [P] [PB] [US3] Contract test: `POST /api/v1/obd/agents/:id/live-data/:liveDataSessionId/poll-result` persists the decoded cycle and returns 201 — same file
+- [x] T052 [P] [PB] [US3] Contract test: `POST /api/v1/diagnostic-sessions/:id/live-data/start` creates a session and enqueues the command — `backend/tests/contract/live-data.endpoint.contract.test.ts`
+- [x] T053 [P] [PB] [US3] Contract test: `GET /api/v1/diagnostic-sessions/:id/live-data/current` returns the most-recent reading per short-name — same file
+- [x] T054 [P] [PB] [US3] Frontend test: `LiveDataCard` shows start / active / stopped / error states with the 6 MVP PIDs (11 tests) — `frontend/src/components/live-data/__tests__/LiveDataCard.test.tsx`
+- [ ] T055 [P] [PB] [US3] Frontend test: `useLiveDataCurrent` polls at 1 s and stops on session close — **deferred to a later sub-phase** (B.2 polls unconditionally; the stale-pause behaviour lands with the offline work)
+- [ ] T056 [P] [PB] [US3] Desktop agent test: `obd/commands/pid.py` reads each of the 11 MVP PIDs from a mock ELM327 — **deferred to a later sub-phase** (B.2 uses `MockLiveDataGenerator`, not real PID reads)
+- [x] T057 [P] [PB] [US3] Desktop agent test: `LiveDataPoller` runs the poll loop at the configured cadence and stops on `LIVE_DATA_STOP` or 404 (7 poller tests) — `desktop-agent/tests/test_live_data.py`
+- [ ] T058 [P] [PB] [US3] Desktop agent test: `live_data_client.py` posts cycle results to the backend with retries — **deferred to a later sub-phase** (B.2 posts via `httpx` inside `LiveDataPoller._tick()`; retry-on-5xx is not in B.2 scope)
+- [x] T059 [P] [PB] [US3] Desktop agent test: `poll_live_data_command_queue` probes the agent command-queue and routes `LIVE_DATA_*` commands (8 queue tests) — `desktop-agent/tests/test_live_data.py`
 
-- [ ] T060 [PB] [US3] Add `LiveDataSessionStatus` enum to `backend/prisma/schema.prisma` (`ACTIVE | STOPPED | STALE`)
-- [ ] T061 [PB] [US3] Add `LiveDataSession` model to `backend/prisma/schema.prisma` (tenant-scoped; fk to DiagnosticSession and DesktopAgent; supportedPidMask JSON, cadenceMs, startedAt, lastPolledAt, endedAt)
-- [ ] T062 [PB] [US3] Add `LiveDataReadingCurrent` model to `backend/prisma/schema.prisma` (read-model; tenant-scoped; `(liveDataSessionId, pid)` unique)
-- [ ] T063 [PB] [US3] Generate Prisma client; apply migration `20260615_add_live_data`
-- [ ] T064 [PB] [US3] Implement `backend/src/live-data/repositories/live-data-session.repository.ts` — `create`, `findActiveByDiagnosticSession(diagnosticSessionId)`, `findById`, `update(id, payload)`, `findStale(thresholdMs)`
-- [ ] T065 [PB] [US3] Implement `backend/src/live-data/repositories/live-data-reading.repository.ts` (current read-model) — `upsertCurrent(payload)`, `findCurrentBySession(liveDataSessionId)`, `deleteBySession(liveDataSessionId)`
-- [ ] T066 [PB] [US3] Implement `backend/src/live-data/services/live-data-session.service.ts` — start (create or resume; **reconnect within 30 s = resume same `liveDataSessionId`**; reconnect-after-30 s = mark previous `STALE` and create a new one — Correction 4), stop, timeout sweep; writes `LIVE_DATA_POLL_STARTED` / `LIVE_DATA_POLL_STOPPED` audits in the same transaction. **Cadence is clamped to `[LIVE_DATA_MIN_CADENCE_MS, LIVE_DATA_MAX_CADENCE_MS]`; default `LIVE_DATA_DEFAULT_CADENCE_MS = 1000` (1 s — Correction 3);** the **persisted (clamped) value** is what the agent and the dashboard use.
-- [ ] T067 [PB] [US3] Implement `backend/src/live-data/services/live-data-poll.service.ts` — `processCycle(commandId, payload)` persists the cycle to `LiveDataReadingCurrent`, updates `lastPolledAt`; `enqueue(liveDataSessionId, commandType, payload)` writes the command to the agent's command queue
-- [ ] T068 [PB] [US3] Implement `backend/src/live-data/dtos/live-data-cycle-push.dto.ts` — request DTO per [live-data-agent-contract.md](contracts/live-data-agent-contract.md)
-- [ ] T069 [PB] [US3] Implement `backend/src/live-data/dtos/live-data-control.dto.ts` — request DTO for start/stop; **cadenceMs clamped to `[200, 5000]`, default 1000 (1 s — Correction 3)**; response DTO includes `cadenceMs` (persisted) and `cadenceClamped: boolean`
-- [ ] T070 [PB] [US3] Implement `backend/src/live-data/dtos/live-data-reading.dto.ts` — response DTO
-- [ ] T071 [PB] [US3] Implement `backend/src/live-data/types/live-data-session-status.enum.ts` and `backend/src/live-data/types/pid-source.enum.ts`
-- [ ] T072 [PB] [PB] [US3] Extend `backend/src/obd/services/obd-command-queue.service.ts` — add `commandType: 'LIVE_DATA_DISCOVERY' | 'LIVE_DATA_POLL' | 'LIVE_DATA_STOP'`; route to `LiveDataSessionService` or `LiveDataPollService` based on type
-- [ ] T073 [PB] [US3] Implement `backend/src/live-data/controllers/live-data-agent.controller.ts` — `POST /v2/obd/agents/:id/command-queue`, `POST /v2/obd/agents/:id/live-cycles`; `X-Agent-Token` auth; idempotent on `(commandId, cycleId)`
-- [ ] T074 [PB] [US3] Implement `backend/src/live-data/controllers/live-data.controller.ts` — `POST /sessions/:id/live-data/start`, `POST /sessions/:id/live-data/stop`, `GET /sessions/:id/live-data/current`
-- [ ] T075 [PB] [US3] Wire the new controllers in `backend/src/live-data/live-data.module.ts` and `backend/src/app.module.ts` (or equivalent root module)
-- [ ] T076 [PB] [US3] Implement the stale-session sweep — `@Cron` job in `LiveDataSessionService` that closes `STALE` sessions (no activity for > 30 s) and writes `LIVE_DATA_POLL_STOPPED` audits. **Reconnect-after-30 s flow (Correction 4)**: when the agent's `command-queue` poll arrives and the previous `liveDataSessionId` has been marked `STALE`, return 204 (no command) and let the web app's `Start` create a new session.
-- [ ] T076a [PB] [US3] **Reconnect behavior unit test (Correction 4)** — `LiveDataSessionService.reconnect(agentId, previousLiveDataSessionId)`:
-  - If `lastPolledAt` is within `LIVE_DATA_STALE_TIMEOUT_MS` (30 s): return the existing ACTIVE session id.
-  - If `lastPolledAt` is older than 30 s: in a single transaction, mark the previous session `STALE` (audit `LIVE_DATA_POLL_STOPPED` with `metadata.reason: 'stale_timeout'`); return `null` so the web app can call `Start` to create a new session. — `backend/test/unit/live-data-session.service.spec.ts` (extend)
-- [ ] T076b [PB] [US3] **Reconnect integration test (Correction 4)** — reconnect at 29 s returns the same `liveDataSessionId`; reconnect at 31 s marks the previous `STALE` and a new `Start` returns a different `liveDataSessionId`. — `backend/test/integration/live-data-reconnect.spec.ts`
+### Implementation for US3 — Backend (Phase B.2 thin slice)
 
-### Implementation for US3 — Desktop Agent
+- [x] T060 [PB] [US3] Add `LiveDataSessionStatus` enum to `backend/prisma/schema.prisma` (`ACTIVE | STOPPED | STALE`) — applied
+- [x] T061 [PB] [US3] Add `LiveDataSession` model to `backend/prisma/schema.prisma` (tenant-scoped; fk to `DiagnosticSession` and `DesktopAgent`; `latestValues Json?` JSONB keyed by short-name, `cadenceMs Int @default(1000)`, `lastActivityAt DateTime?`, `stoppedAt DateTime?`) — applied
+- [x] T062a [PB] [US3] Add `LiveDataCommand` model to `backend/prisma/schema.prisma` (FIFO command queue; `commandType` enum `LIVE_DATA_POLL | LIVE_DATA_STOP`; `payload Json?`; `consumedAt DateTime?`; `attempts Int @default(0)`) — applied. **Note**: B.2 uses a separate `LiveDataCommand` queue table for the agent command dispatcher, **not** a `LiveDataReadingCurrent` read-model table; the read model is the `latestValues` JSONB column on `LiveDataSession` itself (see data-model.md).
+- [ ] T062b [PB] [US3] Add `LiveDataReadingCurrent` model to `backend/prisma/schema.prisma` (read-model; tenant-scoped; `(liveDataSessionId, pid)` unique) — **deferred to B.3** (B.2's `latestValues` JSONB on the session is sufficient for the thin slice)
+- [x] T063 [PB] [US3] Generate Prisma client; apply migration `20260617_add_live_data_session_and_command` — applied
+- [x] T064 [PB] [US3] Implement `backend/src/live-data/repositories/live-data-session.repository.ts` — `create`, `findById(id, org)`, `findActiveByDiagnosticSession(id, org)`, `listByDiagnosticSession`, `stopActiveForDiagnosticSession`, `stop`, `recordPollResult`, `findByIdForAgent` (cross-tenant; agent-keyed) — implemented
+- [ ] T065 [PB] [US3] Implement `backend/src/live-data/repositories/live-data-reading.repository.ts` — **deferred to B.3**
+- [x] T064a [PB] [US3] Implement `backend/src/live-data/repositories/live-data-command.repository.ts` — `enqueue`, `findNextPendingForAgent`, `markConsumed`, `countPendingForSession`, `findByTypeAndSession` — implemented
+- [x] T066 [PB] [US3] Implement `backend/src/live-data/services/live-data-session.service.ts` — start (close prior ACTIVE, create new ACTIVE, enqueue `LIVE_DATA_POLL` in one transaction), stop (idempotent; enqueue `LIVE_DATA_STOP`), `ingestPollResult` (validates ownership + status, decodes via `PidDecoderService`, persists into `latestValues` JSONB), `consumeNextCommand`, `toStartPayload`, `toCurrentPayload`. **Cadence clamped to `[200, 5000]`, default 1000** (Correction 3). — implemented
+- [ ] T067 [PB] [US3] Implement `backend/src/live-data/services/live-data-poll.service.ts` — **deferred to B.3** (B.2's `ingestPollResult` lives in `LiveDataSessionService` because the read model is the JSONB column on the session)
+- [x] T068a [PB] [US3] Implement `backend/src/live-data/dtos/start-live-data.dto.ts`, `stop-live-data.dto.ts` (control DTOs) — implemented
+- [x] T068b [PB] [US3] Implement `backend/src/live-data/dtos/live-data-poll-result.dto.ts` (agent push DTO) — implemented
+- [x] T068c [PB] [US3] Implement `backend/src/live-data/dtos/live-data-current.dto.ts` and `backend/src/live-data/dtos/live-data-start-response.dto.ts` (response DTOs) — implemented
+- [x] T071 [PB] [US3] Implement `backend/src/live-data/types/live-data-session-status.enum.ts` and `backend/src/live-data/types/live-data-command-type.enum.ts` — implemented
+- [x] T073 [PB] [US3] Implement `backend/src/live-data/controllers/live-data-agent.controller.ts` — `GET /api/v1/obd/agents/:id/live-data/command-queue`, `POST /api/v1/obd/agents/:id/live-data/:liveDataSessionId/poll-result` (returns 201 with `{ success, values }`); `AgentAuthGuard` — implemented
+- [x] T074 [PB] [US3] Implement `backend/src/live-data/controllers/live-data.controller.ts` — `POST /api/v1/diagnostic-sessions/:id/live-data/start`, `POST /.../stop`, `GET /.../current`; `AuthGuard` + `TenantGuard` + `RbacGuard` + `CsrfGuard` (mutations only) — implemented
+- [x] T075 [PB] [US3] Wired the new controllers, services, and repositories in `backend/src/live-data/live-data.module.ts`; re-exported `DesktopAgentRepository` from `ObdModule`; registered `LiveDataModule` in `app.module.ts` — done
+- [ ] T076 [PB] [US3] Implement the stale-session sweep — **deferred to a later sub-phase** (B.2's `Stop` is explicit; there is no background sweep). The `STALE` enum value is defined for forward-compat.
+- [ ] T076a/b [PB] [US3] Reconnect behavior tests (Correction 4) — **deferred to a later sub-phase** (B.2 creates a new `LiveDataSession` on every `Start`; reconnect-within-30 s is not part of the thin slice)
 
-- [ ] T077 [PB] [US3] Implement `desktop-agent/src/obd/commands/pid.py` — single-PID Mode 01 read; multi-PID read; response parsing (strips leading `41` Mode 01 header); raises on `7F` negative response
-- [ ] T078 [PB] [US3] Implement `desktop-agent/src/obd/commands/pid_discovery.py` — reads PIDs 00/20/40/60/80/A0; assembles the 6-bank supported-PID mask
-- [ ] T079 [PB] [US3] Implement `desktop-agent/src/obd/poll.py` — `LiveDataPoller` class with `start(liveDataSessionId, diagnosticSessionId, cadenceMs, pids)`, `stop()`, `_tick()`; **the cadence sleep uses the `cadenceMs` from the command** (do not hardcode 1 s — Correction 3); tracks per-PID `lastSeenAt` for disconnect detection. **If a `/live-cycles` push returns 404 `LIVE_DATA_SESSION_NOT_FOUND` (the session was marked `STALE` after a > 30 s disconnect — Correction 4), the poller stops gracefully and signals the command queue to await a new `LIVE_DATA_POLL` command for a new `liveDataSessionId`.**
-- [ ] T080 [PB] [US3] Implement `desktop-agent/src/live_data_client.py` — `push_cycle(command_id, live_data_session_id, readings)`; uses `requests.Session`; retries on 5xx with exponential backoff; pushes to `POST /v2/obd/agents/:id/live-cycles`
-- [ ] T081 [PB] [US3] Extend `desktop-agent/src/command_queue.py` — probe `/v2/obd/agents/:id/command-queue` first; fall back to `/v1/.../scan-queue` if v2 returns 404; route `LIVE_DATA_*` commands to `obd.poll.LiveDataPoller`
-- [ ] T082 [PB] [US3] Update `desktop-agent/src/main.py` to register the new poll handler and start the v2 queue loop
+### Implementation for US3 — Desktop Agent (Phase B.2 thin slice)
 
-### Implementation for US3 — Frontend
+- [ ] T077 [PB] [US3] Implement `desktop-agent/src/obd/commands/pid.py` — **deferred to a later sub-phase** (B.2 uses `MockLiveDataGenerator`; no real ELM327 PID reads yet)
+- [ ] T078 [PB] [US3] Implement `desktop-agent/src/obd/commands/pid_discovery.py` — **deferred to a later sub-phase**
+- [x] T079a [PB] [US3] Implement `desktop-agent/src/live_data/poller.py` — `LiveDataPoller` class with `start(liveDataSessionId, cadence_ms, pids)`, `request_stop()`, `stop()`; **clamped cadence `[200, 5000]`, default 1000** (Correction 3); posts to `/obd/agents/:id/live-data/:liveDataSessionId/poll-result`; stops on 404, 409, or `LIVE_DATA_STOP`. — implemented
+- [x] T079b [PB] [US3] Implement `desktop-agent/src/live_data/generator.py` — `MockLiveDataGenerator` returns the 6 MVP PID raw byte strings (RPM drifts, others stable) — implemented
+- [x] T081 [PB] [US3] Implement `desktop-agent/src/live_data/queue.py` — `poll_live_data_command_queue` probes `/api/v1/obd/agents/:id/live-data/command-queue`; dispatches `LIVE_DATA_POLL` → `poller.start()`, `LIVE_DATA_STOP` → `poller.stop()` — implemented
+- [x] T082 [PB] [US3] Update `desktop-agent/src/main.py` — added `poll_live_data_command_queue` call in the main loop alongside `poll_scan_queue` — done
+- [ ] T080 [PB] [US3] Implement `desktop-agent/src/live_data_client.py` — **deferred to a later sub-phase** (B.2 posts via `httpx` inside `LiveDataPoller._tick()`; retry-on-5xx is not in B.2 scope)
 
-- [ ] T083 [PB] [US3] Implement `frontend/src/services/live-data.service.ts` — Axios wrappers for all 7 new endpoints
-- [ ] T084 [PB] [US3] Implement `frontend/src/hooks/useLiveDataSession.ts` — TanStack Query for the active session; refetch on focus; mutations for start/stop
-- [ ] T085 [PB] [US3] Implement `frontend/src/hooks/useLiveDataCurrent.ts` — TanStack Query that polls `GET /.../current` at the **cadence returned by the `Start` response** (typically 1 s — Correction 3); pauses on stale. The hook must use the `cadenceMs` from the server, not a hardcoded 1000 ms.
-- [ ] T086 [PB] [US3] Implement `frontend/src/components/live-data/AdapterStatusPill.tsx` — small status indicator (Online / Offline / Stale)
-- [ ] T087 [PB] [US3] Implement `frontend/src/components/live-data/LiveDataOfflineBanner.tsx` — full-width banner with "Adapter offline" + Retry button
-- [ ] T088 [PB] [US3] Implement `frontend/src/components/live-data/LiveDataRow.tsx` — single PID row: name, value, unit, timestamp, status badge (OK / No data / Not supported / Error)
-- [ ] T089 [PB] [US3] Implement `frontend/src/components/live-data/LiveDataControls.tsx` — Start / Stop / Save Snapshot buttons; disabled states
-- [ ] T090 [PB] [US3] Implement `frontend/src/components/live-data/LiveDataDashboard.tsx` — composes the above; subscribes to `useLiveDataCurrent`; transitions to offline state when stale
-- [ ] T091 [PB] [US3] Implement `frontend/src/app/diagnostic-sessions/[sessionId]/live-data/page.tsx` — new route; renders `<LiveDataDashboard sessionId={sessionId} />`; redirects to session detail if session is closed
-- [ ] T092 [PB] [US3] Update `frontend/src/components/obd/ScanControlPanel.tsx` — add a "Start Live Data" button that navigates to `/sessions/:id/live-data`
-- [ ] T093 [PB] [US3] Update `frontend/src/app/obd/page.tsx` — add a link to the new Live Data page (only shown when the user has an open diagnostic session)
+### Implementation for US3 — Frontend (Phase B.2 thin slice)
 
-### Acceptance Verification for US3
+- [ ] T083 [PB] [US3] Implement `frontend/src/services/live-data.service.ts` (Axios wrappers) — **deferred to a later sub-phase** (B.2 calls `fetch` directly from `useLiveData.ts`; the service module is not required for three endpoints)
+- [x] T084a [PB] [US3] Implement `frontend/src/hooks/useLiveData.ts` — `useLiveDataCurrent` (1 s `refetchInterval` on ACTIVE), `useStartLiveData`, `useStopLiveData` — implemented
+- [x] T085a [PB] [US3] Implement the **single combined component** `frontend/src/components/live-data/LiveDataCard.tsx` — composes start/stop/active/stopped/error states, agent selector, 6 PID rows, last-updated timestamp — implemented (the component-style decomposition of `LiveDataRow`, `LiveDataControls`, `AdapterStatusPill`, `LiveDataOfflineBanner` is deferred to a later sub-phase; the B.2 card embeds all of them in one file to keep the thin slice reviewable)
+- [x] T091a [PB] [US3] Mount the card inline on the existing `frontend/src/app/diagnostic-sessions/[sessionId]/page.tsx` page (no new route) — implemented
+- [ ] T091b [PB] [US3] Implement the dedicated `frontend/src/app/diagnostic-sessions/[sessionId]/live-data/page.tsx` route — **deferred to a later sub-phase** (B.2 keeps the live data panel on the session detail page; the dedicated route lands with the offline/dashboard work)
+- [ ] T092 [PB] [US3] Update `frontend/src/components/obd/ScanControlPanel.tsx` — **deferred to a later sub-phase**
+- [ ] T093 [PB] [US3] Update `frontend/src/app/obd/page.tsx` — **deferred to a later sub-phase**
 
-- [ ] T094 [PB] [US3] Manual verification per [quickstart.md §6 Phase B](quickstart.md) — Start shows values within 2 s, polling at 1 s default (Correction 3), disconnect → offline within 5 s
-- [ ] T094a [PB] [US3] **Reconnect verification (Correction 4)** — start polling; disconnect agent for 25 s; reconnect: dashboard shows no disruption, the same `liveDataSessionId` is reused. Disconnect for 35 s; reconnect: dashboard shows "Adapter offline" → "Live data session ended" → Start creates a new `liveDataSessionId`; the prior session's snapshots are still visible on the session detail page.
-- [ ] T094b [PB] [US3] **Cadence verification (Correction 3)** — request `cadenceMs = 500`; verify the persisted value is 500 and the agent's poll loop sleeps 500 ms between cycles. Request `cadenceMs = 50`; verify the persisted value is 200 (clamped to `LIVE_DATA_MIN_CADENCE_MS`) and the dashboard shows a "Clamped" indicator. Default absent `cadenceMs` → 1000 (1 s).
-- [ ] T095 [PB] [US3] CI verification: `npm test` (backend), `npm test` (frontend), `pytest` (agent) all green
-- [ ] T095a [PB] [US3] **Formula grammar verification (Correction 5)** — the parameterized unit test for `PidDecoderService` (T049/T049a) covers all whitelisted formulas and rejects `Math.PI`, `process.exit()`, function-call syntax, and any non-`A`/`B` identifier.
-- [ ] T096 [PB] [US3] Backward-compat verification: Feature 004 scan flow (start a scan, read fault codes, view enriched results) still works end-to-end
-- [ ] T097 [PB] [US3] Backward-compat verification: Feature 005 enrichment endpoint (`GET /fault-codes/:code`) still responds
+### Acceptance Verification for US3 (Phase B.2)
 
-**Checkpoint B.2**: US3 is independently testable and deployable. The live data dashboard works for a single user with a paired agent and adapter.
+- [ ] T094 [PB] [US3] Manual verification per [quickstart.md §6 Phase B](quickstart.md) — full manual pass is **deferred to a later sub-phase**; the regression-check harness below stands in for it on the thin slice
+- [ ] T094a/b [PB] [US3] Reconnect / cadence-config verification (Corrections 3 & 4) — **deferred to a later sub-phase** (B.2 ships fixed cadence = 1000 ms; reconnect behaviour is not in B.2 scope)
+- [x] T095 [PB] [US3] CI verification: `npx jest` (backend, **223/223 green**), `pytest` (agent, **59/59 green**), `npx jest` (frontend unit, **20/20 green**), `npx tsc --noEmit` (clean on backend and frontend) — done
+- [ ] T095a [PB] [US3] Formula grammar verification (Correction 5) — **deferred to a later sub-phase** (the decoder is reused from B.1; new full coverage lands when the additional 5 PIDs are added)
+- [x] T096 [PB] [US3] Backward-compat verification: Feature 004 scan flow + Feature 005 enrichment flow continue to pass — done
+- [x] T097 [PB] [US3] Backward-compat verification: Feature 005 enrichment endpoint still responds — done
+
+**Checkpoint B.2**: US3 thin slice is independently testable and deployable. The 6-PID live data dashboard works for a single user with a paired agent and adapter. Snapshots, discovery, configurable cadence, reconnect handling, and the dedicated live-data route land in B.3, B.4, B.5, and a later sub-phase respectively.
 
 ---
 

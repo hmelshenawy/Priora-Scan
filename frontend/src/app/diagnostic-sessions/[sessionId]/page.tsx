@@ -8,6 +8,7 @@ import {
 } from '../../../hooks/use-diagnostic-sessions';
 import { useSessionFaultCodes } from '../../../hooks/useObdScan';
 import { EnrichedFaultCodeRow } from '../../../components/obd/EnrichedFaultCodeRow';
+import { LiveDataCard } from '../../../components/live-data/LiveDataCard';
 
 interface DiagnosticSessionDetailPageProps {
   params: {
@@ -203,6 +204,10 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
           </ul>
         </section>
       )}
+
+      <section className="mt-6">
+        <LiveDataCard diagnosticSessionId={session.id} />
+      </section>
 
       <section className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
         <p className="text-sm text-slate-500">

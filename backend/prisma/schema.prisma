@@ -8,17 +8,17 @@ datasource db {
 }
 
 model Vehicle {
-  id             String   @id @default(uuid()) @db.Uuid
-  organizationId String   @db.Uuid
-  make           String   @db.VarChar(100)
-  model          String   @db.VarChar(100)
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  make           String    @db.VarChar(100)
+  model          String    @db.VarChar(100)
   year           Int
-  vin            String?  @db.VarChar(25)
-  plateNumber    String?  @db.VarChar(20)
-  engine         String?  @db.VarChar(100)
-  bodyStyle      String?  @db.VarChar(100)
-  createdAt      DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+  vin            String?   @db.VarChar(25)
+  plateNumber    String?   @db.VarChar(20)
+  engine         String?   @db.VarChar(100)
+  bodyStyle      String?   @db.VarChar(100)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(6)
   scanJobs       ScanJob[]
 
   @@index([organizationId])
@@ -29,17 +29,17 @@ model Vehicle {
 /// Global, non-tenant-scoped cache of VIN → decoded vehicle metadata.
 /// A single VIN is shared across all organizations (Correction 6).
 model VehicleDecode {
-  id            String   @id @default(uuid()) @db.Uuid
-  vin           String   @unique @db.VarChar(25)
-  make          String?  @db.VarChar(100)
-  model         String?  @db.VarChar(100)
-  year          Int?
-  engine        String?  @db.VarChar(100)
-  bodyStyle     String?  @db.VarChar(100)
-  manufacturer  String?  @db.VarChar(100)
-  source        String   @default("vpic-asset") @db.VarChar(50)
-  decodedAt     DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+  id           String   @id @default(uuid()) @db.Uuid
+  vin          String   @unique @db.VarChar(25)
+  make         String?  @db.VarChar(100)
+  model        String?  @db.VarChar(100)
+  year         Int?
+  engine       String?  @db.VarChar(100)
+  bodyStyle    String?  @db.VarChar(100)
+  manufacturer String?  @db.VarChar(100)
+  source       String   @default("vpic-asset") @db.VarChar(50)
+  decodedAt    DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(6)
 
   @@index([vin])
 }
@@ -87,18 +87,19 @@ model VehicleAuditRecord {
 }
 
 model DiagnosticSession {
-  id             String                   @id @default(uuid()) @db.Uuid
-  organizationId String                   @db.Uuid
-  vehicleId      String                   @db.Uuid
-  number         String                   @db.VarChar(50)
-  status         DiagnosticSessionStatus @default(OPEN)
-  title          String?                  @db.VarChar(250)
-  description    String?                  @db.VarChar(250)
-  createdBy      String                   @db.Uuid
-  createdAt      DateTime                 @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime                 @updatedAt @db.Timestamptz(6)
-  scanJobs       ScanJob[]
-  faultCodes     SessionFaultCode[]
+  id               String                  @id @default(uuid()) @db.Uuid
+  organizationId   String                  @db.Uuid
+  vehicleId        String                  @db.Uuid
+  number           String                  @db.VarChar(50)
+  status           DiagnosticSessionStatus @default(OPEN)
+  title            String?                 @db.VarChar(250)
+  description      String?                 @db.VarChar(250)
+  createdBy        String                  @db.Uuid
+  createdAt        DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime                @updatedAt @db.Timestamptz(6)
+  scanJobs         ScanJob[]
+  faultCodes       SessionFaultCode[]
+  liveDataSessions LiveDataSession[]
 
   @@index([organizationId])
   @@index([vehicleId])
@@ -106,14 +107,14 @@ model DiagnosticSession {
 }
 
 model DiagnosticSessionAuditRecord {
-  id             String   @id @default(uuid()) @db.Uuid
-  organizationId String   @db.Uuid
-  userId         String   @db.Uuid
-  sessionId      String   @db.Uuid
-  action         String   @db.VarChar(50)
+  id             String                   @id @default(uuid()) @db.Uuid
+  organizationId String                   @db.Uuid
+  userId         String                   @db.Uuid
+  sessionId      String                   @db.Uuid
+  action         String                   @db.VarChar(50)
   status         DiagnosticSessionStatus?
   metadata       Json?
-  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  createdAt      DateTime                 @default(now()) @db.Timestamptz(6)
 
   @@index([organizationId])
   @@index([sessionId])
@@ -121,18 +122,19 @@ model DiagnosticSessionAuditRecord {
 }
 
 model DesktopAgent {
-  id             String      @id @default(uuid()) @db.Uuid
-  organizationId String      @db.Uuid
-  userId         String      @db.Uuid
-  name           String?     @db.VarChar(100)
-  version        String      @db.VarChar(20)
-  status         AgentStatus @default(OFFLINE)
-  accessTokenHash String?    @db.VarChar(255)
-  pairedAt       DateTime    @default(now()) @db.Timestamptz(6)
-  lastSeenAt     DateTime?   @db.Timestamptz(6)
-  createdAt      DateTime    @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime    @updatedAt @db.Timestamptz(6)
-  scanJobs       ScanJob[]
+  id               String            @id @default(uuid()) @db.Uuid
+  organizationId   String            @db.Uuid
+  userId           String            @db.Uuid
+  name             String?           @db.VarChar(100)
+  version          String            @db.VarChar(20)
+  status           AgentStatus       @default(OFFLINE)
+  accessTokenHash  String?           @db.VarChar(255)
+  pairedAt         DateTime          @default(now()) @db.Timestamptz(6)
+  lastSeenAt       DateTime?         @db.Timestamptz(6)
+  createdAt        DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime          @updatedAt @db.Timestamptz(6)
+  scanJobs         ScanJob[]
+  liveDataCommands LiveDataCommand[]
 
   @@index([organizationId])
   @@index([organizationId, status])
@@ -155,23 +157,23 @@ model PairingToken {
 }
 
 model ScanJob {
-  id                  String        @id @default(uuid()) @db.Uuid
-  organizationId      String        @db.Uuid
-  userId              String        @db.Uuid
-  agentId             String        @db.Uuid
-  vehicleId           String?       @db.Uuid
-  diagnosticSessionId String?       @db.Uuid
-  status              ScanJobStatus @default(PENDING)
-  adapterType         String?       @db.VarChar(50)
-  adapterProtocol     String?       @db.VarChar(20)
-  vin                 String?       @db.VarChar(25)
-  errorMessage        String?       @db.VarChar(500)
-  startedAt           DateTime?     @db.Timestamptz(6)
-  completedAt         DateTime?     @db.Timestamptz(6)
-  createdAt           DateTime      @default(now()) @db.Timestamptz(6)
-  updatedAt           DateTime      @updatedAt @db.Timestamptz(6)
-  agent               DesktopAgent  @relation(fields: [agentId], references: [id])
-  vehicle             Vehicle?      @relation(fields: [vehicleId], references: [id])
+  id                  String             @id @default(uuid()) @db.Uuid
+  organizationId      String             @db.Uuid
+  userId              String             @db.Uuid
+  agentId             String             @db.Uuid
+  vehicleId           String?            @db.Uuid
+  diagnosticSessionId String?            @db.Uuid
+  status              ScanJobStatus      @default(PENDING)
+  adapterType         String?            @db.VarChar(50)
+  adapterProtocol     String?            @db.VarChar(20)
+  vin                 String?            @db.VarChar(25)
+  errorMessage        String?            @db.VarChar(500)
+  startedAt           DateTime?          @db.Timestamptz(6)
+  completedAt         DateTime?          @db.Timestamptz(6)
+  createdAt           DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime           @updatedAt @db.Timestamptz(6)
+  agent               DesktopAgent       @relation(fields: [agentId], references: [id])
+  vehicle             Vehicle?           @relation(fields: [vehicleId], references: [id])
   diagnosticSession   DiagnosticSession? @relation(fields: [diagnosticSessionId], references: [id])
   faultCodes          SessionFaultCode[]
 
@@ -182,16 +184,16 @@ model ScanJob {
 }
 
 model AdapterConnection {
-  id             String   @id @default(uuid()) @db.Uuid
-  organizationId String   @db.Uuid
-  agentId        String   @db.Uuid
-  adapterType    String   @db.VarChar(50)
-  connectionType String   @db.VarChar(20)
-  protocol       String?  @db.VarChar(20)
-  status         String   @db.VarChar(20)
-  startedAt      DateTime @default(now()) @db.Timestamptz(6)
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  agentId        String    @db.Uuid
+  adapterType    String    @db.VarChar(50)
+  connectionType String    @db.VarChar(20)
+  protocol       String?   @db.VarChar(20)
+  status         String    @db.VarChar(20)
+  startedAt      DateTime  @default(now()) @db.Timestamptz(6)
   endedAt        DateTime? @db.Timestamptz(6)
-  errorMessage   String?  @db.VarChar(500)
+  errorMessage   String?   @db.VarChar(500)
 
   @@index([organizationId])
   @@index([agentId])
@@ -199,34 +201,34 @@ model AdapterConnection {
 }
 
 model SessionFaultCode {
-  id                  String          @id @default(uuid()) @db.Uuid
-  organizationId      String          @db.Uuid
-  diagnosticSessionId String          @db.Uuid
-  scanJobId           String          @db.Uuid
-  code                String          @db.VarChar(10)
+  id                  String            @id @default(uuid()) @db.Uuid
+  organizationId      String            @db.Uuid
+  diagnosticSessionId String            @db.Uuid
+  scanJobId           String            @db.Uuid
+  code                String            @db.VarChar(10)
   status              FaultCodeStatus
-  ecu                 String?         @db.VarChar(100)
-  source              String          @default("OBD_SCAN") @db.VarChar(20)
-  importedAt          DateTime        @default(now()) @db.Timestamptz(6)
-  createdAt           DateTime        @default(now()) @db.Timestamptz(6)
+  ecu                 String?           @db.VarChar(100)
+  source              String            @default("OBD_SCAN") @db.VarChar(20)
+  importedAt          DateTime          @default(now()) @db.Timestamptz(6)
+  createdAt           DateTime          @default(now()) @db.Timestamptz(6)
   diagnosticSession   DiagnosticSession @relation(fields: [diagnosticSessionId], references: [id])
   scanJob             ScanJob           @relation(fields: [scanJobId], references: [id])
 
+  @@unique([diagnosticSessionId, scanJobId, code, status, ecu])
   @@index([organizationId])
   @@index([diagnosticSessionId])
   @@index([organizationId, code])
-  @@unique([diagnosticSessionId, scanJobId, code, status, ecu])
 }
 
 model ScanJobAuditRecord {
-  id             String        @id @default(uuid()) @db.Uuid
-  organizationId String        @db.Uuid
-  userId         String        @db.Uuid
-  scanJobId      String        @db.Uuid
-  action         String        @db.VarChar(50)
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @db.Uuid
+  userId         String         @db.Uuid
+  scanJobId      String         @db.Uuid
+  action         String         @db.VarChar(50)
   status         ScanJobStatus?
   metadata       Json?
-  createdAt      DateTime      @default(now()) @db.Timestamptz(6)
+  createdAt      DateTime       @default(now()) @db.Timestamptz(6)
 
   @@index([organizationId])
   @@index([scanJobId])
@@ -261,19 +263,19 @@ enum FaultCodeStatus {
 }
 
 model MasterFaultCode {
-  id                String           @id @default(uuid()) @db.Uuid
-  code              String           @unique @db.VarChar(10)
-  title             String?          @db.VarChar(500)
-  description       String?          @db.VarChar(2000)
-  system            FaultCodeSystem  @default(UNKNOWN)
-  severity          FaultSeverity    @default(UNKNOWN)
+  id                String          @id @default(uuid()) @db.Uuid
+  code              String          @unique @db.VarChar(10)
+  title             String?         @db.VarChar(500)
+  description       String?         @db.VarChar(2000)
+  system            FaultCodeSystem @default(UNKNOWN)
+  severity          FaultSeverity   @default(UNKNOWN)
   commonCauses      Json?
   recommendedChecks Json?
-  source            String           @db.VarChar(50)
-  manufacturer      String?          @db.VarChar(100)
-  isGeneric         Boolean          @default(true)
-  createdAt         DateTime         @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime         @updatedAt @db.Timestamptz(6)
+  source            String          @db.VarChar(50)
+  manufacturer      String?         @db.VarChar(100)
+  isGeneric         Boolean         @default(true)
+  createdAt         DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime        @updatedAt @db.Timestamptz(6)
 
   @@index([code])
 }
@@ -292,4 +294,72 @@ enum FaultCodeSystem {
   CHASSIS
   NETWORK
   UNKNOWN
+}
+
+/// Feature 006 Phase B.2 — Live Data thin vertical slice.
+///
+/// A `LiveDataSession` is owned by exactly one `DiagnosticSession` and is
+/// driven by exactly one paired `DesktopAgent` (Correction 1). Its
+/// lifecycle is:
+///
+///   ACTIVE — agent is polling the adapter and posting results
+///   STOPPED — operator pressed Stop (terminal for this session)
+///   STALE — agent missed a cycle (reserved for Phase B.2+ reconnect logic;
+//m            not surfaced in this MVP slice)
+///
+/// `latestValues` is a JSONB map of PID short-name → { name, value, unit,
+/// rawValue, status } as decoded by `PidDecoderService`. Phase B.3+ will
+/// persist this content to `LiveDataSnapshot` JSONB on user demand.
+model LiveDataSession {
+  id                  String                @id @default(uuid()) @db.Uuid
+  organizationId      String                @db.Uuid
+  diagnosticSessionId String                @db.Uuid
+  agentId             String                @db.Uuid
+  status              LiveDataSessionStatus @default(ACTIVE)
+  cadenceMs           Int                   @default(1000)
+  startedAt           DateTime              @default(now()) @db.Timestamptz(6)
+  stoppedAt           DateTime?             @db.Timestamptz(6)
+  lastActivityAt      DateTime?             @db.Timestamptz(6)
+  latestValues        Json?
+  createdAt           DateTime              @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime              @updatedAt @db.Timestamptz(6)
+  diagnosticSession   DiagnosticSession     @relation(fields: [diagnosticSessionId], references: [id])
+  commands            LiveDataCommand[]
+
+  @@index([organizationId])
+  @@index([diagnosticSessionId])
+  @@index([agentId, status])
+  @@index([organizationId, status])
+}
+
+enum LiveDataSessionStatus {
+  ACTIVE
+  STOPPED
+  STALE
+}
+
+/// A queued command for the Desktop Agent's live-data poller.
+/// `LIVE_DATA_POLL` carries the cadenceMs and the PID list; `LIVE_DATA_STOP`
+/// is the polite stop. Agents consume commands via the command-queue
+/// endpoint and ack via the poll-result endpoint.
+model LiveDataCommand {
+  id                String              @id @default(uuid()) @db.Uuid
+  organizationId    String              @db.Uuid
+  agentId           String              @db.Uuid
+  liveDataSessionId String              @db.Uuid
+  commandType       LiveDataCommandType
+  payload           Json?
+  consumedAt        DateTime?           @db.Timestamptz(6)
+  createdAt         DateTime            @default(now()) @db.Timestamptz(6)
+  agent             DesktopAgent        @relation(fields: [agentId], references: [id])
+  LiveDataSession   LiveDataSession     @relation(fields: [liveDataSessionId], references: [id])
+
+  @@index([agentId, consumedAt])
+  @@index([liveDataSessionId])
+  @@index([organizationId])
+}
+
+enum LiveDataCommandType {
+  LIVE_DATA_POLL
+  LIVE_DATA_STOP
 }
