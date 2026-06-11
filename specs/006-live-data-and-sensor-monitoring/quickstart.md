@@ -130,7 +130,7 @@ This inserts the 11 standard OBD-II Mode 01 PIDs in the MVP set. Verify:
 
 ```bash
 psql $DATABASE_URL -c \
-  "SELECT pid, name, unit FROM \"PIDDefinition\" WHERE model = 'STD_OBD2' ORDER BY pid;"
+  "SELECT pid, name, unit FROM \"PIDDefinition\" WHERE namespace = 'STD_OBD2' AND mode = '01' ORDER BY pid;"
 ```
 
 Expected: 11 rows.
@@ -148,10 +148,10 @@ Verify:
 
 ```bash
 psql $DATABASE_URL -c \
-  "SELECT model, COUNT(*) FROM \"PIDDefinition\" GROUP BY model;"
+  "SELECT namespace, mode, COUNT(*) FROM \"PIDDefinition\" GROUP BY namespace, mode ORDER BY namespace, mode;"
 ```
 
-Expected: 1 row for `STD_OBD2` with count 11; 1 row for `GME` with count 127.
+Expected: 1 row for `STD_OBD2` / `01` with count 11; 1 row for `GME` / `22` with the imported GM PID count.
 
 ### 4. Build the Desktop Agent
 
@@ -256,7 +256,7 @@ Coverage: `pid.py`, `pid_discovery.py`, `poll.py`, `live_data_client.py`, `comma
 | `LIVE_DATA_STALE_TIMEOUT_MS` | 30000 | Time without agent activity before a session is marked STALE |
 | `VPIC_ASSET_PATH` | `backend/data/vpic.sqlite.xz` | Path to the VPIC asset (override for tests) |
 | `VPIC_RUNTIME_PATH` | `backend/data/_runtime/vpic.sqlite` | Path to the decompressed runtime file |
-| `MODEL_PIDS_ASSET_PATH` | `backend/data/model-pids.sqlite` | Path to the model-pids asset |
+| `namespace_mode_pidS_ASSET_PATH` | `backend/data/model-pids.sqlite` | Path to the model-pids asset |
 
 ---
 
@@ -280,7 +280,7 @@ Check:
 
 Check:
 - The PID is in the MVP set (the standard 11 PIDs).
-- The `PIDDefinition` row exists for `(model = 'STD_OBD2', pid = ...)`.
+- The `PIDDefinition` row exists for `(namespace = 'STD_OBD2', mode = '01', pid = ...)`.
 - The `rawValue` from the agent is in the expected format (space-separated hex, e.g., `"12 38"`).
 - The `PidDecoderService` is configured to strip the Mode 01 response header (the leading `41` byte) before substitution.
 
@@ -296,3 +296,4 @@ The dashboard is asking to capture a snapshot before any poll cycle has complete
 - The `PIDDefinition` asset import is idempotent and runs on first startup. It is safe to restart the backend; the import is a no-op after the first run.
 - The 50-snapshot cap is enforced in the service layer. The MVP does not use a database constraint; if you bypass the service (e.g., direct Prisma writes), the cap is not enforced.
 - Audit records are immutable. There is no API to delete or update them. Soft archival is by tenant offboarding (existing Feature 001/002 policy).
+

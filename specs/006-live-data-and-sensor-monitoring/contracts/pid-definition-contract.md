@@ -14,7 +14,8 @@ This contract specifies the data shape and behavior of the `PIDDefinition` table
 | Column | Type | Description |
 |---|---|---|
 | `id` | UUID | PK |
-| `model` | VarChar(20) | `'STD_OBD2'` (Mode 01) or `'GME'` (GM-Extended Mode 22) |
+| `namespace` | VarChar(20) | PID namespace/source family: `'STD_OBD2'` or `'GME'` |
+| `mode` | VarChar(2) | OBD service/mode, e.g. `'01'` or `'22'` |
 | `pid` | VarChar(8) | Hex PID, e.g., `0C` (Mode 01) or `221108` (Mode 22) |
 | `name` | VarChar(100) | Human-readable name |
 | `unit` | VarChar(20) | Unit string |
@@ -23,7 +24,7 @@ This contract specifies the data shape and behavior of the `PIDDefinition` table
 | `max` | Decimal(10,3) | Optional informational maximum |
 | `source` | VarChar(50) | `'built-in-mvp'` or `'model-pids-sqlite'` |
 
-Unique: `(model, pid)`.
+Unique: `(namespace, mode, pid)`.
 
 ---
 
@@ -52,7 +53,7 @@ The formula is a small, restricted expression. The MVP evaluator supports **only
 
 **Rejection points** (Correction 5):
 
-- **Seed-import time** (`pid-mvp-seed.ts` and `model-pids-asset-import.ts`): any formula that does not match the grammar is rejected. The import log shows `Skipping row (model, pid) — formula does not match grammar` and the row is not inserted.
+- **Seed-import time** (`pid-mvp-seed.ts` and `model-pids-asset-import.ts`): any formula that does not match the grammar is rejected. The import log shows `Skipping row (namespace, pid) — formula does not match grammar` and the row is not inserted.
 - **Lookup time** (`PidDecoderService.decode`): a corrupt formula in the DB (e.g., edited outside the parser) returns a `PID_FORMULA_INVALID` server-side error and the reading is marked `ERROR`.
 
 ### Example formulas
@@ -71,31 +72,32 @@ The formula is a small, restricted expression. The MVP evaluator supports **only
 
 ## Built-in MVP Seed (`pid-mvp-seed.ts`)
 
-Run via `npm run seed:pid-mvp`. Idempotent: re-running the seed updates existing rows by `(model, pid)`.
+Run via `npm run seed:pid-mvp`. Idempotent: re-running the seed updates existing rows by `(namespace, mode, pid)`.
 
-| PID  | Name | Unit | Formula | Min | Max | model | source |
-|------|------|------|---------|-----|-----|-------|--------|
-| 0C   | Engine RPM | RPM | `(A * 256 + B) / 4` | 0 | 16383.75 | STD_OBD2 | built-in-mvp |
-| 0D   | Vehicle Speed | km/h | `A` | 0 | 255 | STD_OBD2 | built-in-mvp |
-| 05   | Engine Coolant Temperature | °C | `A - 40` | -40 | 215 | STD_OBD2 | built-in-mvp |
-| 42   | Control Module Voltage | V | `(A * 256 + B) / 1000` | 0 | 65.535 | STD_OBD2 | built-in-mvp |
-| 11   | Throttle Position | % | `A * 100 / 255` | 0 | 100 | STD_OBD2 | built-in-mvp |
-| 04   | Calculated Engine Load | % | `A * 100 / 255` | 0 | 100 | STD_OBD2 | built-in-mvp |
-| 06   | Short Term Fuel Trim Bank 1 | % | `(A - 128) * 100 / 128` | -100 | 99.22 | STD_OBD2 | built-in-mvp |
-| 07   | Long Term Fuel Trim Bank 1 | % | `(A - 128) * 100 / 128` | -100 | 99.22 | STD_OBD2 | built-in-mvp |
-| 10   | MAF Air Flow | g/s | `(A * 256 + B) / 100` | 0 | 655.35 | STD_OBD2 | built-in-mvp |
-| 0F   | Intake Air Temperature | °C | `A - 40` | -40 | 215 | STD_OBD2 | built-in-mvp |
-| 14   | O2 Sensor Bank 1 Sensor 1 Voltage | V | `A / 200` | 0 | 1.275 | STD_OBD2 | built-in-mvp |
+| PID  | Name | Unit | Formula | Min | Max | namespace | mode | source |
+|------|------|------|---------|-----|-----|-----------|------|--------|
+| 0C   | Engine RPM | RPM | `(A * 256 + B) / 4` | 0 | 16383.75 | STD_OBD2 | 01 | built-in-mvp |
+| 0D   | Vehicle Speed | km/h | `A` | 0 | 255 | STD_OBD2 | 01 | built-in-mvp |
+| 05   | Engine Coolant Temperature | °C | `A - 40` | -40 | 215 | STD_OBD2 | 01 | built-in-mvp |
+| 42   | Control Module Voltage | V | `(A * 256 + B) / 1000` | 0 | 65.535 | STD_OBD2 | 01 | built-in-mvp |
+| 11   | Throttle Position | % | `A * 100 / 255` | 0 | 100 | STD_OBD2 | 01 | built-in-mvp |
+| 04   | Calculated Engine Load | % | `A * 100 / 255` | 0 | 100 | STD_OBD2 | 01 | built-in-mvp |
+| 06   | Short Term Fuel Trim Bank 1 | % | `(A - 128) * 100 / 128` | -100 | 99.22 | STD_OBD2 | 01 | built-in-mvp |
+| 07   | Long Term Fuel Trim Bank 1 | % | `(A - 128) * 100 / 128` | -100 | 99.22 | STD_OBD2 | 01 | built-in-mvp |
+| 10   | MAF Air Flow | g/s | `(A * 256 + B) / 100` | 0 | 655.35 | STD_OBD2 | 01 | built-in-mvp |
+| 0F   | Intake Air Temperature | °C | `A - 40` | -40 | 215 | STD_OBD2 | 01 | built-in-mvp |
+| 14   | O2 Sensor Bank 1 Sensor 1 Voltage | V | `A / 200` | 0 | 1.275 | STD_OBD2 | 01 | built-in-mvp |
 
 ---
 
 ## Asset Import (`model-pids-asset-import.ts`)
 
-Run on first backend startup (idempotent). Opens `backend/data/model-pids.sqlite` read-only and upserts each row into `PIDDefinition` keyed by `(model, pid)`.
+Run on first backend startup (idempotent). Opens `backend/data/model-pids.sqlite` read-only and upserts each row into `PIDDefinition` keyed by `(namespace, mode, pid)`.
 
 | Source column | Target column | Notes |
 |---|---|---|
-| `model` | `model` | Verbatim |
+| `model` | `namespace` | Verbatim; currently `GME` |
+| — | `mode` | Hardcoded to `'22'` for the GM Mode 22 asset |
 | `pid` | `pid` | Verbatim |
 | `description` | `name` | Verbatim |
 | `unit` | `unit` | Verbatim |
@@ -106,7 +108,7 @@ Run on first backend startup (idempotent). Opens `backend/data/model-pids.sqlite
 
 ### Idempotency
 
-The import uses `INSERT ... ON CONFLICT (model, pid) DO UPDATE`. Re-running the import updates existing rows; new rows are inserted; no duplicates.
+The import uses `INSERT ... ON CONFLICT (namespace, mode, pid) DO UPDATE`. Re-running the import updates existing rows; new rows are inserted; no duplicates.
 
 ### Failure Mode
 
@@ -116,13 +118,13 @@ If a row's `equation` fails the formula grammar, that row is skipped with a warn
 
 ---
 
-## `PidDecoderService.decode(pid, rawHex)`
+## `PidDecoderService.decode(namespace, mode, pid, rawHex)`
 
 ### Signature
 
 ```typescript
 class PidDecoderService {
-  decode(model: 'STD_OBD2' | 'GME', pid: string, rawHex: string): DecodedReading;
+  decode(namespace: 'STD_OBD2' | 'GME', mode: '01' | '22', pid: string, rawHex: string): DecodedReading;
 }
 
 interface DecodedReading {
@@ -138,7 +140,7 @@ interface DecodedReading {
 
 ### Behavior
 
-1. Look up `PIDDefinition.findByModelAndPid(model, pid)`.
+1. Look up `PIDDefinition.findByNamespaceModeAndPid(namespace, mode, pid)`.
 2. If not found, return `{ status: 'NOT_SUPPORTED', value: null, ... }`.
 3. If `rawHex` is empty or all whitespace, return `{ status: 'NO_DATA', value: null, ... }`.
 4. Parse `rawHex` into a byte array. Strip whitespace and any leading `41` (the Mode 01 response header).
@@ -154,13 +156,13 @@ interface DecodedReading {
 ### Example
 
 ```typescript
-decoder.decode('STD_OBD2', '0C', '12 38')
+decoder.decode('STD_OBD2', '01', '0C', '12 38')
 // → { pid: '0C', name: 'Engine RPM', value: 1155, unit: 'RPM', rawValue: '12 38', status: 'OK', errorCode: null }
 
-decoder.decode('STD_OBD2', '05', '84')
+decoder.decode('STD_OBD2', '01', '05', '84')
 // → { pid: '05', name: 'Engine Coolant Temperature', value: 92, unit: '°C', rawValue: '84', status: 'OK', errorCode: null }
 
-decoder.decode('STD_OBD2', '0C', '')
+decoder.decode('STD_OBD2', '01', '0C', '')
 // → { pid: '0C', name: 'Engine RPM', value: null, unit: 'RPM', rawValue: '', status: 'NO_DATA', errorCode: null }
 ```
 

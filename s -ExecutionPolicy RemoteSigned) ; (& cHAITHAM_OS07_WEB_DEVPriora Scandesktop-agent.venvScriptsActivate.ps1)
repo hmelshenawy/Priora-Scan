@@ -1,0 +1,40 @@
+warning: in the working copy of 'backend/prisma/schema.prisma', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/backend/prisma/schema.prisma b/backend/prisma/schema.prisma[m
+[1mindex 9539d73..80267ef 100644[m
+[1m--- a/backend/prisma/schema.prisma[m
+[1m+++ b/backend/prisma/schema.prisma[m
+[36m@@ -44,6 +44,34 @@[m [mmodel VehicleDecode {[m
+   @@index([vin])[m
+ }[m
+ [m
+[32m+[m[32m/// OBD-II PID definition. GLOBAL — not tenant-scoped, because the[m
+[32m+[m[32m/// metadata (decoding formula, unit, range) is industry-standard and[m
+[32m+[m[32m/// identical across all tenants. The MVP set is seeded from a built-in[m
+[32m+[m[32m/// TypeScript file; additional PIDs are imported from[m
+[32m+[m[32m/// `backend/data/model-pids.sqlite` (GM Mode 22) on first backend startup.[m
+[32m+[m[32m///[m
+[32m+[m[32m/// Formula is interpreted by a small vetted expression evaluator[m
+[32m+[m[32m/// (Correction 5). Allowed tokens: `A`, `B`, integer literals,[m
+[32m+[m[32m/// `+ - * / ( )`. No `eval`. No user-defined formulas.[m
+[32m+[m[32mmodel PIDDefinition {[m
+[32m+[m[32m  id        String   @id @default(uuid()) @db.Uuid[m
+[32m+[m[32m  namespace String   @db.VarChar(20)[m
+[32m+[m[32m  mode      String   @db.VarChar(2)[m
+[32m+[m[32m  pid       String   @db.VarChar(8)[m
+[32m+[m[32m  name      String   @db.VarChar(100)[m
+[32m+[m[32m  unit      String   @db.VarChar(20)[m
+[32m+[m[32m  formula   String   @db.VarChar(200)[m
+[32m+[m[32m  min       Decimal? @db.Decimal(10, 3)[m
+[32m+[m[32m  max       Decimal? @db.Decimal(10, 3)[m
+[32m+[m[32m  source    String   @default("built-in-mvp") @db.VarChar(50)[m
+[32m+[m[32m  createdAt DateTime @default(now()) @db.Timestamptz(6)[m
+[32m+[m[32m  updatedAt DateTime @updatedAt @db.Timestamptz(6)[m
+[32m+[m
+[32m+[m[32m  @@unique([namespace, mode, pid])[m
+[32m+[m[32m  @@index([mode])[m
+[32m+[m[32m  @@index([namespace])[m
+[32m+[m[32m}[m
+[32m+[m
+ model VehicleAuditRecord {[m
+   id             String   @id @default(uuid()) @db.Uuid[m
+   organizationId String   @db.Uuid[m

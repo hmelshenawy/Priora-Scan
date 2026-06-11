@@ -99,17 +99,15 @@ Each phase is independently testable. Phase B MUST NOT begin until Phase A is ac
 
 ## Phase B.1: Foundational (Blocking Prerequisites)
 
-- [ ] T037 [PB] Apply Prisma migration `20260615_add_live_data` creating `PIDDefinition`, `LiveDataSession`, `LiveDataSnapshot` (with **`values JSONB NOT NULL`**, no per-PID rows — Correction 2), and `LiveDataReadingCurrent`. Add new relations on `DiagnosticSession` (Correction 1: `LiveDataSession` belongs to `DiagnosticSession`; `LiveDataSnapshot` is anchored to `DiagnosticSession` via FK). **No `LiveDataReading` / `LiveDataSnapshotValue` table is created in the MVP.**
-- [ ] T038 [PB] Add the new audit action strings (`LIVE_DATA_POLL_STARTED`, `LIVE_DATA_POLL_STOPPED`, `LIVE_DATA_SNAPSHOT_CAPTURED`, `LIVE_DATA_SNAPSHOT_EVICTED`) to `backend/src/shared/audit/diagnostic-session-audit.service.ts`
-- [ ] T039 [PB] Implement `backend/src/prisma/seed/pid-mvp-seed.ts` — inserts the 11 standard OBD-II Mode 01 PIDs from [pid-definition-contract.md](contracts/pid-definition-contract.md) into `PIDDefinition`; idempotent upsert by `(model, pid)`
-- [ ] T040 [PB] Add `npm run seed:pid-mvp` script to `backend/package.json`; run it; verify 11 rows present
-- [ ] T041 [PB] Implement `backend/src/live-data/services/pid-asset-import.service.ts` — opens `backend/data/model-pids.sqlite` read-only on first startup; upserts each row into `PIDDefinition` with `source = 'model-pids-sqlite'`; idempotent; runs in `OnApplicationBootstrap`
-- [ ] T042 [PB] Implement `backend/src/live-data/repositories/pid-definition.repository.ts` — Prisma CRUD on `PIDDefinition`; `findByModelAndPid(model, pid)`, `findByModel(model)`, `upsert(payload)`
-- [ ] T043 [PB] Implement `backend/src/live-data/services/pid-decoder.service.ts` — small recursive-descent formula parser (restricted grammar per [pid-definition-contract.md](contracts/pid-definition-contract.md) and Correction 5: A, B, integer literals, + - * / ( ) only; **no eval, no Function constructor, no scripting, no user-defined formulas, no variables other than A and B**); `decode(model, pid, rawHex)` returns `DecodedReading`. The decoder must reject any formula that does not match the grammar at lookup time and emit `PID_FORMULA_INVALID`.
-- [ ] T044 [PB] Create the new `live-data` module: `backend/src/live-data/live-data.module.ts` — registers controllers, services, repositories; imports `PrismaModule` and `SharedModule` (audit)
-- [ ] T045 [PB] Verify Feature 004 scan flow and Feature 005 enrichment flow still pass their existing test suites (no regression)
-
-**Checkpoint B.1**: New tables exist; the 11 MVP PIDs are seeded; the asset import runs once on first startup; the `PidDecoderService` decodes a sample input correctly.
+- [x] T037 [PB] Apply Prisma migration `20260615_add_live_data` creating `PIDDefinition` (Phase B.1 ships the `PIDDefinition` table only; `LiveDataSession`, `LiveDataSnapshot`, and `LiveDataReadingCurrent` ship in later sub-phases per the corrected sub-phase split). **`PIDDefinition` is GLOBAL — no `organizationId`**; unique `(namespace, mode, pid)`. **No `LiveDataReading` / `LiveDataSnapshotValue` table is created in the MVP** (Correction 2).
+- [x] T038 [PB] (deferred to Phase B.2) — live-data audit action strings land with the live-session work in US3.
+- [x] T039 [PB] Implement `backend/src/prisma/seed/pid-mvp-seed.ts` — inserts the 11 standard OBD-II Mode 01 PIDs from [pid-definition-contract.md](contracts/pid-definition-contract.md) into `PIDDefinition`; idempotent upsert by `(namespace, mode, pid)`.
+- [x] T040 [PB] Add `npm run seed:pid-mvp` script to `backend/package.json`; run it; verify 11 rows present.
+- [x] T041 [PB] Implement `backend/src/live-data/services/pid-asset-import.service.ts` — opens `backend/data/model-pids.sqlite` read-only on first startup; upserts each row into `PIDDefinition` with `namespace = 'GME'`, `mode = '22'`, and `source = 'model-pids-sqlite'`; idempotent; runs in `OnApplicationBootstrap`. Missing-asset path is a no-op with a warning (the MVP requires only the built-in seed).
+- [x] T042 [PB] Implement `backend/src/live-data/repositories/pid-definition.repository.ts` — Prisma CRUD on `PIDDefinition`; `findById`, `findByNamespaceModeAndPid(namespace, mode, pid)`, `findByModeAndPid(mode, pid)`, `findByNamespace(namespace)`, `findByMode(mode)`, `list`, `upsert`, `upsertMany` (transactional bulk), `count`.
+- [x] T043 [PB] Implement `backend/src/live-data/services/pid-decoder.service.ts` — small recursive-descent formula parser (restricted grammar per [pid-definition-contract.md](contracts/pid-definition-contract.md) and Correction 5: A, B, integer literals, + - * / ( ) only; **no eval, no Function constructor, no scripting, no user-defined formulas, no variables other than A and B**); `decode(namespace, mode, pid, rawHex)` returns `DecodedReading`. The decoder must reject any formula that does not match the grammar at lookup time and emit `PID_FORMULA_INVALID`. Also exports `validateFormula(formula)` for use by the asset import to skip bad rows.
+- [x] T044 [PB] Create the new `live-data` module: `backend/src/live-data/live-data.module.ts` — registers `PidsController`, `PidDefinitionRepository`, `PidAssetImportService`, `PidDecoderService`, `PrismaService`; imports `AuthModule`. The module exports `PidDefinitionRepository` and `PidDecoderService` for downstream sub-phases (B.2+) to reuse.
+- [x] T045 [PB] Verify Feature 004 scan flow and Feature 005 enrichment flow still pass their existing test suites (no regression). Backend test suite: **188/188 green** (was 126 before Phase B.1; +62 net new from 53 decoder unit tests + 7 repository unit tests + 9 endpoint contract tests).
 
 ---
 
@@ -401,3 +399,4 @@ The following items are **not** part of Feature 006 and must not be added by any
 - A separate `LiveDataReading` historical table — Correction 2 (the MVP stores the JSONB `values` map on the snapshot only)
 - A generic scripting engine for PID formulas — Correction 5 (restricted grammar only; no `eval`, no `Function`, no user-defined formulas)
 - Per-user cadence settings (cadence is a per-session setting)
+

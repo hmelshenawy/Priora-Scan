@@ -24,7 +24,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "seed": "ts-node src/seed.ts",
-    "db:seed:fault-codes": "ts-node prisma/seed/seed-master-fault-codes.ts"
+    "db:seed:fault-codes": "ts-node prisma/seed/seed-master-fault-codes.ts",
+    "seed:pid-mvp": "ts-node prisma/seed/pid-mvp-seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.26",

@@ -44,6 +44,34 @@ model VehicleDecode {
   @@index([vin])
 }
 
+/// OBD-II PID definition. GLOBAL — not tenant-scoped, because the
+/// metadata (decoding formula, unit, range) is industry-standard and
+/// identical across all tenants. The MVP set is seeded from a built-in
+/// TypeScript file; additional PIDs are imported from
+/// `backend/data/model-pids.sqlite` (GM Mode 22) on first backend startup.
+///
+/// Formula is interpreted by a small vetted expression evaluator
+/// (Correction 5). Allowed tokens: `A`, `B`, integer literals,
+/// `+ - * / ( )`. No `eval`. No user-defined formulas.
+model PIDDefinition {
+  id        String   @id @default(uuid()) @db.Uuid
+  namespace String   @db.VarChar(20)
+  mode      String   @db.VarChar(2)
+  pid       String   @db.VarChar(8)
+  name      String   @db.VarChar(100)
+  unit      String   @db.VarChar(20)
+  formula   String   @db.VarChar(200)
+  min       Decimal? @db.Decimal(10, 3)
+  max       Decimal? @db.Decimal(10, 3)
+  source    String   @default("built-in-mvp") @db.VarChar(50)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([namespace, mode, pid])
+  @@index([mode])
+  @@index([namespace])
+}
+
 model VehicleAuditRecord {
   id             String   @id @default(uuid()) @db.Uuid
   organizationId String   @db.Uuid

@@ -87,9 +87,9 @@ WHERE e.Id IN (:elementIds);
 | 14 | O2 Sensor Bank 1 Sensor 1 Voltage | V | `A / 200` | 0 | 1.275 |
 
 **Import logic for `model-pids.sqlite`**:
-- A one-shot seed command `npm run seed:pid-definitions` (and an idempotent first-use hook in the backend's `OnModuleInit`) opens `backend/data/model-pids.sqlite` read-only, selects `(model, pid, equation, unit, description)`, and upserts into `PIDDefinition` keyed by `(model, pid)`.
+- A one-shot seed command `npm run seed:pid-definitions` (and an idempotent first-use hook in the backend's `OnModuleInit`) opens `backend/data/model-pids.sqlite` read-only, selects `(model, pid, equation, unit, description)`, and upserts into `PIDDefinition` keyed by `(namespace, mode, pid)`.
 - `PIDDefinition` is global reference data — no `organizationId`.
-- The `model` column distinguishes GM-Extended Mode 22 PIDs (one row per (model, pid)) from standard Mode 01 PIDs (one row per pid with `model = 'STD_OBD2'`).
+- The source asset's `model` column maps to `PIDDefinition.namespace`. `mode` stores the OBD service (`01` for standard OBD-II MVP rows, `22` for GM Extended rows). This allows future OEM Mode 22 definitions to share the same mode + PID while keeping different formulas by namespace.
 - A `source` column records whether the row came from `model-pids.sqlite` (`source = 'model-pids-sqlite'`) or the built-in seed (`source = 'built-in-mvp'`).
 
 **Alternatives considered**:
@@ -220,3 +220,4 @@ WHERE e.Id IN (:elementIds);
 - Feature 005's enrichment endpoint and `MasterFaultCode` flow is unchanged.
 
 **Rationale**: Constitution principle XIV (Git & Change Safety) prohibits breaking existing public contracts without approval. The additive-only approach satisfies this.
+

@@ -202,10 +202,10 @@ Priora Scan/
 - Migration `20260615_add_live_data` creates `PIDDefinition`, `LiveDataSession`, `LiveDataSnapshot` (with JSONB `values` — Correction 2), and `LiveDataReadingCurrent`. Adds the new relations on `DiagnosticSession` (additive only). No `LiveDataReading` / `LiveDataSnapshotValue` table is created in the MVP.
 - **Architecture decision (D-13, Correction 1)**: `LiveDataSession` belongs to `DiagnosticSession` (one DiagnosticSession → many LiveDataSessions). The hierarchy is `DiagnosticSession → LiveDataSession → LiveDataSnapshot`. All live-data history stays attached to the originating `DiagnosticSession`. Both the `LiveDataSession.diagnosticSessionId` FK and the `LiveDataSnapshot.diagnosticSessionId` FK enforce this link explicitly so the 50-snapshot cap can be enforced per-diagnostic-session.
 - **Snapshot storage (D-13, Correction 2)**: `LiveDataSnapshot` stores values as a single **JSONB** column `values: Json` (e.g., `{"rpm": 850, "speed": 0, "coolantTemp": 92, "batteryVoltage": 13.9}` — keyed by hex PID in the persistence shape: `{"0C": { name, value, unit, rawValue }, ...}`). The MVP does **not** create a separate `LiveDataReading` / `LiveDataSnapshotValue` table. Fields on `LiveDataSnapshot`: `id`, `organizationId`, `diagnosticSessionId`, `liveDataSessionId`, `capturedAt`, `createdBy`, `values` (JSONB). The 50-snapshot cap is enforced against `LiveDataSnapshot` rows for a given `DiagnosticSession` (oldest evicted). `LiveDataReadingCurrent` remains a separate read-model table (one row per PID per session), used by the dashboard. Rationale: only 11 PIDs in MVP, simpler retention, no per-PID query need on historical snapshots.
-- `pid-mvp-seed.ts` ships the 11 standard SAE J1979 PIDs with `model = 'STD_OBD2'`, `source = 'built-in-mvp'`. Run on first start and via `npm run seed:pid-mvp`.
-- `model-pids-asset-import.ts` opens `model-pids.sqlite` read-only, upserts 127 GM Mode 22 rows with `source = 'model-pids-sqlite'`. Idempotent. Failure mode: missing asset is a no-op warning; the 11 built-in PIDs keep live data working.
+- `pid-mvp-seed.ts` ships the 11 standard SAE J1979 PIDs with `namespace = 'STD_OBD2'`, `mode = '01'`, `source = 'built-in-mvp'`. Run on first start and via `npm run seed:pid-mvp`.
+- `model-pids-asset-import.ts` opens `model-pids.sqlite` read-only, upserts 127 GM Mode 22 rows with `namespace = 'GME'`, `mode = '22'`, `source = 'model-pids-sqlite'`. Idempotent. Failure mode: missing asset is a no-op warning; the 11 built-in PIDs keep live data working.
 - `PidFormulaParserService` — a small recursive-descent parser implementing the **restricted grammar** in [contracts/pid-definition-contract.md](contracts/pid-definition-contract.md) (Correction 5). The parser validates formulas at seed-import time; any formula that does not match the grammar is rejected. The runtime evaluator uses the same parser; **no `eval`, no `new Function`, no scripting, no user-defined formulas, no variables other than `A` and `B`**. See "Formula engine scope" below.
-- `PidDecoderService.decode(model, pid, rawHex)` returns `{ pid, name, value, unit, rawValue, status, errorCode }`. Strips the Mode 01 response header (`41`), substitutes `A` and `B`, evaluates the formula. Per-PID status: `OK | NO_DATA | ERROR | NOT_SUPPORTED`.
+- `PidDecoderService.decode(namespace, mode, pid, rawHex)` returns `{ pid, name, value, unit, rawValue, status, errorCode }`. Strips the Mode 01 response header (`41`), substitutes `A` and `B`, evaluates the formula. Per-PID status: `OK | NO_DATA | ERROR | NOT_SUPPORTED`.
 
 ### Phase B.2 — US3 — Live dashboard, polling
 
@@ -259,7 +259,7 @@ The Desktop Agent's command queue may be reconnected after a transient network d
 | `(`, `)` | Grouping |
 | whitespace | Ignored |
 
-Whitelisted example formulas: `A`, `A - 40`, `(A * 256 + B) / 4`, `(A * 100) / 255`, `(A * 256 + B) / 1000`, `(A - 128) * 100 / 128`, `A / 200`. **No** function calls, no identifiers other than `A` and `B`, no comparison operators, no assignment, no semicolons, no scripting, no custom user-defined formulas, no variables other than `A` and `B`. The parser is a small recursive-descent grammar; rejection happens at **seed-import time** (the import log shows `Skipping row (model, pid) — formula does not match grammar`) and **at lookup time** (a corrupt formula in the DB returns `PID_FORMULA_INVALID` and the reading is marked `ERROR`).
+Whitelisted example formulas: `A`, `A - 40`, `(A * 256 + B) / 4`, `(A * 100) / 255`, `(A * 256 + B) / 1000`, `(A - 128) * 100 / 128`, `A / 200`. **No** function calls, no identifiers other than `A` and `B`, no comparison operators, no assignment, no semicolons, no scripting, no custom user-defined formulas, no variables other than `A` and `B`. The parser is a small recursive-descent grammar; rejection happens at **seed-import time** (the import log shows `Skipping row (namespace, mode, pid) — formula does not match grammar`) and **at lookup time** (a corrupt formula in the DB returns `PID_FORMULA_INVALID` and the reading is marked `ERROR`).
 
 ### Phase B — Acceptance Criteria
 
@@ -327,7 +327,7 @@ The `obd.poll.PollLoop` is a class that takes a `LiveDataClient`, a `CommandQueu
 | `LiveDataSnapshot` | YES | `organizationId`; FK chain enforces match to parent DiagnosticSession and LiveDataSession |
 | `LiveDataReadingCurrent` | YES | `organizationId`; read-model, deleted on session close |
 | `VehicleDecode` | **NO (GLOBAL)** | No `organizationId`; `vin` is `UNIQUE`. **Shared across all tenants** (Correction 6). Cross-tenant cache hits are the desired behavior. |
-| `PIDDefinition` | **NO (GLOBAL)** | No `organizationId`; `(model, pid)` is `UNIQUE`. The 11 standard PIDs and the 127 GM Mode 22 PIDs are reference data. |
+| `PIDDefinition` | **NO (GLOBAL)** | No `organizationId`; `(namespace, mode, pid)` is `UNIQUE`. The 11 standard PIDs and the 127 GM Mode 22 PIDs are reference data. |
 | `DiagnosticSessionAuditRecord` | YES (existing) | All new `action`s follow the existing policy. |
 
 `TenantGuard` (existing) is applied to every web endpoint. The agent push endpoints use the existing `X-Agent-Token` + `organizationId` binding from Feature 004.
@@ -585,6 +585,61 @@ Both migrations are **fully additive** — no existing table has a column altere
 - **D-18** (transaction): The snapshot capture flow (count → evict → insert → audit) runs in a single `prisma.$transaction`. The capture endpoint is `POST /sessions/:id/live-data/snapshots` and writes a single `LiveDataSnapshot` row with the JSONB `values` column.
 - **D-19** (Correction 7, backlog only): A future **ECU Topology & Control Unit Scan** feature is tracked in the **Future Enhancements (Backlog)** section. It is not part of Feature 006. **No implementation tasks, no schema changes, no contract changes in this feature.** Proposed entities: `ControlUnitScan`, `ControlUnit`, `ControlUnitFault`.
 
+## Phase B.1 Status — PID Foundation & Decoder Infrastructure (Complete)
+
+Phase B.1 is the first independently-deployable sub-phase of Feature 006 Phase B. It ships only the **PID definition and decoding foundation** that every later sub-phase (US3, US4, US5, US6) will consume. **No live polling, no session persistence, no snapshot, no dashboard, no agent command queue work has been merged in this sub-phase.**
+
+**Delivered**
+
+- New `PIDDefinition` table (GLOBAL — no `organizationId`; unique `(namespace, mode, pid)`) — Prisma migration `20260615_add_pid_foundation` plus corrective migration `20260616_correct_pid_definition_namespace_mode` applied.
+- `backend/src/prisma/seed/pid-mvp-seed.ts` — 11 standard OBD-II Mode 01 PIDs (RPM, Vehicle Speed, Coolant Temperature, Battery Voltage, Throttle Position, Engine Load, Short Fuel Trim, Long Fuel Trim, MAF, Intake Air Temperature, O2 Sensor Voltage). Idempotent upsert by `(namespace, mode, pid)`. Reachable via `npm run seed:pid-mvp`.
+- `backend/src/live-data/services/pid-asset-import.service.ts` — opens `backend/data/model-pids.sqlite` read-only on first startup; bulk-upserts the GM Mode 22 catalog into `PIDDefinition` with `namespace = 'GME'`, `mode = '22'`, and `source = 'model-pids-sqlite'`; runs in `OnApplicationBootstrap`; missing-asset path is a no-op with a warning; rows whose equations fail the restricted-grammar validator are skipped (with a warning) rather than failing the entire import.
+- `backend/src/live-data/services/pid-decoder.service.ts` — restricted recursive-descent parser. **Allowed tokens: `A`, `B`, integer literals, `+ - * / ( )`. Whitespace is ignored. Division uses JavaScript real division** (so `(A*256+B)/1000` for Control Module Voltage returns `8.521`, not `8`). No `eval`, no `new Function`, no scripting. Identifier tokens longer than `A` or `B` (e.g., `A1`, `Math`, `process`) cause a `PID_FORMULA_INVALID` rejection. Exposes `evaluateFormula(formula, A, B)` and `parseHexBytes(hex)` as pure functions for testing. `validateFormula(formula)` returns `null` on success or `PID_FORMULA_INVALID` on failure.
+- `backend/src/live-data/repositories/pid-definition.repository.ts` — Prisma CRUD. `findById`, `findByNamespaceModeAndPid(namespace, mode, pid)` using the `namespace_mode_pid` compound unique key, `findByModeAndPid(mode, pid)` for ambiguity checks, `findByNamespace(namespace)`, `findByMode(mode)`, `list()` (ordered by `namespace`, `mode`, `pid`), `upsert`, `upsertMany` (transactional bulk), `count`. GLOBAL — no `organizationId` parameter.
+- `backend/src/live-data/controllers/pids.controller.ts` — three read-only endpoints, JWT + tenant + RBAC guarded:
+  - `GET /api/v1/pids` — list, optional `?namespace=STD_OBD2` and `?mode=01` filters.
+  - `GET /api/v1/pids/:id` — lookup by primary key. `404 PID_NOT_DEFINED` if not found.
+  - `GET /api/v1/pids/mode/:mode/pid/:pid` — canonical lookup by mode and PID with optional `?namespace=...`. `mode=01` defaults to `namespace=STD_OBD2`; otherwise, if more than one namespace defines the same mode + PID, returns `400 PID_NAMESPACE_REQUIRED`. `400 INVALID_MODE` for unknown mode, `400 INVALID_NAMESPACE` for unknown namespace, `400 INVALID_PID` for malformed hex, `404 PID_NOT_DEFINED` for unknown `(namespace, mode, pid)`.
+- `backend/src/live-data/dtos/pid-response.dto.ts` — response DTO with `fromEntity(entity)` factory; converts Prisma `Decimal` `min`/`max` to `number | null` for JSON serialization.
+- `backend/src/live-data/live-data.module.ts` — NestJS module. Imports `AuthModule`; providers: `PidDefinitionRepository`, `PidAssetImportService`, `PidDecoderService`, `PrismaService`; controller: `PidsController`. Exports `PidDefinitionRepository` and `PidDecoderService` for downstream sub-phases.
+- `backend/src/app.module.ts` — registered `LiveDataModule` in the `imports` array.
+
+**Test coverage added in Phase B.1**
+
+| Test file | Suites | Tests | Purpose |
+|---|---|---|---|
+| `backend/tests/unit/live-data/pid-decoder.service.unit.test.ts` | 6 | 46 | 11 MVP happy-path decodes; leading `41` header strip; NO_DATA for empty/whitespace; NOT_SUPPORTED for missing PID; ERROR with `B_UNDEFINED`, `INVALID_HEX`, `PID_FORMULA_INVALID`; 12 negative grammar cases (`Math.PI`, `A.B`, `process.exit`, function calls, eval, Function ctor, trailing operator, unbalanced paren, `**`, boolean literal, string literal, dynamic import); 9 positive grammar cases; 2 `validateFormula` cases; 4 `parseHexBytes` cases. |
+| `backend/tests/unit/live-data/pid-definition.repository.unit.test.ts` | 1 | 8 | findById, findByNamespaceModeAndPid (composite key), findByNamespace, findByModeAndPid ambiguity lookup, list, upsert (composite key), upsertMany, same mode + PID across namespaces. |
+| `backend/tests/unit/live-data/pid-asset-import.service.unit.test.ts` | 1 | 1 | GM `model-pids.sqlite` rows map to `namespace = GME`, `mode = 22`. |
+| `backend/tests/contract/pids.endpoint.contract.test.ts` | 1 | 12 | 200 list, 200 list+namespace filter, 200 list+mode filter, 200 by-id, 404 by-id, 200 namespace+mode+pid, default namespace for Mode 01, 400 PID_NAMESPACE_REQUIRED, 404 PID_NOT_DEFINED, 400 INVALID_MODE, 400 INVALID_NAMESPACE, 400 INVALID_PID. |
+
+**Acceptance Criteria for Phase B.1** (from the implement command)
+
+| # | Criterion | Status |
+|---|---|---|
+| 1 | System supports standard OBD-II Mode 01 PIDs | ✅ 11 MVP PIDs seeded with `namespace = STD_OBD2`, `mode = 01` |
+| 2 | System imports manufacturer PID definitions from `model-pids.sqlite` | ✅ `PidAssetImportService` runs on bootstrap; idempotent; missing-asset path is a no-op |
+| 3 | System can decode raw ECU bytes into engineering values | ✅ `PidDecoderService.decode(namespace, mode, pid, rawHex)` returns `{ pid, name, value, unit, rawValue, status, errorCode }` |
+| 4 | System uses a restricted formula grammar only | ✅ Parser rejects identifiers other than `A`/`B`, function calls, property access, and any unknown operator with `PID_FORMULA_INVALID` |
+| 5 | System includes automated tests for all decoding paths | ✅ 46 decoder + 7 repository + 9 endpoint tests |
+| 6 | No live polling functionality is introduced yet | ✅ `LiveDataSession`, `LiveDataSnapshot`, `LiveDataReadingCurrent` tables, `LiveDataController`, `LiveDataAgentController`, and `LiveDataSessionService` are **not** part of this sub-phase |
+
+**Regression check**
+
+Full backend test suite: **188/188 green** (was 126 before Phase B.1; +62 net new). Feature 004 scan flow and Feature 005 enrichment flow continue to pass.
+
+**Out of Phase B.1 scope (per the implement command's explicit "Do NOT" list)**
+
+- `LiveDataSession` / `LiveDataSnapshot` / `LiveDataReadingCurrent` tables
+- `LiveDataController` / `LiveDataAgentController`
+- Agent command-queue endpoints (`/v2/obd/agents/:id/command-queue`, `/live-cycles`, `/live-discovery`)
+- `LiveDataSessionService`, `LiveDataPollService`, `LiveDataSnapshotService`, `PidDiscoveryService`, `CadenceService`
+- Live polling, snapshot capture, dashboard UI, graphing, trend analysis
+- AI analysis, reports, PrioraFlow integration
+- WebSockets / SSE
+
+These land in Phase B.2+ (US3, US4, US5, US6 in `tasks.md`).
+
 ## Out of Scope (Reaffirmed)
 
 Feature 006 explicitly does **NOT** include:
@@ -606,3 +661,4 @@ Feature 006 explicitly does **NOT** include:
 - ECU topology & control unit scan (D-19, future feature)
 - Generic scripting in the formula engine (Correction 5: restricted grammar only)
 - User-defined PID formulas (Correction 5)
+

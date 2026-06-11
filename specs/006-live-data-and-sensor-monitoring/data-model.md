@@ -90,7 +90,8 @@ Definition of an OBD-II PID, including its decode formula, unit, and valid range
 | Field | Type | Constraints | Description |
 |---|---|---|---|
 | `id` | UUID | PK | Unique row identifier |
-| `model` | VarChar(20) | NOT NULL | Identifier of the model family: `'STD_OBD2'` for standard OBD-II Mode 01 PIDs; `'GME'` for GM-Extended Mode 22 PIDs |
+| `namespace` | VarChar(20) | NOT NULL | PID namespace/source family: `'STD_OBD2'` for standard OBD-II PIDs; `'GME'` for GM-Extended PIDs |
+| `mode` | VarChar(2) | NOT NULL | OBD service/mode, e.g. `'01'` or `'22'` |
 | `pid` | VarChar(8) | NOT NULL | Hex PID, e.g., `0C` (Mode 01) or `221108` (Mode 22) |
 | `name` | VarChar(100) | NOT NULL | Human-readable name (e.g., `'Engine RPM'`) |
 | `unit` | VarChar(20) | NOT NULL | Unit string (e.g., `'RPM'`, `'%'`, `'°C'`, `'V'`, `'g/s'`) |
@@ -102,11 +103,13 @@ Definition of an OBD-II PID, including its decode formula, unit, and valid range
 | `updatedAt` | Timestamp | NOT NULL, auto-update | |
 
 **Indexes**:
-- `(model, pid)` (unique)
+- `(namespace, mode, pid)` (unique)
+- `mode`
+- `namespace`
 
 **Notes**:
-- The MVP set is 11 rows with `model = 'STD_OBD2'` (Mode 01 PIDs: `0C`, `0D`, `05`, `42`, `11`, `04`, `06`, `07`, `10`, `0F`, `14`).
-- The asset import contributes up to 127 rows with `model = 'GME'` (Mode 22 PIDs starting with `22`).
+- The MVP set is 11 rows with `namespace = 'STD_OBD2'` and `mode = '01'` (PIDs: `0C`, `0D`, `05`, `42`, `11`, `04`, `06`, `07`, `10`, `0F`, `14`).
+- The asset import contributes up to 127 rows with `namespace = 'GME'` and `mode = '22'` (PIDs starting with `22`).
 - The formula is interpreted by a small vetted expression evaluator; arbitrary `eval` is forbidden. The evaluator supports: `A`, `B`, integer literals, `+`, `-`, `*`, `/`, `(`, `)`. Whitespace is ignored.
 
 ---
@@ -231,7 +234,7 @@ Values: `'built-in-mvp'`, `'model-pids-sqlite'`, (future: `'oem-extension'`, `'u
 
 ### `pid-mvp-seed.ts`
 
-A TypeScript file that ships with the backend. Run via `npm run seed:pid-mvp`. The seed inserts the 11 standard OBD-II Mode 01 PIDs in the MVP set (with `model = 'STD_OBD2'`, `source = 'built-in-mvp'`). Idempotent: re-running the seed updates existing rows by `(model, pid)`.
+A TypeScript file that ships with the backend. Run via `npm run seed:pid-mvp`. The seed inserts the 11 standard OBD-II Mode 01 PIDs in the MVP set (with `namespace = 'STD_OBD2'`, `mode = '01'`, `source = 'built-in-mvp'`). Idempotent: re-running the seed updates existing rows by `(namespace, mode, pid)`.
 
 | PID  | Name | Unit | Formula | Min | Max |
 |------|------|------|---------|-----|-----|
@@ -249,7 +252,7 @@ A TypeScript file that ships with the backend. Run via `npm run seed:pid-mvp`. T
 
 ### `model-pids-asset-import.ts` (first-use hook)
 
-A startup hook in `VpicAssetService`-adjacent code that opens `backend/data/model-pids.sqlite` read-only, selects `(model, pid, equation, unit, description)`, and upserts each row into `PIDDefinition` keyed by `(model, pid)`. Sets `source = 'model-pids-sqlite'`. Idempotent. The `equation` column maps to `formula`; the `description` column maps to `name`. The MVP does not enforce `min`/`max` for asset-derived rows (they are null).
+A startup hook in `VpicAssetService`-adjacent code that opens `backend/data/model-pids.sqlite` read-only, selects `(model, pid, equation, unit, description)`, and upserts each row into `PIDDefinition` keyed by `(namespace, mode, pid)`. The source asset's `model` column maps to `namespace`; GM asset rows use `mode = '22'`. Sets `source = 'model-pids-sqlite'`. Idempotent. The `equation` column maps to `formula`; the `description` column maps to `name`. The MVP does not enforce `min`/`max` for asset-derived rows (they are null).
 
 ---
 
@@ -264,7 +267,7 @@ A startup hook in `VpicAssetService`-adjacent code that opens `backend/data/mode
 ### Phase B: `20260615_add_live_data`
 
 1. `CREATE TYPE "LiveDataSessionStatus" AS ENUM ('ACTIVE', 'STOPPED', 'STALE');`
-2. `CREATE TABLE "PIDDefinition" (`id` UUID PK, `model` VARCHAR(20) NOT NULL, `pid` VARCHAR(8) NOT NULL, `name` VARCHAR(100) NOT NULL, `unit` VARCHAR(20) NOT NULL, `formula` VARCHAR(200) NOT NULL, `min` DECIMAL(10,3) NULL, `max` DECIMAL(10,3) NULL, `source` VARCHAR(50) NOT NULL, `createdAt` TIMESTAMP NOT NULL DEFAULT now, `updatedAt` TIMESTAMP NOT NULL DEFAULT now, UNIQUE(`model`, `pid`));`
+2. `CREATE TABLE "PIDDefinition" (`id` UUID PK, `namespace` VARCHAR(20) NOT NULL, `mode` VARCHAR(2) NOT NULL, `pid` VARCHAR(8) NOT NULL, `name` VARCHAR(100) NOT NULL, `unit` VARCHAR(20) NOT NULL, `formula` VARCHAR(200) NOT NULL, `min` DECIMAL(10,3) NULL, `max` DECIMAL(10,3) NULL, `source` VARCHAR(50) NOT NULL, `createdAt` TIMESTAMP NOT NULL DEFAULT now, `updatedAt` TIMESTAMP NOT NULL DEFAULT now, UNIQUE(`namespace`, `mode`, `pid`));`
 3. `CREATE TABLE "LiveDataSession" (`id` UUID PK, `organizationId` UUID NOT NULL, `diagnosticSessionId` UUID NOT NULL, `agentId` UUID NOT NULL, `status` "LiveDataSessionStatus" NOT NULL DEFAULT 'ACTIVE', `supportedPidMask` JSONB NULL, `cadenceMs` INTEGER NOT NULL DEFAULT 1000, `startedAt` TIMESTAMP NOT NULL DEFAULT now, `lastPolledAt` TIMESTAMP NULL, `endedAt` TIMESTAMP NULL, `createdAt` TIMESTAMP NOT NULL DEFAULT now, `updatedAt` TIMESTAMP NOT NULL DEFAULT now);`
 4. `CREATE TABLE "LiveDataSnapshot" (`id` UUID PK, `organizationId` UUID NOT NULL, `diagnosticSessionId` UUID NOT NULL, `liveDataSessionId` UUID NOT NULL, `capturedAt` TIMESTAMP NOT NULL DEFAULT now, `createdBy` UUID NOT NULL, `values` JSONB NOT NULL, `createdAt` TIMESTAMP NOT NULL DEFAULT now);` — Correction 2: snapshot values are stored as a single JSONB column. No `LiveDataReading` table.
 5. `CREATE TABLE "LiveDataReadingCurrent" (`id` UUID PK, `organizationId` UUID NOT NULL, `liveDataSessionId` UUID NOT NULL, `pid` VARCHAR(8) NOT NULL, `name` VARCHAR(100) NOT NULL, `value` DECIMAL(12,4) NULL, `unit` VARCHAR(20) NOT NULL, `rawValue` VARCHAR(100) NOT NULL, `errorCode` VARCHAR(20) NULL, `updatedAt` TIMESTAMP NOT NULL DEFAULT now, UNIQUE(`liveDataSessionId`, `pid`));` — read-model for the dashboard.
@@ -336,8 +339,9 @@ Hierarchy (Correction 1):
 | `Vehicle` | `engine` | 0–100 characters (VarChar 100) |
 | `Vehicle` | `bodyStyle` | 0–100 characters (VarChar 100) |
 | `VehicleDecode` | `vin` | 17 characters, `[A-HJ-NPR-Z0-9]{17}`, uppercase, **UNIQUE**, **GLOBAL** (no `organizationId`) — Correction 6 |
-| `PIDDefinition` | `model` | One of `'STD_OBD2'`, `'GME'`, or future values |
-| `PIDDefinition` | `pid` | Hex string; for `model = 'STD_OBD2'`, exactly 2 hex chars (e.g., `0C`); for `model = 'GME'`, exactly 6 hex chars (e.g., `221108`) |
+| `PIDDefinition` | `namespace` | One of `'STD_OBD2'`, `'GME'`, or future values |
+| `PIDDefinition` | `mode` | OBD mode such as `'01'` or `'22'` |
+| `PIDDefinition` | `pid` | Hex string; for `namespace = 'STD_OBD2'` and `mode = '01'`, exactly 2 hex chars (e.g., `0C`); for `namespace = 'GME'` and `mode = '22'`, currently 6 hex chars (e.g., `221108`) |
 | `PIDDefinition` | `formula` | Restrictive grammar (Correction 5 — see [pid-definition-contract.md](contracts/pid-definition-contract.md)): only `A`, `B`, integer literals, `+`, `-`, `*`, `/`, `(`, `)`. **No `eval`. No scripting. No user-defined formulas.** |
 | `LiveDataSession` | `cadenceMs` | 200–5000, **default 1000 (1 s)** — Correction 3. Clamped at the service layer. |
 | `LiveDataSession` | `diagnosticSessionId` | NOT NULL, FK → DiagnosticSession — Correction 1 |
@@ -351,3 +355,4 @@ Hierarchy (Correction 1):
 - `LiveDataSnapshot.organizationId` must equal its parent `DiagnosticSession.organizationId`.
 - `LiveDataSnapshot.diagnosticSessionId` must equal the `diagnosticSessionId` of its parent `LiveDataSession` (or the session's parent diagnostic session).
 - Snapshot cap: at most 50 `LiveDataSnapshot` rows per `DiagnosticSession` at any time (enforced at the service layer, not as a DB constraint).
+
