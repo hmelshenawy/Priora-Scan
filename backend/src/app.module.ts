@@ -7,6 +7,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
 import { AuthModule } from './auth/auth.module';
 import { DiagnosticSessionsModule } from './diagnostic-sessions/diagnostic-sessions.module';
 import { ObdModule } from './obd/obd.module';
+import { FaultCodesModule } from './fault-codes/fault-codes.module';
 import { securityConfig } from './config/security.config';
 
 @Module({
@@ -26,6 +27,7 @@ import { securityConfig } from './config/security.config';
     AuthModule,
     DiagnosticSessionsModule,
     ObdModule,
+    FaultCodesModule,
   ],
   providers: [PrismaService],
 })

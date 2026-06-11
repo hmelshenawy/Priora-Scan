@@ -13,9 +13,10 @@ import { SessionFaultCodeRepository } from './repositories/session-fault-code.re
 import { AdapterConnectionRepository } from './repositories/adapter-connection.repository';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
+import { FaultCodesModule } from '../fault-codes/fault-codes.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule],
+  imports: [PrismaModule, AuthModule, FaultCodesModule],
   controllers: [
     AgentPairingController,
     AgentWebhookController,

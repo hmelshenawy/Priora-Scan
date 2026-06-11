@@ -1,6 +1,7 @@
 'use client';
 
 import { useScanResults } from '../../hooks/useObdScan';
+import { EnrichedFaultCodeRow } from './EnrichedFaultCodeRow';
 
 interface FaultCodeListProps {
   scanJobId: string | null;
@@ -49,30 +50,7 @@ export function FaultCodeList({ scanJobId }: FaultCodeListProps) {
             <h3 className="text-sm font-semibold text-slate-700">{ecu}</h3>
             <ul className="mt-2 divide-y divide-slate-100">
               {codes.map((code) => (
-                <li
-                  key={code.id}
-                  className="flex items-center justify-between py-2"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-sm font-medium text-slate-700">
-                      {code.code}
-                    </span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        code.status === 'ACTIVE'
-                          ? 'bg-red-100 text-red-700'
-                          : code.status === 'PENDING'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      {code.status}
-                    </span>
-                  </div>
-                  <span className="text-xs text-slate-400">
-                    {new Date(code.importedAt).toLocaleString()}
-                  </span>
-                </li>
+                <EnrichedFaultCodeRow key={code.id} code={code} />
               ))}
             </ul>
           </div>

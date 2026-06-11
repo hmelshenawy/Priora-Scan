@@ -4,8 +4,8 @@ const configuredOrigins =
 export const securityConfig = {
   jwt: {
     secret: process.env.JWT_SECRET || 'dev-secret-change-me',
-    accessTokenExpiry: '15m',
-    refreshTokenExpiry: '7d',
+    accessTokenExpiry: '15m' as const,
+    refreshTokenExpiry: '7d' as const,
   },
   cookies: {
     accessToken: {

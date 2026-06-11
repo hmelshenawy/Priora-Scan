@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Inject,
   NotFoundException,
   Param,
   Post,
@@ -20,6 +21,10 @@ import { AuthGuard } from '../../guards/auth.guard';
 import { TenantGuard } from '../../guards/tenant.guard';
 import { RbacGuard } from '../../guards/rbac.guard';
 import { Permissions } from '../../decorators/permissions.decorator';
+import {
+  FAULT_CODE_ENRICHMENT,
+  FaultCodeEnrichment,
+} from '../../fault-codes/services/fault-code-enrichment.service';
 
 @Controller('obd/scans')
 @UseGuards(AuthGuard, TenantGuard, RbacGuard)
@@ -28,6 +33,8 @@ export class ObdScanController {
     private scanService: ObdScanService,
     private scanJobRepository: ScanJobRepository,
     private faultCodeRepository: SessionFaultCodeRepository,
+    @Inject(FAULT_CODE_ENRICHMENT)
+    private faultCodeEnrichment: FaultCodeEnrichment,
   ) {}
 
   @Post()
@@ -109,7 +116,7 @@ export class ObdScanController {
       id,
       organizationId,
     );
-    return { data: codes };
+    return { data: await this.enrichFaultCodes(codes) };
   }
 
   @Get('sessions/:id/results')
@@ -120,6 +127,21 @@ export class ObdScanController {
       id,
       organizationId,
     );
-    return { data: codes };
+    return { data: await this.enrichFaultCodes(codes) };
+  }
+
+  private async enrichFaultCodes<T extends { code: string; status: string }>(
+    codes: T[],
+  ) {
+    const enriched = await this.faultCodeEnrichment.enrichMany(codes);
+    return codes.map((code) => {
+      const normalizedCode = code.code.toUpperCase();
+      const enrichment = enriched.get(normalizedCode);
+      return {
+        ...code,
+        ...(enrichment ?? {}),
+        code: normalizedCode,
+      };
+    });
   }
 }

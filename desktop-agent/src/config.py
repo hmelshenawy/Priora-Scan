@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 load_dotenv(ENV_PATH)
 
-PRIORASCAN_API_URL = os.getenv("PRIORASCAN_API_URL", "http://localhost:3000")
+PRIORASCAN_API_URL = os.getenv("PRIORASCAN_API_URL", "http://localhost:3101")
+API_TIMEOUT_SECONDS = float(os.getenv("API_TIMEOUT_SECONDS", "10"))
 AGENT_ID = os.getenv("AGENT_ID")
 AGENT_ACCESS_TOKEN = os.getenv("AGENT_ACCESS_TOKEN")
 AGENT_NAME = os.getenv("AGENT_NAME", "Desktop Agent")

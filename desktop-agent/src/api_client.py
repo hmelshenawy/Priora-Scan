@@ -1,6 +1,6 @@
 import time
 import httpx
-from src.config import PRIORASCAN_API_URL
+from src.config import API_TIMEOUT_SECONDS, PRIORASCAN_API_URL
 
 class ApiClient:
     def __init__(self):
@@ -24,7 +24,11 @@ class ApiClient:
         for attempt in range(retries):
             try:
                 response = httpx.request(
-                    method, url, headers=self._headers(), timeout=30, **kwargs
+                    method,
+                    url,
+                    headers=self._headers(),
+                    timeout=API_TIMEOUT_SECONDS,
+                    **kwargs,
                 )
                 if response.status_code == 429:
                     time.sleep(2 ** attempt)
@@ -40,10 +44,11 @@ class ApiClient:
                     f"{e.response.text}"
                 )
                 raise
-            except httpx.RequestError:
+            except httpx.RequestError as e:
                 if attempt < retries - 1:
                     time.sleep(1)
                     continue
+                print(f"Request failed {method} {url}: {e}")
                 raise
         return None
 

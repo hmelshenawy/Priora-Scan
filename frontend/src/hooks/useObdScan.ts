@@ -36,6 +36,18 @@ export interface FaultCode {
   ecu?: string;
   source: string;
   importedAt: string;
+  // Feature 005 enrichment (optional — server attaches when the
+  // MasterFaultCode table is populated, or returns the unknown
+  // fallback shape when the code is not in the knowledge base).
+  title?: string | null;
+  description?: string | null;
+  system?: string;
+  severity?: string;
+  commonCauses?: string[];
+  recommendedChecks?: string[];
+  isGeneric?: boolean;
+  manufacturer?: string | null;
+  hasDescription?: boolean;
 }
 
 export interface ConfirmVehicleInput {

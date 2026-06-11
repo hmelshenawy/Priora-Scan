@@ -211,3 +211,37 @@ enum FaultCodeStatus {
   PENDING
   PERMANENT
 }
+
+model MasterFaultCode {
+  id                String           @id @default(uuid()) @db.Uuid
+  code              String           @unique @db.VarChar(10)
+  title             String?          @db.VarChar(500)
+  description       String?          @db.VarChar(2000)
+  system            FaultCodeSystem  @default(UNKNOWN)
+  severity          FaultSeverity    @default(UNKNOWN)
+  commonCauses      Json?
+  recommendedChecks Json?
+  source            String           @db.VarChar(50)
+  manufacturer      String?          @db.VarChar(100)
+  isGeneric         Boolean          @default(true)
+  createdAt         DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime         @updatedAt @db.Timestamptz(6)
+
+  @@index([code])
+}
+
+enum FaultSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+  UNKNOWN
+}
+
+enum FaultCodeSystem {
+  POWERTRAIN
+  BODY
+  CHASSIS
+  NETWORK
+  UNKNOWN
+}

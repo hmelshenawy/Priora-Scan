@@ -56,6 +56,10 @@ function redirectToLogin() {
   }
 }
 
+function isLoginRoute() {
+  return typeof window !== 'undefined' && window.location.pathname === '/login';
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -69,7 +73,11 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isLoginRoute()
+    ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           addRefreshSubscriber(

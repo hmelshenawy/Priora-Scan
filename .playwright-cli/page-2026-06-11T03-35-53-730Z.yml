@@ -1,0 +1,18 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e17]
+  - generic [ref=e18]:
+    - generic [ref=e19]:
+      - generic [ref=e20]:
+        - heading "Vehicles" [level=1] [ref=e21]
+        - paragraph [ref=e22]: Manage vehicles in your workshop.
+      - link "Create Vehicle" [ref=e23] [cursor=pointer]:
+        - /url: /vehicles/new
+    - generic [ref=e24]:
+      - textbox "Search..." [ref=e25]
+      - textbox "Make" [ref=e26]
+      - textbox "Model" [ref=e27]
+      - spinbutton [ref=e28]
+      - generic [ref=e29]:
+        - button "Search" [ref=e30] [cursor=pointer]
+        - button "Reset" [ref=e31] [cursor=pointer]
+    - paragraph [ref=e32]: Loading vehicles...
