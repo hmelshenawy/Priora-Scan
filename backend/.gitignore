@@ -32,3 +32,6 @@ Thumbs.db
 # Misc
 *.tmp
 *.temp
+
+# Feature 006 — VPIC asset decompression (Feature 006 Phase A)
+data/_runtime/

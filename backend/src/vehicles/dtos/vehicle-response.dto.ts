@@ -8,6 +8,8 @@ export class VehicleResponseDto {
   year: number;
   vin: string | null;
   plateNumber: string | null;
+  engine: string | null;
+  bodyStyle: string | null;
   createdAt: Date;
   updatedAt: Date;
 
@@ -20,6 +22,8 @@ export class VehicleResponseDto {
     dto.year = entity.year;
     dto.vin = entity.vin ?? null;
     dto.plateNumber = entity.plateNumber ?? null;
+    dto.engine = entity.engine ?? null;
+    dto.bodyStyle = entity.bodyStyle ?? null;
     dto.createdAt = entity.createdAt;
     dto.updatedAt = entity.updatedAt;
     return dto;

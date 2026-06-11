@@ -31,6 +31,8 @@ export class VehicleService {
           year: dto.year,
           vin: dto.vin ?? null,
           plateNumber: dto.plateNumber ?? null,
+          engine: dto.engine ?? null,
+          bodyStyle: dto.bodyStyle ?? null,
         },
       });
 
@@ -46,6 +48,8 @@ export class VehicleService {
             year: created.year,
             vin: created.vin,
             plateNumber: created.plateNumber,
+            engine: created.engine,
+            bodyStyle: created.bodyStyle,
           },
         },
       });
@@ -128,6 +132,8 @@ export class VehicleService {
     if (dto.year !== undefined) updateData.year = dto.year;
     if (dto.vin !== undefined) updateData.vin = dto.vin;
     if (dto.plateNumber !== undefined) updateData.plateNumber = dto.plateNumber;
+    if (dto.engine !== undefined) updateData.engine = dto.engine;
+    if (dto.bodyStyle !== undefined) updateData.bodyStyle = dto.bodyStyle;
 
     const vehicle = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.vehicle.update({
@@ -148,6 +154,8 @@ export class VehicleService {
               year: existing.year,
               vin: existing.vin,
               plateNumber: existing.plateNumber,
+              engine: existing.engine,
+              bodyStyle: existing.bodyStyle,
             },
             current: {
               make: updated.make,
@@ -155,6 +163,8 @@ export class VehicleService {
               year: updated.year,
               vin: updated.vin,
               plateNumber: updated.plateNumber,
+              engine: updated.engine,
+              bodyStyle: updated.bodyStyle,
             },
           },
         },

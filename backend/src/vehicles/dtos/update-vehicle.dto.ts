@@ -43,4 +43,16 @@ export class UpdateVehicleDto {
   @IsNotEmpty()
   @Length(1, 20)
   plateNumber?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @Length(1, 100)
+  engine?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @Length(1, 100)
+  bodyStyle?: string | null;
 }

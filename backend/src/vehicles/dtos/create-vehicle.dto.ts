@@ -40,4 +40,16 @@ export class CreateVehicleDto {
   @IsNotEmpty()
   @Length(1, 20)
   plateNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @Length(1, 100)
+  engine?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @Length(1, 100)
+  bodyStyle?: string;
 }

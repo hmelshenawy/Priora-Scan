@@ -17,8 +17,23 @@ export interface Vehicle {
   year: number;
   vin: string | null;
   plateNumber: string | null;
+  engine: string | null;
+  bodyStyle: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface VehicleDecodeResult {
+  vin: string;
+  make: string | null;
+  model: string | null;
+  year: number | null;
+  engine: string | null;
+  bodyStyle: string | null;
+  manufacturer: string | null;
+  source: string;
+  decodedAt: string;
+  cacheHit: boolean;
 }
 
 export interface PaginationMeta {
@@ -77,6 +92,23 @@ async function fetchVehicles(filters: VehicleFilters = {}): Promise<PaginatedVeh
 async function fetchVehicle(id: string): Promise<Vehicle> {
   const response = await apiClient.get<Vehicle>(`/api/v1/vehicles/${id}`);
   return response.data;
+}
+
+async function decodeVin(vin: string): Promise<VehicleDecodeResult> {
+  const response = await apiClient.get<VehicleDecodeResult>(
+    `/api/v1/vehicles/decode`,
+    { params: { vin } },
+  );
+  return response.data;
+}
+
+export function useVinDecode(vin: string | null) {
+  return useQuery({
+    queryKey: ['vehicle-decode', vin],
+    queryFn: () => decodeVin(vin as string),
+    enabled: !!vin && vin.length >= 3 && vin.length <= 25,
+    retry: false,
+  });
 }
 
 export function useCreateVehicle() {

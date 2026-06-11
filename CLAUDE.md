@@ -2,7 +2,7 @@
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
 
-`specs/004-obd-foundation/plan.md`
+`specs/006-live-data-and-sensor-monitoring/plan.md`
 
 # PrioraScan AI Agent Instructions
 

@@ -15,6 +15,8 @@ model Vehicle {
   year           Int
   vin            String?  @db.VarChar(25)
   plateNumber    String?  @db.VarChar(20)
+  engine         String?  @db.VarChar(100)
+  bodyStyle      String?  @db.VarChar(100)
   createdAt      DateTime @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime @updatedAt @db.Timestamptz(6)
   scanJobs       ScanJob[]
@@ -22,6 +24,24 @@ model Vehicle {
   @@index([organizationId])
   @@index([organizationId, make, model, year, vin, plateNumber])
   @@index([organizationId, createdAt(sort: Desc)])
+}
+
+/// Global, non-tenant-scoped cache of VIN → decoded vehicle metadata.
+/// A single VIN is shared across all organizations (Correction 6).
+model VehicleDecode {
+  id            String   @id @default(uuid()) @db.Uuid
+  vin           String   @unique @db.VarChar(25)
+  make          String?  @db.VarChar(100)
+  model         String?  @db.VarChar(100)
+  year          Int?
+  engine        String?  @db.VarChar(100)
+  bodyStyle     String?  @db.VarChar(100)
+  manufacturer  String?  @db.VarChar(100)
+  source        String   @default("vpic-asset") @db.VarChar(50)
+  decodedAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([vin])
 }
 
 model VehicleAuditRecord {

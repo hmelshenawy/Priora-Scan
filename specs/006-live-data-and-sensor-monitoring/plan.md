@@ -1,0 +1,608 @@
+# Implementation Plan: Live Data & Sensor Monitoring
+
+**Feature Branch**: `007-live-data-sensor-monitoring`
+**Date**: 2026-06-11
+**Spec**: [specs/006-live-data-and-sensor-monitoring/spec.md](spec.md)
+**Plan**: This document
+**Research**: [specs/006-live-data-and-sensor-monitoring/research.md](research.md)
+**Data Model**: [specs/006-live-data-and-sensor-monitoring/data-model.md](data-model.md)
+**Contracts**:
+- [contracts/vin-decode-contract.md](contracts/vin-decode-contract.md)
+- [contracts/live-data-contract.md](contracts/live-data-contract.md)
+- [contracts/live-data-agent-contract.md](contracts/live-data-agent-contract.md)
+- [contracts/pid-definition-contract.md](contracts/pid-definition-contract.md)
+**Constitution**: `.specify/memory/constitution.md` v1.0.0
+
+## Summary
+
+Feature 006 introduces PrioraScan's first true diagnostic telemetry capability on top of the Feature 004 OBD foundation. It is delivered in two phases. **Phase A — VIN Intelligence** adds `Vehicle.engine` and `Vehicle.bodyStyle` columns, a new global `VehicleDecode` cache, and `GET /vehicles/decode?vin=…` which decodes a VIN against the local `backend/data/vpic.sqlite.xz` asset, caches the result, writes a `VIN_DECODED_FROM_ASSET` audit, and pre-fills the New Vehicle form. The cache is **global** (no `organizationId`) with `vin UNIQUE` — a single row per VIN, shared across all tenants (Correction 6). No external network calls are made at runtime.
+
+**Phase B — Live Data & Sensor Monitoring** adds `PIDDefinition` (global), `LiveDataSession` (child of `DiagnosticSession` — Correction 1), `LiveDataSnapshot` (with a JSONB `values` column — Correction 2, no separate `LiveDataReading` table), and the `LiveDataReadingCurrent` read-model. The Desktop Agent is extended with a `/v2/obd/agents/:id/command-queue` probe, a `LIVE_DATA_POLL` command, a poll cycle push, and a PID discovery command. The MVP polls 11 standard SAE J1979 PIDs at a **default cadence of 1 s (1000 ms)** (Correction 3), configurable in `[200, 5000]` ms. Snapshots are point-in-time captures stored in JSONB, capped at 50 per diagnostic session (oldest evicted). All persistence is tenant-scoped via the existing `DiagnosticSession` policy; no new permission is introduced.
+
+## Technical Context
+
+- **Backend**: NestJS 10+ (TypeScript), Prisma 5+, PostgreSQL 15+
+- **Frontend**: Next.js 14+ (App Router), TypeScript, TailwindCSS, shadcn/ui, TanStack Query, React Hook Form, Zod, Axios
+- **Desktop Agent**: Python 3.11+, pyserial 3.5+, bleak 0.21+ (Bluetooth fallback), pytest 7+
+- **Local assets**: `backend/data/vpic.sqlite.xz` (~67 MB), `backend/data/model-pids.sqlite` (~24 KB), `backend/data/code-descriptions.sqlite` (Feature 005)
+- **Reference runtime**: decompressed `backend/data/_runtime/vpic.sqlite` (git-ignored, opened read-only)
+- **Testing**: Jest + Supertest (backend), Jest + React Testing Library + Playwright (frontend), pytest (agent)
+- **Targets**: web application at `http://localhost:3000`, NestJS API at `http://localhost:3000`, Desktop Agent binary on a workshop laptop. Single workshop, ≤ 5 concurrent polling sessions, MVP scale.
+- **Performance goals**:
+  - VIN decode: p95 < 100 ms cache hit, p95 < 1 s cold (asset lookup + cache write + audit).
+  - Live data read: p95 < 100 ms (`GET /live-data/current`).
+  - Snapshot write: p95 < 500 ms (insert + audit + possible eviction).
+  - Decode per PID: p95 < 1 ms; bulk decode (11 PIDs): p95 < 10 ms.
+- **Backward compatibility**: Feature 004's `/obd/agents/:id/scan-queue`, `/scan-events`, `/heartbeat` and Feature 005's enrichment endpoints are unchanged. The new agent endpoints live under `/v2/obd/agents/:id/...`.
+
+## Constitution Check
+
+| # | Gate | Status | Justification |
+|---|---|---|---|
+| 1 | Documentation First | PASS | Plan references `docs/PRD.md`, `docs/SAD.md`, `docs/FRONTEND_ARCHITECTURE.md`; the new page in the Next.js app reuses the existing `sessions/[id]` layout. |
+| 2 | Layered Architecture | PASS | New code follows the existing Controller → Service → Repository pattern in `backend/src/`. No layer leakage. |
+| 3 | Multi-Tenant First | PASS | All tenant-scoped entities carry `organizationId`. `VehicleDecode` and `PIDDefinition` are explicitly global reference data per the constitution. |
+| 4 | API First | PASS | All seven web endpoints and three agent endpoints are versioned and contract-first in `contracts/`. |
+| 5 | Auditability | PASS | Five new audit actions are written through the existing `DiagnosticSessionAuditRecord` table. |
+| 6 | Git Safety | PASS | Both migrations are additive; Feature 004/005 contracts are preserved. |
+
+## Project Structure
+
+```
+Priora Scan/
+├── backend/                                 # NestJS 10+ / Prisma 5+
+│   ├── prisma/
+│   │   ├── schema.prisma                    # + VehicleDecode, PIDDefinition, LiveDataSession, LiveDataSnapshot, LiveDataReadingCurrent
+│   │   ├── migrations/
+│   │   │   ├── 20260611_add_vin_intelligence/
+│   │   │   └── 20260615_add_live_data/
+│   │   └── seed/
+│   │       ├── pid-mvp-seed.ts              # 11 standard OBD-II Mode 01 PIDs
+│   │       └── model-pids-asset-import.ts   # imports 127 GM Mode 22 rows
+│   ├── src/
+│   │   ├── vehicles/                        # existing; add decode controller + service
+│   │   │   ├── controllers/vehicles.controller.ts        # + GET /vehicles/decode
+│   │   │   ├── services/vpic-decode.service.ts           # NEW
+│   │   │   ├── services/vehicle-decode.service.ts        # NEW (cache wrapper)
+│   │   │   ├── repositories/vehicle-decode.repository.ts # NEW
+│   │   │   └── dtos/vehicle-decode.dto.ts                # NEW
+│   │   ├── live-data/                       # NEW module
+│   │   │   ├── live-data.module.ts
+│   │   │   ├── controllers/live-data.controller.ts
+│   │   │   ├── controllers/live-data-agent.controller.ts
+│   │   │   ├── services/live-data-session.service.ts
+│   │   │   ├── services/live-data-snapshot.service.ts
+│   │   │   ├── services/live-data-poll.service.ts
+│   │   │   ├── services/pid-decoder.service.ts
+│   │   │   ├── services/pid-formula-parser.service.ts    # restricted grammar (Correction 5)
+│   │   │   ├── services/pid-discovery.service.ts
+│   │   │   ├── services/cadence.service.ts               # clamp to [200,5000], default 1000
+│   │   │   ├── repositories/live-data-session.repository.ts
+│   │   │   ├── repositories/live-data-snapshot.repository.ts
+│   │   │   ├── repositories/live-data-reading-current.repository.ts
+│   │   │   ├── repositories/pid-definition.repository.ts
+│   │   │   └── dtos/
+│   │   ├── obd/                             # extended with /v2/... agent endpoints
+│   │   │   ├── controllers/command-queue-v2.controller.ts
+│   │   │   └── services/command-queue.service.ts
+│   │   ├── diagnostic-sessions/             # extended with liveDataSessions/Snapshots relations
+│   │   ├── audit/                           # existing; reused for new actions
+│   │   ├── config/                          # add LiveDataConfig, VpicConfig
+│   │   └── prisma/prisma.service.ts
+│   ├── data/
+│   │   ├── vpic.sqlite.xz
+│   │   ├── model-pids.sqlite
+│   │   └── _runtime/vpic.sqlite             # git-ignored; generated on first start
+│   └── test/
+│       ├── fixtures/vpic-fixture.sqlite     # 10–20 known VINs
+│       └── fixtures/seed-pids.json
+│
+├── frontend/                                # Next.js 14+ App Router
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── (authed)/
+│   │   │   │   ├── vehicles/new/page.tsx                # extended: Decode VIN button + auto-fill
+│   │   │   │   ├── sessions/[id]/live-data/page.tsx     # NEW
+│   │   │   │   └── sessions/[id]/page.tsx               # extended: Snapshots section
+│   │   ├── components/
+│   │   │   ├── live-data/LiveDataDashboard.tsx          # NEW
+│   │   │   ├── live-data/PidRow.tsx                     # NEW
+│   │   │   ├── live-data/SnapshotButton.tsx             # NEW
+│   │   │   ├── live-data/AdapterOfflineBanner.tsx       # NEW
+│   │   │   ├── live-data/SnapshotsList.tsx              # NEW
+│   │   │   ├── live-data/DiscoveryButton.tsx            # NEW
+│   │   │   └── live-data/CadenceSelector.tsx            # NEW
+│   │   ├── hooks/
+│   │   │   ├── useLiveDataPolling.ts                    # NEW (1s default; uses returned cadenceMs)
+│   │   │   └── useVinDecode.ts                          # NEW
+│   │   ├── lib/api/
+│   │   │   ├── live-data.client.ts                      # NEW
+│   │   │   └── vehicle-decode.client.ts                 # NEW
+│   │   └── types/live-data.types.ts                     # NEW
+│   └── tests/e2e/live-data.spec.ts                      # NEW
+│
+├── desktop-agent/                           # Python 3.11+
+│   ├── src/
+│   │   ├── obd/
+│   │   │   ├── commands/
+│   │   │   │   ├── pid.py                # NEW
+│   │   │   │   ├── pid_discovery.py      # NEW
+│   │   │   │   └── vin.py                # existing
+│   │   │   ├── poll.py                   # NEW (cadence loop; respects returned cadenceMs)
+│   │   │   ├── adapter.py                # existing
+│   │   │   └── elm327.py                 # existing
+│   │   ├── live_data_client.py           # NEW
+│   │   ├── command_queue.py              # MODIFIED — probe v2 first, fallback v1
+│   │   ├── api_client.py                 # existing
+│   │   ├── pairing.py                    # existing
+│   │   └── main.py
+│   └── tests/
+│       ├── test_pid_decoder.py           # NEW
+│       ├── test_poll_loop.py             # NEW
+│       └── test_live_data_client.py      # NEW
+│
+├── specs/
+│   └── 006-live-data-and-sensor-monitoring/
+│       ├── spec.md
+│       ├── research.md
+│       ├── data-model.md
+│       ├── plan.md                        # this file
+│       ├── quickstart.md
+│       ├── tasks.md
+│       └── contracts/
+│           ├── vin-decode-contract.md
+│           ├── live-data-contract.md
+│           ├── live-data-agent-contract.md
+│           └── pid-definition-contract.md
+│
+├── docs/
+│   ├── PRD.md
+│   ├── SAD.md
+│   ├── FRONTEND_ARCHITECTURE.md
+│   └── ops/data-assets.md
+│
+└── .specify/memory/constitution.md
+```
+
+## Phase A — VIN Intelligence
+
+### Phase A.1 — Setup
+
+- Verify `backend/data/vpic.sqlite.xz` and `backend/data/model-pids.sqlite` are present; document the canonical paths in `docs/ops/data-assets.md`.
+- Add npm scripts: `seed:pid-mvp`, `seed:pid-definitions` (Phase B only; included now for one-step boot).
+- Install `lzma-native` (or use `xz -d` subprocess) for VPIC asset decompression.
+
+### Phase A.2 — Foundational
+
+- Migration `20260611_add_vin_intelligence` adds `Vehicle.engine`, `Vehicle.bodyStyle`, and the global `VehicleDecode` table.
+- New services: `VpicAssetService` (open read-only SQLite handle from decompressed asset), `VpicDecodeService` (WMI → schema → pattern → element resolution), `VehicleDecodeService` (cache-aside wrapper around the asset).
+- New module wiring: register `VpicAssetService` as a long-lived provider in `VehiclesModule` with `OnModuleInit` lazy-init.
+- Audit wiring: `VIN_DECODED_FROM_ASSET` is written by the `DiagnosticSessionAuditService` (existing) inside the same Prisma `$transaction` as the cache insert/update.
+
+### Phase A.3 — US1 — Decode endpoint, vehicle form, audit
+
+- `GET /vehicles/decode?vin=…` — Controller validates VIN format, delegates to `VehicleDecodeService.decode(vin)`, returns the payload. Writes audit. Performance: cache hit < 100 ms p95, cache miss < 1 s p95.
+- New Vehicle form — `useVinDecode` hook debounces the VIN input, calls the endpoint, pre-fills Make/Model/Year/Engine/Body. Form is editable; edited values are persisted.
+- Vehicle Confirm modal (post-scan) — reuses the same hook; shows decoded values alongside the technician's edits.
+
+### Phase A — Acceptance Criteria
+
+- **Phase A-AC-1**: `GET /vehicles/decode?vin={known}` returns 200 with `make/model/year/engine/bodyStyle/manufacturer`.
+- **Phase A-AC-2**: A second call with the same VIN returns the same payload with `cached: true` in < 100 ms p95.
+- **Phase A-AC-3**: Malformed VIN returns 400 with `INVALID_VIN`.
+- **Phase A-AC-4**: A VIN not in the asset returns 200 with all-null fields (the form stays blank and accepts manual entry).
+- **Phase A-AC-5**: The New Vehicle form pre-fills on a known VIN; user-edited values persist on confirm.
+- **Phase A-AC-6**: Every successful decode writes a `DiagnosticSessionAuditRecord` with `action = 'VIN_DECODED_FROM_ASSET'`, tenant-scoped, immutable.
+- **Phase A-AC-7**: **Cross-tenant cache shared (Correction 6).** `VehicleDecode` is **global** (no `organizationId` column), and `vin` is `UNIQUE`. A single row exists per VIN regardless of which tenant performed the first decode. A user in tenant A who has decoded VIN `WDD2130041A123456` shares the cache with a user in tenant B who decodes the same VIN. Cross-tenant access is the **desired** behavior (see D-14).
+
+## Phase B — Live Data & Sensor Monitoring
+
+### Phase B.1 — Foundational
+
+- Migration `20260615_add_live_data` creates `PIDDefinition`, `LiveDataSession`, `LiveDataSnapshot` (with JSONB `values` — Correction 2), and `LiveDataReadingCurrent`. Adds the new relations on `DiagnosticSession` (additive only). No `LiveDataReading` / `LiveDataSnapshotValue` table is created in the MVP.
+- **Architecture decision (D-13, Correction 1)**: `LiveDataSession` belongs to `DiagnosticSession` (one DiagnosticSession → many LiveDataSessions). The hierarchy is `DiagnosticSession → LiveDataSession → LiveDataSnapshot`. All live-data history stays attached to the originating `DiagnosticSession`. Both the `LiveDataSession.diagnosticSessionId` FK and the `LiveDataSnapshot.diagnosticSessionId` FK enforce this link explicitly so the 50-snapshot cap can be enforced per-diagnostic-session.
+- **Snapshot storage (D-13, Correction 2)**: `LiveDataSnapshot` stores values as a single **JSONB** column `values: Json` (e.g., `{"rpm": 850, "speed": 0, "coolantTemp": 92, "batteryVoltage": 13.9}` — keyed by hex PID in the persistence shape: `{"0C": { name, value, unit, rawValue }, ...}`). The MVP does **not** create a separate `LiveDataReading` / `LiveDataSnapshotValue` table. Fields on `LiveDataSnapshot`: `id`, `organizationId`, `diagnosticSessionId`, `liveDataSessionId`, `capturedAt`, `createdBy`, `values` (JSONB). The 50-snapshot cap is enforced against `LiveDataSnapshot` rows for a given `DiagnosticSession` (oldest evicted). `LiveDataReadingCurrent` remains a separate read-model table (one row per PID per session), used by the dashboard. Rationale: only 11 PIDs in MVP, simpler retention, no per-PID query need on historical snapshots.
+- `pid-mvp-seed.ts` ships the 11 standard SAE J1979 PIDs with `model = 'STD_OBD2'`, `source = 'built-in-mvp'`. Run on first start and via `npm run seed:pid-mvp`.
+- `model-pids-asset-import.ts` opens `model-pids.sqlite` read-only, upserts 127 GM Mode 22 rows with `source = 'model-pids-sqlite'`. Idempotent. Failure mode: missing asset is a no-op warning; the 11 built-in PIDs keep live data working.
+- `PidFormulaParserService` — a small recursive-descent parser implementing the **restricted grammar** in [contracts/pid-definition-contract.md](contracts/pid-definition-contract.md) (Correction 5). The parser validates formulas at seed-import time; any formula that does not match the grammar is rejected. The runtime evaluator uses the same parser; **no `eval`, no `new Function`, no scripting, no user-defined formulas, no variables other than `A` and `B`**. See "Formula engine scope" below.
+- `PidDecoderService.decode(model, pid, rawHex)` returns `{ pid, name, value, unit, rawValue, status, errorCode }`. Strips the Mode 01 response header (`41`), substitutes `A` and `B`, evaluates the formula. Per-PID status: `OK | NO_DATA | ERROR | NOT_SUPPORTED`.
+
+### Phase B.2 — US3 — Live dashboard, polling
+
+- `POST /sessions/:id/live-data/start` — `LiveDataSessionService.start({ diagnosticSessionId, agentId, cadenceMs, pids })` clamps `cadenceMs` to `[LIVE_DATA_MIN_CADENCE_MS, LIVE_DATA_MAX_CADENCE_MS]` (default **`LIVE_DATA_DEFAULT_CADENCE_MS = 1000`** — Correction 3), enqueues a `LIVE_DATA_POLL` command on the agent, returns 201 with the new (or resumed) session. Audit `LIVE_DATA_POLL_STARTED`. The clamped value is **persisted** on `LiveDataSession.cadenceMs` (the dashboard and the agent both use the persisted value, not the requested value).
+- `GET /sessions/:id/live-data/current` — `LiveDataReadingCurrentRepository.findBySession(id)` returns the most-recent per-PID reading map. The dashboard polls this at the returned `cadenceMs` (typically 1 s).
+- `POST /sessions/:id/live-data/stop` — `LiveDataSessionService.stop(id)` marks the session `STOPPED`, purges `LiveDataReadingCurrent` rows, returns 200. Audit `LIVE_DATA_POLL_STOPPED`.
+- Web app: `LiveDataDashboard` polls `current` at the configured cadence (default 1 s — the dashboard's `useLiveDataPolling` reads the cadence returned by the server on `Start`, not a hardcoded 1000 ms, so the dashboard's refresh is in lockstep with the agent's poll). `AdapterOfflineBanner` is shown when no cycle has arrived in > 30 s. The "Save Snapshot" button is disabled until at least one cycle has produced readings.
+
+### Phase B.3 — US4 — Snapshots
+
+- `POST /sessions/:id/live-data/snapshots` — `LiveDataSnapshotService.capture(id, userId)` reads the current `LiveDataReadingCurrent` rows, writes a new `LiveDataSnapshot` row whose `values` JSONB column contains the per-PID map. **Single Prisma `$transaction`** (D-18):
+  1. Count existing snapshots for the `diagnosticSessionId`.
+  2. If count ≥ `LIVE_DATA_SNAPSHOT_CAP` (default 50), select the oldest by `capturedAt` and delete it.
+  3. Insert the new snapshot with its `values` JSONB.
+  4. Write `LIVE_DATA_SNAPSHOT_CAPTURED` audit (and `LIVE_DATA_SNAPSHOT_EVICTED` if a row was deleted).
+- 409 `NO_DATA_TO_CAPTURE` when `LiveDataReadingCurrent` is empty.
+- `GET /sessions/:id/live-data/snapshots` — list endpoint with `limit` (cap 50) and `offset`; ordered `capturedAt DESC`.
+- `GET /sessions/:id/live-data/snapshots/:snapshotId` — returns the snapshot with the parsed `values` map and per-PID `name/unit/rawValue`.
+
+### Phase B.4 — US5 — Discovery
+
+- `POST /sessions/:id/live-data/discover` — enqueues a `LIVE_DATA_DISCOVERY` command on the agent (202 Accepted, `discoveryId`).
+- Agent executes the discovery sequence (PIDs `00/20/40/60/80/A0` over Mode 01) and pushes the result to `POST /v2/obd/agents/:id/live-discovery`. The backend stores the `supportedPidMask` (JSON map of `pid → boolean`) on the `LiveDataSession`.
+- On the next dashboard refresh, PIDs not in the supported mask are rendered as `NOT_SUPPORTED`; supported-but-unresponsive PIDs are rendered as `NO_DATA`. The two states are visually distinct.
+
+### Phase B.5 — US6 — Cadence configuration
+
+- `CadenceService.clamp(requested)` returns `Math.max(LIVE_DATA_MIN_CADENCE_MS, Math.min(LIVE_DATA_MAX_CADENCE_MS, requested ?? LIVE_DATA_DEFAULT_CADENCE_MS))`. The `LiveDataSession.cadenceMs` column is updated with the **clamped** value, not the requested value, so a too-low or too-high request is observable. **Default 1000 ms (1 s)** (Correction 3).
+- The Next.js hook `useLiveDataPolling` uses the returned `cadenceMs` for both the start command and its own refresh interval — they are in lockstep.
+- The UI displays a small "Clamped to 200 ms" / "Clamped to 5000 ms" indicator when the persisted value differs from the requested value.
+
+### Reconnect behavior (D-17, Correction 4)
+
+The Desktop Agent's command queue may be reconnected after a transient network drop. The recovery rules for the active `LiveDataSession`:
+
+- **Reconnect within `LIVE_DATA_STALE_TIMEOUT_MS` (30 s)**: the existing `ACTIVE` `LiveDataSession` is **resumed**. The next `LIVE_DATA_POLL` command is enqueued with the **same `liveDataSessionId`**. The `LiveDataReadingCurrent` rows are kept. The dashboard sees no disruption.
+- **Reconnect after 30 s**: the existing `ACTIVE` session is marked `STALE` in a single transaction (audit `LIVE_DATA_POLL_STOPPED` written with `metadata.reason: 'stale_timeout'`); a new `LiveDataSession` is created on the next `Start` with a fresh `id`. The `LiveDataSnapshot`s taken under the STALE session are preserved (they remain linked to the `DiagnosticSession`).
+- The 30-second window is the same as the stale-timeout window; the `LiveDataSessionService.sweep()` job runs every 30 s and marks any `ACTIVE` session with `lastPolledAt < now - LIVE_DATA_STALE_TIMEOUT_MS` as `STALE`.
+- The agent push endpoint `POST /v2/obd/agents/:id/live-cycles` accepts cycles only for `ACTIVE` sessions. Cycles for `STALE` or `STOPPED` sessions are rejected with `LIVE_DATA_SESSION_NOT_FOUND`.
+
+### Formula engine scope (D-15, Correction 5)
+
+`PIDDefinition.formula` is restricted to a fixed grammar — **MVP-safe expressions only**. The parser is the sole evaluator; the backend never calls `eval`, `new Function`, or any other dynamic-eval primitive. The complete supported grammar:
+
+| Token | Description |
+|---|---|
+| `A` | First data byte (decimal) |
+| `B` | Second data byte (decimal); references in 1-byte PIDs return `B_UNDEFINED` |
+| integer literal | `0`, `100`, `255`, … |
+| `+`, `-`, `*`, `/` | Integer arithmetic; `/` is integer division |
+| `(`, `)` | Grouping |
+| whitespace | Ignored |
+
+Whitelisted example formulas: `A`, `A - 40`, `(A * 256 + B) / 4`, `(A * 100) / 255`, `(A * 256 + B) / 1000`, `(A - 128) * 100 / 128`, `A / 200`. **No** function calls, no identifiers other than `A` and `B`, no comparison operators, no assignment, no semicolons, no scripting, no custom user-defined formulas, no variables other than `A` and `B`. The parser is a small recursive-descent grammar; rejection happens at **seed-import time** (the import log shows `Skipping row (model, pid) — formula does not match grammar`) and **at lookup time** (a corrupt formula in the DB returns `PID_FORMULA_INVALID` and the reading is marked `ERROR`).
+
+### Phase B — Acceptance Criteria
+
+- **Phase B-AC-1**: Pressing Start on the Live Data dashboard shows fresh values within 2 s.
+- **Phase B-AC-2**: Default polling cadence is **1 s (1000 ms)** (Correction 3); user-configurable per the clamped range; a UI indicator shows when a request was clamped.
+- **Phase B-AC-3**: Disconnecting the adapter transitions the dashboard to `Adapter offline` within 5 s.
+- **Phase B-AC-4**: A snapshot saved during polling persists and is visible on the session detail page with the `values` map (Correction 2: the snapshot payload is a JSONB object, not a per-PID rows list).
+- **Phase B-AC-5**: The 51st snapshot evicts the oldest, writes a `LIVE_DATA_SNAPSHOT_EVICTED` audit, and the cap remains 50.
+- **Phase B-AC-6**: After discovery, the dashboard labels `NOT_SUPPORTED` PIDs within 2 poll cycles; supported-but-unresponsive PIDs are labeled `NO_DATA`.
+- **Phase B-AC-7**: A reconnect within 30 s resumes the same `liveDataSessionId`; after 30 s the session is `STALE` and a new session is created on the next `Start` (Correction 4).
+- **Phase B-AC-8**: All four `LIVE_DATA_*` audit actions are written; tenant isolation is preserved.
+- **Phase B-AC-9**: Feature 004 and Feature 005 flows continue to work; no public contract is altered. The agent probes `/v2/.../command-queue` and falls back to `/v1/.../scan-queue`.
+
+## API Design
+
+### Phase A — Web
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/vehicles/decode?vin={vin}` | JWT | Phase A — Decode a VIN against the local VPIC asset, cache the result (global, `vin UNIQUE`), return the payload. |
+
+### Phase B — Web (under `/sessions/:id/live-data/...`)
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/sessions/:id/live-data/start` | Start (or resume) polling. Body: `{ cadenceMs?, pids? }`. Default cadence **1000 ms** (Correction 3). Returns 201/200 with the persisted (clamped) `cadenceMs`. |
+| POST | `/sessions/:id/live-data/stop` | Stop polling and mark the session `STOPPED`. |
+| GET | `/sessions/:id/live-data/current` | Most-recent reading per PID; dashboard polls at the returned `cadenceMs`. |
+| POST | `/sessions/:id/live-data/snapshots` | Capture a snapshot — JSONB `values` column, no per-PID rows (Correction 2). 50-cap, oldest evicted. |
+| GET | `/sessions/:id/live-data/snapshots` | List snapshots, ordered `capturedAt DESC`. |
+| GET | `/sessions/:id/live-data/snapshots/:snapshotId` | Single snapshot with the `values` map. |
+| POST | `/sessions/:id/live-data/discover` | Enqueue a PID discovery command (202 Accepted). |
+
+### Phase B — Agent (under `/v2/obd/agents/:id/...`)
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/v2/obd/agents/:id/command-queue` | Long-poll for the next command (`SCAN`, `LIVE_DATA_DISCOVERY`, `LIVE_DATA_POLL`, `LIVE_DATA_STOP`). The `LIVE_DATA_POLL` payload includes `cadenceMs`; the agent must use the value from the command. |
+| POST | `/v2/obd/agents/:id/live-cycles` | Push a poll cycle's readings; backend upserts `LiveDataReadingCurrent` rows. Cycles for `STALE` / `STOPPED` sessions are rejected with `LIVE_DATA_SESSION_NOT_FOUND` (Correction 4). |
+| POST | `/v2/obd/agents/:id/live-discovery` | Push the supported-PID mask from a discovery run. |
+
+## Desktop Agent Design
+
+The agent is the only process that owns the ELM327 connection. The MVP transport is HTTPS REST polling; the agent long-polls `/v2/obd/agents/:id/command-queue` every 2 s when idle.
+
+| Module | Purpose |
+|---|---|
+| `obd/commands/pid.py` | Build a Mode 01 PID read command; parse the response into `(rawBytes, errorCode)`. Handles the `7F 01 xx` Service-Not-Supported path. |
+| `obd/commands/pid_discovery.py` | Execute the discovery sequence (PIDs `00/20/40/60/80/A0`); expand the 32-bit masks into the concrete set of supported PIDs. |
+| `obd/poll.py` | The cadence-driven poll loop. Reads each PID in the active set, builds a `CycleResult`, and calls `LiveDataClient.push_cycle`. Sleeps the **command's** `cadenceMs` between cycles; respects an abort flag from the command queue. The agent does **not** hardcode 1 s; it uses the cadence from the backend. |
+| `live_data_client.py` | HTTP client wrapping `POST /v2/obd/agents/:id/live-cycles` and `POST /v2/obd/agents/:id/live-discovery`. Handles retries, idempotency, and the `(commandId, cycleId)` dedupe. |
+| `command_queue.py` | **v2 probe.** Tries `/v2/obd/agents/:id/command-queue` first with the `acceptVersions: ["v2"]` header; on 404 falls back to the Feature 004 `/obd/agents/:id/scan-queue`. Adds the three new `commandType`s to the dispatch table. |
+| `heartbeat.py` | Unchanged from Feature 004. |
+| `adapter.py` / `elm327.py` | Unchanged from Feature 004. |
+
+The `obd.poll.PollLoop` is a class that takes a `LiveDataClient`, a `CommandQueueClient`, an `OBDAdapter`, and a config (cadence, pids). It runs until `Stop` is signalled; a SIGTERM or a `LIVE_DATA_STOP` command sets the abort flag and the loop exits within one cycle.
+
+## Multi-Tenant Isolation
+
+| Entity | Tenant-scoped? | Notes |
+|---|---|---|
+| `Vehicle` | YES (existing) | `organizationId` |
+| `DiagnosticSession` | YES (existing) | `organizationId` |
+| `LiveDataSession` | YES | `organizationId`; FK chain enforces match to parent DiagnosticSession (Correction 1) |
+| `LiveDataSnapshot` | YES | `organizationId`; FK chain enforces match to parent DiagnosticSession and LiveDataSession |
+| `LiveDataReadingCurrent` | YES | `organizationId`; read-model, deleted on session close |
+| `VehicleDecode` | **NO (GLOBAL)** | No `organizationId`; `vin` is `UNIQUE`. **Shared across all tenants** (Correction 6). Cross-tenant cache hits are the desired behavior. |
+| `PIDDefinition` | **NO (GLOBAL)** | No `organizationId`; `(model, pid)` is `UNIQUE`. The 11 standard PIDs and the 127 GM Mode 22 PIDs are reference data. |
+| `DiagnosticSessionAuditRecord` | YES (existing) | All new `action`s follow the existing policy. |
+
+`TenantGuard` (existing) is applied to every web endpoint. The agent push endpoints use the existing `X-Agent-Token` + `organizationId` binding from Feature 004.
+
+## RBAC
+
+**No new permission is introduced.** Live data endpoints inherit the existing read/write policy for Diagnostic Sessions in the tenant. Service Advisors, Technicians, and Workshop Managers can decode VINs (Phase A), view live data for open sessions, capture snapshots, and view the snapshot list/detail (Phase B). Polling and snapshot capture are additionally gated by the existence of an **open** Diagnostic Session — closing the session stops the live data flow and renders the page read-only.
+
+## Audit Logging
+
+Reuse `DiagnosticSessionAuditRecord` (existing). New `action` strings, all tenant-scoped and immutable:
+
+| Action | When |
+|---|---|
+| `VIN_DECODED_FROM_ASSET` | A successful VPIC decode writes this on cache miss **and** cache hit (with `metadata.cached: true/false`). |
+| `LIVE_DATA_POLL_STARTED` | When a `LiveDataSession` is created on `POST /live-data/start`. |
+| `LIVE_DATA_POLL_STOPPED` | When a session transitions to `STOPPED` (Stop press, session close, sweep, or **reconnect after 30 s** — Correction 4 — written with `metadata.reason`). |
+| `LIVE_DATA_SNAPSHOT_CAPTURED` | When a snapshot is inserted. |
+| `LIVE_DATA_SNAPSHOT_EVICTED` | When the 50-snapshot cap evicts the oldest; `metadata.evictedSnapshotId` is set. |
+
+## Error Handling
+
+| Code | HTTP | When |
+|---|---|---|
+| `VALIDATION_ERROR` | 400 | class-validator failure |
+| `INVALID_VIN` | 400 | Malformed VIN |
+| `UNAUTHORIZED` | 401 | Missing/expired JWT |
+| `FORBIDDEN` | 403 | RBAC failure |
+| `TENANT_ACCESS_DENIED` | 403 | Cross-tenant access attempt |
+| `DIAGNOSTIC_SESSION_NOT_FOUND` | 404 | |
+| `LIVE_DATA_SESSION_NOT_FOUND` | 404 | Push to a STALE/STOPPED/closed session (Correction 4) |
+| `SNAPSHOT_NOT_FOUND` | 404 | |
+| `AGENT_OFFLINE` | 409 | No online agent for the tenant |
+| `DIAGNOSTIC_SESSION_CLOSED` | 409 | Live data on a closed session |
+| `NO_DATA_TO_CAPTURE` | 409 | Snapshot requested before any readings |
+| `VPIC_ASSET_UNAVAILABLE` | 503 | Asset file missing or runtime decompress failure |
+| `PID_NOT_DEFINED` | 422 | Agent pushed a reading for an unknown PID |
+| `PID_FORMULA_INVALID` | 422 | A stored formula failed grammar check at lookup time (Correction 5) |
+| `INTERNAL_ERROR` | 500 | Unexpected |
+
+## State Management
+
+### `LiveDataSession` lifecycle
+
+```
+                  start (new)            sweep (> 30 s) or stop or reconnect-after-30s
+   (none) ───────────────────────► ACTIVE ─────────────────────────────────────► STALE / STOPPED
+                                      ▲                                              │
+                                      │     start (new — after stale)               │
+                                      └──────────────────────────────────────────────┘
+                                      │
+                                      │  reconnect within 30 s
+                                      └──── resume same liveDataSessionId
+```
+
+- `ACTIVE → STOPPED`: explicit `Stop`, diagnostic session close, or `LIVE_DATA_STOP` command completed.
+- `ACTIVE → STALE`: `sweep()` job runs every 30 s and marks any `ACTIVE` session with `lastPolledAt < now - LIVE_DATA_STALE_TIMEOUT_MS` as `STALE`. Also: **agent reconnect after 30 s** marks the session `STALE` in a single transaction (Correction 4).
+- `STALE → (new ACTIVE)`: next `POST /start` creates a new row.
+- The agent's reconnect within 30 s does **not** create a new row — it resumes the existing ACTIVE session with the same `liveDataSessionId` (Correction 4). The `LiveDataReadingCurrent` rows are preserved.
+
+### `DiagnosticSession`
+
+- Live data does **not** open or close the `DiagnosticSession`. The session stays open during polling; live data is an orthogonal concern. Closing the DiagnosticSession stops the live data session and renders the page read-only.
+
+### `LiveDataSnapshot`
+
+- Created on `POST /snapshots`. Capped at 50 per `DiagnosticSession`. Eviction is oldest by `capturedAt` and runs inside the same transaction as the new insert.
+
+## Transaction Boundaries
+
+| Operation | Boundary |
+|---|---|
+| `VIN decode` (cache miss) | Single `prisma.$transaction([createOrUpdate VehicleDecode, create AuditRecord])`. |
+| `Start` | `prisma.$transaction([upsert LiveDataSession, create AuditRecord, enqueue Command])`. |
+| `Stop` | `prisma.$transaction([update LiveDataSession, deleteMany LiveDataReadingCurrent, create AuditRecord])`. |
+| `Snapshot capture` | **Single transaction** for the entire capture flow: count → (optionally) delete evicted → insert → audit (D-18). |
+| `Cycle push` (agent) | `prisma.$transaction([upsertMany LiveDataReadingCurrent, update LiveDataSession.lastPolledAt])`. No audit per cycle. |
+| `Discovery push` (agent) | `prisma.$transaction([update LiveDataSession.supportedPidMask])`. |
+| `Sweep` | Single `prisma.$transaction([updateMany ACTIVE→STALE, create AuditRecord for each])`. |
+| **Reconnect after 30 s (Correction 4)** | `prisma.$transaction([update LiveDataSession.status = STALE, create AuditRecord LIVE_DATA_POLL_STOPPED with metadata.reason = 'stale_timeout'])`. |
+
+## Testing Strategy
+
+| Layer | Stack | Coverage |
+|---|---|---|
+| Backend | Jest + Supertest | Services, repositories, controllers, DTOs. Per-file target 80% line coverage. |
+| Frontend | Jest + React Testing Library; Playwright for E2E | Hooks (`useLiveDataPolling`, `useVinDecode`), dashboard render, adapter-offline state, snapshot button gating, cadence indicator. |
+| Desktop Agent | pytest | `pid.py`, `pid_discovery.py`, `poll.py` (with a fake `OBDAdapter` and `LiveDataClient`), `command_queue.py` v2 probe. |
+| Fixtures | `backend/test/fixtures/vpic-fixture.sqlite` | 10–20 known VINs (Mercedes, Toyota, GM, unknown). Used by `VpicAssetService` in tests via `VPIC_ASSET_PATH` override. |
+| Cross-tenant | Integration | A user in tenant A decoding a known VIN; a user in tenant B sees the same `VehicleDecode` row (`cached: true`); neither can read the other's `LiveDataSession` or `LiveDataSnapshot` (Correction 6). |
+| Backward-compat | Integration | After Phase B migration: scan flow, fault-code import, and enrichment endpoints continue to pass their Feature 004/005 tests. |
+| Reconnect | Integration | Reconnect at 29 s → same `liveDataSessionId` resumed; reconnect at 31 s → previous session `STALE`, new `liveDataSessionId` on next `Start` (Correction 4). |
+| Cadence | Integration | `cadenceMs = 500` is honored; `cadenceMs = 50` is clamped to 200; default absent → 1000. UI shows clamped indicator (Correction 3). |
+| Formula parser | Unit | Whitelist formulas evaluate correctly. `eval`-style inputs (`"1+1"`, `"process.exit()"`, `"Math.PI"`, `"A.length"`, function-call syntax) are rejected at seed time and at lookup time (Correction 5). |
+| Snapshot JSONB | Integration | A captured snapshot's `values` is a single JSONB object keyed by hex PID; the snapshot detail endpoint returns the parsed map; a 51st insert evicts the oldest (Correction 2). |
+
+## Future Extension Points
+
+The following are explicitly **NOT** in Feature 006 and remain extensions:
+
+- **No WebSockets / SSE.** The MVP uses REST polling. A future transport swap (WebSocket from agent to backend, SSE from backend to dashboard) does not require re-planning the data flow.
+- **No continuous recording.** Snapshots are point-in-time; the data model does not include a time-series table.
+- **No graphing or trend analysis.** Cross-snapshot, cross-session queries are out of scope.
+- **No OEM extensions beyond the GM Mode 22 PIDs already in `model-pids.sqlite`.** Future PID sources (e.g., Mode 22 for other OEMs, Mode 2A freeze-frame, Mode 19 DTCs by ECU) are loaded as additional `PIDDefinition` rows.
+- **No negative VPIC cache.** Missing-VIN lookups always consult the asset.
+- **No per-user cadence setting** in the MVP — cadence is a per-session setting.
+- **No `LiveDataReading` historical table** — the MVP only stores the JSONB `values` map on the snapshot (Correction 2). A future freeze-frame or per-PID analytics feature may add per-PID rows.
+
+## Future Enhancements (Backlog)
+
+**This section is a backlog. No implementation tasks are created from it. Feature 006 scope is not changed.**
+
+### ECU Topology & Control Unit Scan (Correction 7)
+
+A future feature would group fault codes and live data by the ECU/module that produced them. This is the natural next step beyond per-PID live data, and the workshop-grade diagnostic experience described in the constitution (principle XV) explicitly calls for it. Proposed entities (for a future `008-ecu-topology-and-control-unit-scan` feature):
+
+- `ControlUnitScan` — A scan run over a vehicle's ECU bus. Tenant-scoped, linked to a `DiagnosticSession`. Fields: `id`, `organizationId`, `diagnosticSessionId`, `agentId`, `startedAt`, `endedAt`, `protocol` (e.g., `'ISO 15765 CAN'`, `'ISO 14229 UDS'`), `totalUnits`, `respondingUnits`.
+- `ControlUnit` — A single ECU/module discovered during a scan. Linked to a `ControlUnitScan`. Fields: `id`, `controlUnitScanId`, `address` (e.g., `0x7E0` for the ECM), `name` (e.g., `'Engine Control Module'`), `partNumber`, `hardwareVersion`, `softwareVersion`, `diagnosticProtocol`, `responded` (boolean).
+- `ControlUnitFault` — A fault attributed to a specific ECU. Linked to both a `ControlUnit` and a `SessionFaultCode` (Feature 004). Fields: `id`, `controlUnitId`, `sessionFaultCodeId`, `dtc`, `status` (active/stored/pending), `capturedAt`.
+
+**Purpose**:
+- Group `SessionFaultCode`s by ECU/module so a technician can see "all ABS faults", "all SRS faults", "all BCM faults" instead of a flat DTC list.
+- Display scanned modules **with and without faults** (a module that responded with zero DTCs is still informative — the scan was successful for that module).
+- Prepare the ground for ABS, SRS, and BCM-specific diagnostic flows (live data per ECU, actuation tests, adaptations) in later features.
+- Improve the workshop-grade diagnostic experience.
+
+**Out of scope for Feature 006 and any immediate follow-up**:
+- No scan orchestration. No new agent endpoints. No new audit actions. No new UI page. No Prisma models in the Phase A or Phase B migrations. The proposed entities above are described for **planning context only**.
+
+## Migration Plan
+
+### Phase A — `20260611_add_vin_intelligence`
+
+```sql
+ALTER TABLE "Vehicle" ADD COLUMN "engine" VARCHAR(100);
+ALTER TABLE "Vehicle" ADD COLUMN "bodyStyle" VARCHAR(100);
+CREATE TABLE "VehicleDecode" (
+  "id" UUID PRIMARY KEY,
+  "vin" VARCHAR(17) NOT NULL UNIQUE,
+  "make" VARCHAR(100), "model" VARCHAR(100), "year" INTEGER,
+  "engine" VARCHAR(100), "bodyStyle" VARCHAR(100), "manufacturer" VARCHAR(100),
+  "decodedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "source" VARCHAR(50) NOT NULL DEFAULT 'vpic.sqlite.xz'
+);
+```
+
+The `VehicleDecode.vin` UNIQUE constraint enforces Correction 6: one row per VIN globally. There is no `organizationId` on `VehicleDecode`; the cache is shared across tenants.
+
+**Rollback**:
+```sql
+ALTER TABLE "Vehicle" DROP COLUMN "bodyStyle";
+ALTER TABLE "Vehicle" DROP COLUMN "engine";
+DROP TABLE "VehicleDecode";
+```
+
+### Phase B — `20260615_add_live_data`
+
+```sql
+CREATE TYPE "LiveDataSessionStatus" AS ENUM ('ACTIVE', 'STOPPED', 'STALE');
+
+CREATE TABLE "PIDDefinition" (
+  "id" UUID PRIMARY KEY,
+  "model" VARCHAR(20) NOT NULL,
+  "pid" VARCHAR(8) NOT NULL,
+  "name" VARCHAR(100) NOT NULL,
+  "unit" VARCHAR(20) NOT NULL,
+  "formula" VARCHAR(200) NOT NULL,
+  "min" DECIMAL(10,3), "max" DECIMAL(10,3),
+  "source" VARCHAR(50) NOT NULL,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  UNIQUE("model","pid")
+);
+
+CREATE TABLE "LiveDataSession" (
+  "id" UUID PRIMARY KEY,
+  "organizationId" UUID NOT NULL,
+  "diagnosticSessionId" UUID NOT NULL REFERENCES "DiagnosticSession"("id"),  -- Correction 1
+  "agentId" UUID NOT NULL REFERENCES "DesktopAgent"("id"),
+  "status" "LiveDataSessionStatus" NOT NULL DEFAULT 'ACTIVE',
+  "supportedPidMask" JSONB,
+  "cadenceMs" INTEGER NOT NULL DEFAULT 1000,                                    -- Correction 3: default 1 s
+  "startedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "lastPolledAt" TIMESTAMP,
+  "endedAt" TIMESTAMP,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now()
+);
+CREATE INDEX ON "LiveDataSession"("organizationId");
+CREATE INDEX ON "LiveDataSession"("organizationId","status");
+CREATE INDEX ON "LiveDataSession"("diagnosticSessionId");
+CREATE INDEX ON "LiveDataSession"("agentId");
+
+CREATE TABLE "LiveDataSnapshot" (
+  "id" UUID PRIMARY KEY,
+  "organizationId" UUID NOT NULL,
+  "diagnosticSessionId" UUID NOT NULL REFERENCES "DiagnosticSession"("id"),  -- Correction 1
+  "liveDataSessionId" UUID NOT NULL REFERENCES "LiveDataSession"("id"),
+  "capturedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "createdBy" UUID NOT NULL,
+  "values" JSONB NOT NULL,                                                     -- Correction 2: no LiveDataReading table
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now()
+);
+CREATE INDEX ON "LiveDataSnapshot"("organizationId");
+CREATE INDEX ON "LiveDataSnapshot"("diagnosticSessionId","capturedAt");
+CREATE INDEX ON "LiveDataSnapshot"("liveDataSessionId");
+
+CREATE TABLE "LiveDataReadingCurrent" (
+  "id" UUID PRIMARY KEY,
+  "organizationId" UUID NOT NULL,
+  "liveDataSessionId" UUID NOT NULL REFERENCES "LiveDataSession"("id"),
+  "pid" VARCHAR(8) NOT NULL,
+  "name" VARCHAR(100) NOT NULL,
+  "value" DECIMAL(12,4),
+  "unit" VARCHAR(20) NOT NULL,
+  "rawValue" VARCHAR(100) NOT NULL,
+  "errorCode" VARCHAR(20),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  UNIQUE("liveDataSessionId","pid")
+);
+CREATE INDEX ON "LiveDataReadingCurrent"("organizationId");
+CREATE INDEX ON "LiveDataReadingCurrent"("liveDataSessionId","updatedAt");
+```
+
+**Rollback**:
+```sql
+DROP TABLE "LiveDataReadingCurrent";
+DROP TABLE "LiveDataSnapshot";
+DROP TABLE "LiveDataSession";
+DROP TABLE "PIDDefinition";
+DROP TYPE "LiveDataSessionStatus";
+```
+
+Both migrations are **fully additive** — no existing table has a column altered or dropped. The Feature 004 scan and Feature 005 enrichment flows continue to work without code changes.
+
+## Decisions Recap
+
+- **D-01**: Use the local `vpic.sqlite.xz` asset as the single source of truth for VIN decoding; open a per-process read-only SQLite handle in `VpicAssetService`; do not import the VPIC corpus into PostgreSQL. Cache successful decodes in the global `VehicleDecode` table.
+- **D-02**: Import `model-pids.sqlite` (127 rows) into `PIDDefinition` on first startup. Seed the 11 standard OBD-II Mode 01 PIDs from a built-in TypeScript file (`pid-mvp-seed.ts`) — the asset does not cover the standard PIDs.
+- **D-03**: Polling is **agent-initiated**; the backend never opens its own connection to the adapter. REST polling; no WebSockets or SSE in the MVP.
+- **D-04**: A new `LiveDataSession` table holds per-session state, linked to a `DiagnosticSession` (Correction 1: hierarchy is `DiagnosticSession → LiveDataSession → LiveDataSnapshot`).
+- **D-05**: Cap snapshots at 50 per `DiagnosticSession`; evict oldest in the same transaction as the new insert.
+- **D-06**: Add nullable `engine` and `bodyStyle` columns to `Vehicle` (additive migration).
+- **D-07**: No new permission. Live data endpoints inherit the existing DiagnosticSession policy.
+- **D-08**: Reuse `DiagnosticSessionAuditRecord` for the five new actions.
+- **D-09**: Ship a small VPIC fixture (`vpic-fixture.sqlite`) for tests; production uses the real asset.
+- **D-10**: No existing public contract is altered; new endpoints are under `/v2/...`; Feature 004's `/v1/.../scan-queue` is preserved.
+- **D-11**: Naming: `LiveDataSession`, `LiveDataSnapshot`, `LiveDataReadingCurrent`; **no** `LiveDataReading` table in the MVP (see D-13, Correction 2).
+- **D-12**: Polling cadence is configured per-session and stored on `LiveDataSession.cadenceMs`. Default **1000 ms (1 s)** (Correction 3). No per-user cadence setting in the MVP.
+- **D-13** (Correction 1+2): `LiveDataSession` belongs to `DiagnosticSession` (one → many). `LiveDataSnapshot` stores values in a single JSONB `values` column — **no separate `LiveDataReading` table for snapshot values in the MVP**. `LiveDataReadingCurrent` remains a read-model table for the dashboard. 11 PIDs in the MVP makes per-PID rows unnecessary for historical snapshots.
+- **D-14** (Correction 6): `VehicleDecode` is **global** (no `organizationId`), `vin` is **UNIQUE**. One row per VIN, shared across all tenants. Cross-tenant cache hits are the desired behavior.
+- **D-15** (Correction 5): Formula engine scope is restricted to the grammar in [contracts/pid-definition-contract.md](contracts/pid-definition-contract.md). **No `eval`. No `new Function`. No scripting. No user-defined formulas. No variables other than `A` and `B`.** A small recursive-descent parser is the sole evaluator; rejection happens at seed-import time and at lookup time.
+- **D-16** (Correction 3): Default polling cadence is **1 s (1000 ms)**. `cadenceMs` is clamped to `[200, 5000]`. Env vars: `LIVE_DATA_DEFAULT_CADENCE_MS=1000`, `LIVE_DATA_MIN_CADENCE_MS=200`, `LIVE_DATA_MAX_CADENCE_MS=5000`. The agent uses the **command's** `cadenceMs`; the dashboard uses the **server's** `cadenceMs` from the `Start` response.
+- **D-17** (Correction 4): Reconnect within `LIVE_DATA_STALE_TIMEOUT_MS` (30 s) resumes the same `liveDataSessionId`; reconnect after 30 s marks the existing ACTIVE session `STALE` in a single transaction (audit `LIVE_DATA_POLL_STOPPED` with `metadata.reason: 'stale_timeout'`) and a new `LiveDataSession` is created on the next `Start`. The 30-s window is the same as the stale-timeout window. Cycles for `STALE` / `STOPPED` sessions are rejected with `LIVE_DATA_SESSION_NOT_FOUND`.
+- **D-18** (transaction): The snapshot capture flow (count → evict → insert → audit) runs in a single `prisma.$transaction`. The capture endpoint is `POST /sessions/:id/live-data/snapshots` and writes a single `LiveDataSnapshot` row with the JSONB `values` column.
+- **D-19** (Correction 7, backlog only): A future **ECU Topology & Control Unit Scan** feature is tracked in the **Future Enhancements (Backlog)** section. It is not part of Feature 006. **No implementation tasks, no schema changes, no contract changes in this feature.** Proposed entities: `ControlUnitScan`, `ControlUnit`, `ControlUnitFault`.
+
+## Out of Scope (Reaffirmed)
+
+Feature 006 explicitly does **NOT** include:
+
+- AI analysis of live data streams or snapshots (Feature 007+)
+- PDF / digital reports (Feature 008+)
+- PrioraFlow integration (Feature 009+)
+- Freeze frame data
+- Graphing of live or historical sensor streams
+- Trend analysis across multiple snapshots
+- Actuation tests, bidirectional controls, service functions, adaptations
+- Coding, programming, flashing of ECUs
+- OEM-specific repair procedures or OEM-specific PID libraries beyond the GM Mode 22 PIDs that already ship in the `model-pids` asset
+- Recording continuous sensor streams (point-in-time snapshots only)
+- WebSockets, SSE
+- Per-user cadence setting
+- A separate `LiveDataReading` historical table (the MVP stores the JSONB `values` map on the snapshot; Correction 2)
+- Negative VPIC cache
+- ECU topology & control unit scan (D-19, future feature)
+- Generic scripting in the formula engine (Correction 5: restricted grammar only)
+- User-defined PID formulas (Correction 5)

@@ -70,6 +70,16 @@ Purpose:
 
 Read and visualize live ECU sensor values.
 
+Phase A — Vehicle Intelligence (in progress)
+
+* VIN decode (local VPIC asset)
+* Vehicle metadata auto-fill (Make / Model / Year / Engine / Body Style)
+* Global VehicleDecode cache (vin UNIQUE, shared across tenants)
+* Form auto-fill from cached asset lookup
+* Manual confirmation remains the default
+
+Phase B — Live Telemetry (next)
+
 Features:
 
 * PID discovery
