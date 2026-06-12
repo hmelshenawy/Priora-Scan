@@ -133,7 +133,7 @@ class LiveDataPoller:
             return True
         try:
             response = self._api.post(
-                f"/obd/agents/{self._agent_id}/live-data/{self._session_id}/poll-result",
+                f"/api/v1/obd/agents/{self._agent_id}/live-data/{self._session_id}/poll-result",
                 json={"readings": readings},
             )
         except Exception as exc:  # noqa: BLE001

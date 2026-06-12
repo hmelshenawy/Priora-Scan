@@ -133,7 +133,7 @@ class TestLiveDataPoller:
                 time.sleep(0.05)
             assert client.posts, "Poller should have posted at least once"
             path, body = client.posts[0]
-            assert path == "/obd/agents/agent-1/live-data/live-1/poll-result"
+            assert path == "/api/v1/obd/agents/agent-1/live-data/live-1/poll-result"
             assert "readings" in body
             assert len(body["readings"]) == 2
         finally:
@@ -349,6 +349,18 @@ class TestCommandQueue:
         client.get = MagicMock()
         poll_live_data_command_queue(client, poller)
         client.get.assert_not_called()
+
+    def test_polls_versioned_live_data_command_queue(self):
+        poller = LiveDataPoller(MagicMock(agent_id="agent-1"), agent_id="agent-1")
+        client = MagicMock()
+        client.agent_id = "agent-1"
+        client.get = MagicMock(return_value=_Command(200, []))
+
+        poll_live_data_command_queue(client, poller)
+
+        client.get.assert_called_once_with(
+            "/api/v1/obd/agents/agent-1/live-data/command-queue"
+        )
 
 
 if __name__ == "__main__":

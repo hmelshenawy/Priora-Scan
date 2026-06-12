@@ -23,7 +23,7 @@ from src.live_data.poller import LiveDataPoller
 
 
 def _command_path(agent_id: str) -> str:
-    return f"/obd/agents/{agent_id}/live-data/command-queue"
+    return f"/api/v1/obd/agents/{agent_id}/live-data/command-queue"
 
 
 def poll_live_data_command_queue(

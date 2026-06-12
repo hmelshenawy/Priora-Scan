@@ -5,10 +5,10 @@ import Link from 'next/link';
 import { AgentStatusCard } from '../../components/obd/AgentStatusCard';
 import { ScanControlPanel } from '../../components/obd/ScanControlPanel';
 import { ScanProgressTimeline } from '../../components/obd/ScanProgressTimeline';
-import { FaultCodeList } from '../../components/obd/FaultCodeList';
+import { ControlUnitOverview } from '../../components/obd/ControlUnitOverview';
 import { VehicleConfirmModal } from '../../components/obd/VehicleConfirmModal';
 import { PairAgentModal } from '../../components/obd/PairAgentModal';
-import { useScanJob, useCancelScan } from '../../hooks/useObdScan';
+import { useScanJob, useCancelScan, useScanResults } from '../../hooks/useObdScan';
 
 export default function ObdDashboardPage() {
   const [activeScanId, setActiveScanId] = useState<string | null>(null);
@@ -16,9 +16,13 @@ export default function ObdDashboardPage() {
 
   const scanQuery = useScanJob(activeScanId);
   const cancelScan = useCancelScan();
+  const scanResultsQuery = useScanResults(
+    scanQuery.data?.status === 'COMPLETED' ? activeScanId : null,
+  );
 
   const scan = scanQuery.data;
   const needsConfirmation = scan?.status === 'NEEDS_VEHICLE_CONFIRMATION';
+  const faultCodes = scanResultsQuery.data?.data ?? [];
 
   const handleScanStarted = (id: string) => {
     setActiveScanId(id);
@@ -76,7 +80,12 @@ export default function ObdDashboardPage() {
           )}
 
           {scan?.status === 'COMPLETED' && (
-            <FaultCodeList scanJobId={activeScanId} />
+            <ControlUnitOverview
+              faultCodes={faultCodes}
+              scanJobId={activeScanId ?? undefined}
+              sessionId={scan.diagnosticSessionId ?? undefined}
+              showNavigation={true}
+            />
           )}
 
           {scan?.status === 'COMPLETED' && scan.diagnosticSessionId && (

@@ -2,7 +2,7 @@
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
 
-`specs/006-live-data-and-sensor-monitoring/plan.md`
+`specs/007-diagnostic-results-ui-polish/plan.md`
 
 # PrioraScan AI Agent Instructions
 

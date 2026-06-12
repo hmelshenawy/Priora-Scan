@@ -7,7 +7,7 @@ import {
   useUpdateDiagnosticSession,
 } from '../../../hooks/use-diagnostic-sessions';
 import { useSessionFaultCodes } from '../../../hooks/useObdScan';
-import { EnrichedFaultCodeRow } from '../../../components/obd/EnrichedFaultCodeRow';
+import { ControlUnitOverview } from '../../../components/obd/ControlUnitOverview';
 import { LiveDataCard } from '../../../components/live-data/LiveDataCard';
 
 interface DiagnosticSessionDetailPageProps {
@@ -190,20 +190,14 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
         </aside>
       </div>
 
-      {faultCodesQuery.data && faultCodesQuery.data.data.length > 0 && (
-        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Fault Codes</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            {faultCodesQuery.data.data.length} code
-            {faultCodesQuery.data.data.length !== 1 ? 's' : ''} imported from OBD scan
-          </p>
-          <ul className="mt-4 divide-y divide-slate-100">
-            {faultCodesQuery.data.data.map((code) => (
-              <EnrichedFaultCodeRow key={code.id} code={code} />
-            ))}
-          </ul>
-        </section>
-      )}
+      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <ControlUnitOverview
+          faultCodes={faultCodesQuery.data?.data ?? []}
+          sessionId={session.id}
+          vehicleId={session.vehicleId}
+          showNavigation={true}
+        />
+      </section>
 
       <section className="mt-6">
         <LiveDataCard diagnosticSessionId={session.id} />
