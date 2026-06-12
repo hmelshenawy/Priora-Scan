@@ -106,6 +106,29 @@ describe('LiveDataCard', () => {
     expect(mutate).toHaveBeenCalledWith({
       diagnosticSessionId: 'session-1',
       agentId: 'agent-1',
+      cadenceMs: 1000,
+    });
+  });
+
+  it('passes selected cadence when starting live data', async () => {
+    const mutate = jest.fn().mockResolvedValue({ liveDataSessionId: 'live-1' });
+    baseMocks({
+      start: { mutateAsync: mutate, isPending: false, error: null },
+    });
+    renderWithProviders(<LiveDataCard diagnosticSessionId="session-1" />);
+
+    fireEvent.change(screen.getByLabelText(/cadence/i), {
+      target: { value: '2000' },
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /start live data/i }));
+    });
+
+    expect(mutate).toHaveBeenCalledWith({
+      diagnosticSessionId: 'session-1',
+      agentId: 'agent-1',
+      cadenceMs: 2000,
     });
   });
 
@@ -114,7 +137,9 @@ describe('LiveDataCard', () => {
       start: { mutateAsync: jest.fn(), isPending: true, error: null },
     });
     renderWithProviders(<LiveDataCard diagnosticSessionId="session-1" />);
-    expect(screen.getByText(/starting live data/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/starting live data through the selected desktop agent/i),
+    ).toBeInTheDocument();
   });
 
   it('renders the active state with current PID values', () => {
@@ -218,7 +243,30 @@ describe('LiveDataCard', () => {
       screen.queryByRole('button', { name: /stop live data/i }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /start live data/i }),
+      screen.getByRole('button', { name: /restart live data/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('renders a stale state with restart action', () => {
+    baseMocks({
+      current: {
+        data: {
+          sessionId: 'live-1',
+          status: 'STALE',
+          cadenceMs: 1000,
+          lastActivityAt: '2026-06-11T12:00:00Z',
+          values: {},
+        },
+        isLoading: false,
+        isError: false,
+      },
+    });
+    renderWithProviders(<LiveDataCard diagnosticSessionId="session-1" />);
+    const card = screen.getByTestId('live-data-card');
+    expect(card.getAttribute('data-status')).toBe('STALE');
+    expect(screen.getByText(/session is stale/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /restart live data/i }),
     ).toBeInTheDocument();
   });
 

@@ -6,9 +6,16 @@ import {
   useDiagnosticSession,
   useUpdateDiagnosticSession,
 } from '../../../hooks/use-diagnostic-sessions';
+import { useVehicle } from '../../../hooks/use-vehicles';
 import { useSessionFaultCodes } from '../../../hooks/useObdScan';
 import { ControlUnitOverview } from '../../../components/obd/ControlUnitOverview';
 import { LiveDataCard } from '../../../components/live-data/LiveDataCard';
+import { Breadcrumbs } from '../../../components/layout/Breadcrumbs';
+import { ErrorState } from '../../../components/ui/ErrorState';
+import { LoadingState } from '../../../components/ui/LoadingState';
+import { SessionHeader } from '../../../components/diagnostic-session/SessionHeader';
+import { SessionLifecyclePanel } from '../../../components/diagnostic-session/SessionLifecyclePanel';
+import { SessionNotesForm } from '../../../components/diagnostic-session/SessionNotesForm';
 
 interface DiagnosticSessionDetailPageProps {
   params: {
@@ -22,6 +29,7 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const session = sessionQuery.data;
+  const vehicleQuery = useVehicle(session?.vehicleId ?? '');
   const faultCodesQuery = useSessionFaultCodes(session?.id ?? null);
 
   useEffect(() => {
@@ -33,30 +41,27 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
 
   if (sessionQuery.isLoading) {
     return (
-      <div className="p-6">
-        <p className="text-sm text-slate-500">Loading diagnostic session…</p>
+      <div className="mx-auto max-w-7xl">
+        <LoadingState
+          title="Loading diagnostic session"
+          message="Opening the session workspace."
+        />
       </div>
     );
   }
 
   if (sessionQuery.isError || !session) {
     return (
-      <div className="p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <Link href="/vehicles" className="text-sm font-medium text-blue-600 hover:text-blue-800">
-            ← Back to vehicles
-          </Link>
-        </div>
-        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-          Unable to load the requested session. Please verify the session link and try again.
-        </div>
+      <div className="mx-auto max-w-7xl">
+        <ErrorState
+          title="Session unavailable"
+          message="Unable to load the requested session. Please verify the session link and try again."
+          actionHref="/diagnostic-sessions"
+          actionLabel="Back to diagnostic sessions"
+        />
       </div>
     );
   }
-
-  const isClosed = session.status === 'CLOSED';
-  const canStart = session.status === 'OPEN';
-  const canClose = session.status === 'IN_PROGRESS';
 
   const handleSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -71,143 +76,128 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold text-slate-900">Diagnostic Session</h1>
-          <p className="mt-1 text-sm text-slate-600">{session.number}</p>
+    <div className="mx-auto max-w-7xl space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Diagnostic Sessions', href: '/diagnostic-sessions' },
+          { label: session.number },
+        ]}
+      />
+
+      <SessionHeader
+        session={session}
+        vehicle={vehicleQuery.data}
+        vehicleLoading={vehicleQuery.isLoading}
+      />
+
+      <nav className="sticky top-14 z-10 rounded-lg border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur">
+        <div className="flex flex-wrap gap-2">
+          {[
+            ['#overview', 'Overview'],
+            ['#control-units', 'Control Units'],
+            ['#live-data', 'Live Data'],
+            ['#notes', 'Notes'],
+          ].map(([href, label]) => (
+            <Link
+              key={href}
+              href={href}
+              className="rounded-md px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+            >
+              {label}
+            </Link>
+          ))}
         </div>
-        <Link href="/vehicles" className="text-sm font-medium text-blue-600 hover:text-blue-800">
-          ← Back to vehicles
-        </Link>
-      </div>
+      </nav>
 
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="grid gap-6 lg:grid-cols-2">
+      <section
+        id="overview"
+        className="grid scroll-mt-32 gap-6 lg:grid-cols-[1fr_320px]"
+      >
+        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">Overview</h2>
+          <dl className="mt-5 grid gap-4 sm:grid-cols-2">
             <div>
-              <p className="text-sm font-semibold text-slate-500">Session status</p>
-              <p className="mt-2 text-lg font-medium text-slate-900">{session.status}</p>
+              <dt className="text-sm font-medium text-slate-500">Session</dt>
+              <dd className="mt-1 text-sm font-semibold text-slate-900">
+                {session.number}
+              </dd>
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-500">Vehicle ID</p>
-              <p className="mt-2 text-lg font-medium text-slate-900">{session.vehicleId}</p>
+              <dt className="text-sm font-medium text-slate-500">Vehicle</dt>
+              <dd className="mt-1 text-sm font-semibold text-slate-900">
+                {vehicleQuery.data
+                  ? `${vehicleQuery.data.year} ${vehicleQuery.data.make} ${vehicleQuery.data.model}`
+                  : session.vehicleId}
+              </dd>
             </div>
-          </div>
-
-          <form className="mt-6 space-y-6" onSubmit={handleSave}>
             <div>
-              <label htmlFor="session-title" className="block text-sm font-medium text-slate-700">
-                Title
-              </label>
-              <input
-                id="session-title"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                disabled={isClosed || updateSession.isPending}
-                className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-                placeholder="Session title"
-              />
+              <dt className="text-sm font-medium text-slate-500">Status</dt>
+              <dd className="mt-1 text-sm font-semibold text-slate-900">
+                {session.status}
+              </dd>
             </div>
-
             <div>
-              <label htmlFor="session-description" className="block text-sm font-medium text-slate-700">
-                Description
-              </label>
-              <textarea
-                id="session-description"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                disabled={isClosed || updateSession.isPending}
-                className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-                rows={4}
-              />
+              <dt className="text-sm font-medium text-slate-500">Fault Codes</dt>
+              <dd className="mt-1 text-sm font-semibold text-slate-900">
+                {faultCodesQuery.isLoading
+                  ? 'Loading...'
+                  : faultCodesQuery.isError
+                    ? 'Unavailable'
+                    : faultCodesQuery.data?.data.length ?? 0}
+              </dd>
             </div>
+          </dl>
+        </div>
 
-            {!isClosed && (
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <button
-                  type="submit"
-                  disabled={updateSession.isPending}
-                  className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-                >
-                  {updateSession.isPending ? 'Saving…' : 'Save changes'}
-                </button>
-                <p className="text-sm text-slate-500">
-                  {session.status === 'OPEN'
-                    ? 'Start the session when work begins.'
-                    : 'Close the session when work is complete.'}
-                </p>
-              </div>
-            )}
-
-            {updateSession.error && (
-              <p className="text-sm text-red-600">
-                {updateSession.error instanceof Error
-                  ? updateSession.error.message
-                  : 'Unable to update session. Please try again.'}
-              </p>
-            )}
-          </form>
-        </section>
-
-        <aside className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-semibold text-slate-900">Lifecycle actions</h2>
-          <p className="mt-2 text-sm text-slate-500">
-            Use the buttons below to progress the diagnostic session through the approved lifecycle.
-          </p>
-
-          <div className="mt-6 space-y-4">
-            {isClosed ? (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                This session is closed and cannot be modified.
-              </div>
-            ) : (
-              <>
-                {canStart && (
-                  <button
-                    type="button"
-                    onClick={() => handleTransition('IN_PROGRESS')}
-                    disabled={updateSession.isPending}
-                    className="w-full rounded-md bg-amber-600 px-4 py-3 text-sm font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-                  >
-                    {updateSession.isPending ? 'Updating…' : 'Start session'}
-                  </button>
-                )}
-                {canClose && (
-                  <button
-                    type="button"
-                    onClick={() => handleTransition('CLOSED')}
-                    disabled={updateSession.isPending}
-                    className="w-full rounded-md bg-emerald-600 px-4 py-3 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-                  >
-                    {updateSession.isPending ? 'Updating…' : 'Close session'}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        </aside>
-      </div>
-
-      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <ControlUnitOverview
-          faultCodes={faultCodesQuery.data?.data ?? []}
-          sessionId={session.id}
-          vehicleId={session.vehicleId}
-          showNavigation={true}
+        <SessionLifecyclePanel
+          session={session}
+          isPending={updateSession.isPending}
+          onTransition={handleTransition}
         />
       </section>
 
-      <section className="mt-6">
+      <section
+        id="control-units"
+        className="scroll-mt-32 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+      >
+        {faultCodesQuery.isLoading && (
+          <LoadingState
+            title="Loading fault results"
+            message="Fetching fault codes before building the control unit overview."
+          />
+        )}
+
+        {faultCodesQuery.isError && (
+          <ErrorState
+            title="Fault results unavailable"
+            message="Unable to load fault codes for this diagnostic session."
+          />
+        )}
+
+        {faultCodesQuery.data && (
+          <ControlUnitOverview
+            faultCodes={faultCodesQuery.data.data}
+            sessionId={session.id}
+            vehicleId={session.vehicleId}
+            showNavigation={false}
+          />
+        )}
+      </section>
+
+      <section id="live-data" className="mt-6 scroll-mt-20">
         <LiveDataCard diagnosticSessionId={session.id} />
       </section>
 
-      <section className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
-        <p className="text-sm text-slate-500">
-          Sessions must progress through the lifecycle in the order: OPEN → IN_PROGRESS → CLOSED.
-        </p>
-      </section>
+      <SessionNotesForm
+        session={session}
+        title={title}
+        description={description}
+        isPending={updateSession.isPending}
+        error={updateSession.error}
+        onTitleChange={setTitle}
+        onDescriptionChange={setDescription}
+        onSubmit={handleSave}
+      />
     </div>
   );
 }

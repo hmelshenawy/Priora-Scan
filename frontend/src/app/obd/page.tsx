@@ -1,21 +1,34 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { AgentStatusCard } from '../../components/obd/AgentStatusCard';
 import { ScanControlPanel } from '../../components/obd/ScanControlPanel';
 import { ScanProgressTimeline } from '../../components/obd/ScanProgressTimeline';
 import { ControlUnitOverview } from '../../components/obd/ControlUnitOverview';
 import { VehicleConfirmModal } from '../../components/obd/VehicleConfirmModal';
 import { PairAgentModal } from '../../components/obd/PairAgentModal';
-import { useScanJob, useCancelScan, useScanResults } from '../../hooks/useObdScan';
+import { ObdReadinessPanel } from '../../components/obd/ObdReadinessPanel';
+import { ScanEmptyState } from '../../components/obd/ScanEmptyState';
+import { ScanRecoveryActions } from '../../components/obd/ScanRecoveryActions';
+import { ScanResultActions } from '../../components/obd/ScanResultActions';
+import {
+  useScanJob,
+  useCancelScan,
+  useScanResults,
+  useStartScan,
+} from '../../hooks/useObdScan';
+import { useAgentStatus } from '../../hooks/useAgentStatus';
+import { Breadcrumbs } from '../../components/layout/Breadcrumbs';
+import { PageHeader } from '../../components/layout/PageHeader';
 
 export default function ObdDashboardPage() {
   const [activeScanId, setActiveScanId] = useState<string | null>(null);
   const [showPairModal, setShowPairModal] = useState(false);
 
+  const agentsQuery = useAgentStatus();
   const scanQuery = useScanJob(activeScanId);
   const cancelScan = useCancelScan();
+  const startScan = useStartScan();
   const scanResultsQuery = useScanResults(
     scanQuery.data?.status === 'COMPLETED' ? activeScanId : null,
   );
@@ -23,6 +36,15 @@ export default function ObdDashboardPage() {
   const scan = scanQuery.data;
   const needsConfirmation = scan?.status === 'NEEDS_VEHICLE_CONFIRMATION';
   const faultCodes = scanResultsQuery.data?.data ?? [];
+  const isActiveScan =
+    scan &&
+    scan.status !== 'COMPLETED' &&
+    scan.status !== 'FAILED' &&
+    scan.status !== 'CANCELLED';
+  const canStartNewScan =
+    !!agentsQuery.data?.find(
+      (agent) => agent.status === 'ONLINE' && agent.adapterConnected,
+    );
 
   const handleScanStarted = (id: string) => {
     setActiveScanId(id);
@@ -37,29 +59,34 @@ export default function ObdDashboardPage() {
     }
   };
 
-  return (
-    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">OBD Dashboard</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Manage Desktop Agent, start scans, and view results.
-          </p>
-        </div>
-        <Link
-          href="/"
-          className="text-sm font-medium text-blue-600 hover:text-blue-800"
-        >
-          ← Back to home
-        </Link>
-      </div>
+  const handleStartNewScan = async () => {
+    const agent = agentsQuery.data?.find(
+      (candidate) => candidate.status === 'ONLINE' && candidate.adapterConnected,
+    );
+    if (!agent) return;
+    const nextScan = await startScan.mutateAsync(agent.id);
+    setActiveScanId(nextScan.id);
+  };
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+  return (
+    <div className="mx-auto max-w-7xl">
+      <Breadcrumbs items={[{ label: 'Diagnostics' }, { label: 'OBD Dashboard' }]} />
+      <PageHeader
+        eyebrow="Diagnostics"
+        title="OBD Dashboard"
+        description="Check scan readiness, run OBD scans, and continue into diagnostic sessions."
+      />
+
+      <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
         <div className="space-y-6">
+          <ObdReadinessPanel
+            agents={agentsQuery.data}
+            isLoading={agentsQuery.isLoading}
+          />
           <AgentStatusCard onPairAgent={() => setShowPairModal(true)} />
           <ScanControlPanel onScanStarted={handleScanStarted} />
 
-          {activeScanId && scan && scan.status !== 'COMPLETED' && scan.status !== 'FAILED' && scan.status !== 'CANCELLED' && (
+          {activeScanId && isActiveScan && (
             <button
               onClick={handleCancel}
               disabled={cancelScan.isPending}
@@ -71,6 +98,8 @@ export default function ObdDashboardPage() {
         </div>
 
         <div className="space-y-6">
+          {!scan && <ScanEmptyState />}
+
           {scan && (
             <ScanProgressTimeline
               status={scan.status}
@@ -79,26 +108,49 @@ export default function ObdDashboardPage() {
             />
           )}
 
-          {scan?.status === 'COMPLETED' && (
-            <ControlUnitOverview
-              faultCodes={faultCodes}
-              scanJobId={activeScanId ?? undefined}
-              sessionId={scan.diagnosticSessionId ?? undefined}
-              showNavigation={true}
+          {(scan?.status === 'FAILED' || scan?.status === 'CANCELLED') && (
+            <ScanRecoveryActions
+              status={scan.status}
+              isStarting={startScan.isPending}
+              canStart={canStartNewScan}
+              onStartNewScan={handleStartNewScan}
             />
           )}
 
-          {scan?.status === 'COMPLETED' && scan.diagnosticSessionId && (
-            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm text-slate-600">
-                Scan complete. View the full diagnostic session for detailed analysis.
-              </p>
-              <Link
-                href={`/diagnostic-sessions/${scan.diagnosticSessionId}`}
-                className="mt-2 inline-block text-sm font-medium text-blue-600 hover:text-blue-800"
-              >
-                Open Session →
-              </Link>
+          {scan?.status === 'COMPLETED' && (
+            <>
+              <ScanResultActions
+                sessionId={scan.diagnosticSessionId}
+                faultCount={faultCodes.length}
+              />
+              {scanResultsQuery.isLoading && (
+                <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
+                  Loading scan results...
+                </div>
+              )}
+              {scanResultsQuery.isError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700 shadow-sm">
+                  Unable to load scan results.
+                </div>
+              )}
+              {scanResultsQuery.data && (
+                <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                  <ControlUnitOverview
+                    faultCodes={faultCodes}
+                    scanJobId={activeScanId ?? undefined}
+                    sessionId={scan.diagnosticSessionId ?? undefined}
+                    showNavigation={false}
+                  />
+                </div>
+              )}
+            </>
+          )}
+
+          {(scan?.status === 'FAILED' || scan?.status === 'CANCELLED') &&
+            !canStartNewScan && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              Start New Scan is available after an online agent with a connected
+              adapter is detected.
             </div>
           )}
         </div>

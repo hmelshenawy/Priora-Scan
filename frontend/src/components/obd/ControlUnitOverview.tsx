@@ -87,20 +87,33 @@ export function ControlUnitOverview({
             </Link>
           )}
 
-          <Link
-            href="/obd/live-data"
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-          >
-            Start Live Data
-          </Link>
-
-          {scanJobId && (
+          {sessionId ? (
             <Link
-              href={`/obd?rescan=${scanJobId}`}
+              href={`/diagnostic-sessions/${sessionId}#live-data`}
               className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
             >
-              Rescan
+              Start Live Data
             </Link>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-400"
+              title="Open a diagnostic session to start live data"
+            >
+              Start Live Data
+            </button>
+          )}
+
+          {scanJobId && (
+            <button
+              type="button"
+              disabled
+              className="cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-400"
+              title="Start a new scan from the OBD Dashboard"
+            >
+              Rescan
+            </button>
           )}
 
           <button

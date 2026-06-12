@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { VehicleForm } from '../../../../components/vehicles/vehicle-form';
 import { useVehicle, useUpdateVehicle } from '../../../../hooks/use-vehicles';
@@ -48,12 +49,12 @@ export default function EditVehiclePage() {
   return (
     <div className="max-w-2xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
       <div className="mb-6">
-        <a
+        <Link
           href={`/vehicles/${id}`}
           className="text-sm text-blue-600 hover:text-blue-800"
         >
           ← Back to vehicle
-        </a>
+        </Link>
         <h1 className="mt-2 text-2xl font-bold text-gray-900">Edit Vehicle</h1>
         <p className="mt-1 text-sm text-gray-500">
           {vehicle.make} {vehicle.model} ({vehicle.year})
@@ -73,6 +74,12 @@ export default function EditVehiclePage() {
           onSubmit={handleSubmit}
           isSubmitting={updateVehicle.isPending}
         />
+        <Link
+          href={`/vehicles/${id}`}
+          className="mt-4 inline-flex text-sm font-medium text-slate-600 hover:text-slate-900"
+        >
+          Cancel
+        </Link>
       </div>
     </div>
   );

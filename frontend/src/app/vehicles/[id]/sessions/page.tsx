@@ -3,10 +3,12 @@
 import { FormEvent, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Breadcrumbs } from '../../../../components/layout/Breadcrumbs';
 import {
   useCreateDiagnosticSession,
   useVehicleSessions,
 } from '../../../../hooks/use-diagnostic-sessions';
+import { useVehicle } from '../../../../hooks/use-vehicles';
 import type { DiagnosticSession } from '../../../../lib/api-client';
 
 interface VehicleSessionsPageProps {
@@ -21,8 +23,13 @@ export default function VehicleSessionsPage({ params }: VehicleSessionsPageProps
   const [description, setDescription] = useState('');
   const [page, setPage] = useState(1);
   const limit = 10;
+  const vehicleQuery = useVehicle(params.id);
   const createSession = useCreateDiagnosticSession(params.id);
   const sessionsQuery = useVehicleSessions(params.id, page, limit);
+  const vehicle = vehicleQuery.data;
+  const vehicleName = vehicle
+    ? `${vehicle.year} ${vehicle.make} ${vehicle.model}`
+    : 'Vehicle';
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -39,14 +46,32 @@ export default function VehicleSessionsPage({ params }: VehicleSessionsPageProps
   };
 
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mx-auto max-w-5xl space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Vehicles', href: '/vehicles' },
+          { label: vehicleName, href: `/vehicles/${params.id}` },
+          { label: 'Diagnostic Sessions' },
+        ]}
+      />
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-slate-900">Diagnostic Sessions</h1>
-          <p className="mt-1 text-sm text-slate-600">Vehicle ID: {params.id}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Vehicle Diagnostic History
+          </p>
+          <h1 className="mt-1 text-3xl font-semibold text-slate-900">
+            {vehicleName}
+          </h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Create a session or reopen recent diagnostic work for this vehicle.
+          </p>
         </div>
-        <Link href="/vehicles" className="text-sm font-medium text-blue-600 hover:text-blue-800">
-          ← Back to vehicles
+        <Link
+          href={`/vehicles/${params.id}`}
+          className="text-sm font-medium text-blue-600 hover:text-blue-800"
+        >
+          Back to vehicle
         </Link>
       </div>
 

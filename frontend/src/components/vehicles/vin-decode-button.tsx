@@ -8,11 +8,6 @@ interface VinDecodeButtonProps {
   onDecoded: (result: VehicleDecodeResult) => void;
 }
 
-/**
- * Triggers the backend `/vehicles/decode` endpoint when the VIN is long
- * enough. The user must explicitly press the button — auto-decode is not
- * MVP behavior, and this keeps the user in control of the round-trip.
- */
 export function VinDecodeButton({ vin, onDecoded }: VinDecodeButtonProps) {
   const enabled = !!vin && vin.length >= 3 && vin.length <= 25;
   const query = useVinDecode(enabled ? vin : null);
@@ -45,7 +40,7 @@ export function VinDecodeButton({ vin, onDecoded }: VinDecodeButtonProps) {
 
   return (
     <p className="mt-1 text-xs text-slate-500">
-      Looking up VIN… (the form will auto-fill once the lookup completes)
+      Looking up VIN... fields will auto-fill when a match is found.
     </p>
   );
 }

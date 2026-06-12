@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { VehicleSearchFilters } from '../../components/vehicles/vehicle-search-filters';
 import { VehicleListTable } from '../../components/vehicles/vehicle-list-table';
 import { useVehicles, VehicleFilters } from '../../hooks/use-vehicles';
@@ -18,12 +19,12 @@ export default function VehiclesPage() {
             Manage vehicles in your workshop.
           </p>
         </div>
-        <a
+        <Link
           href="/vehicles/new"
           className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
           Create Vehicle
-        </a>
+        </Link>
       </div>
 
       <VehicleSearchFilters onSearch={(f) => setFilters({ ...f, page: 1 })} />
