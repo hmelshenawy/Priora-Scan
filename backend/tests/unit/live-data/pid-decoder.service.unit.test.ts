@@ -163,6 +163,8 @@ describe('PidDecoderService', () => {
       'A + B +', // trailing operator
       '(A + B', // unbalanced paren
       'A ** B', // unsupported operator
+      'A + 1.', // malformed decimal
+      '.5 + A', // decimals must start with a digit
       'true', // boolean literal
       '"hello"', // string literal
       "import('x')", // dynamic import
@@ -219,6 +221,9 @@ describe('PidDecoderService', () => {
       expect(evaluateFormula('A / 4', 5, 0)).toBe(1.25);
       expect(evaluateFormula('A / 4', -5, 0)).toBe(-1.25);
     });
+    it('evaluates decimal constants from model-pids.sqlite formulas', () => {
+      expect(evaluateFormula('(A*0.065)-17.5', 100, 0)).toBeCloseTo(-11, 6);
+    });
     it('ignores whitespace', () => {
       expect(evaluateFormula('  A  +  B  ', 1, 2)).toBe(3);
     });
@@ -230,6 +235,9 @@ describe('PidDecoderService', () => {
   describe('validateFormula', () => {
     it('returns null for a valid formula', () => {
       expect(service.validateFormula('A - 40')).toBeNull();
+    });
+    it('returns null for a valid formula with decimal constants', () => {
+      expect(service.validateFormula('(A*0.065)-17.5')).toBeNull();
     });
     it('returns PID_FORMULA_INVALID for a bad formula', () => {
       expect(service.validateFormula('Math.PI')).toBe('PID_FORMULA_INVALID');

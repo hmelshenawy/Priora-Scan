@@ -91,4 +91,17 @@ export class DiagnosticSessionsController {
       payload,
     );
   }
+
+  @Get('diagnostic-sessions/:sessionId/audit')
+  @Permissions('read:diagnostic-session')
+  async getAuditTrail(
+    @Param('sessionId') sessionId: string,
+    @Req() req: Request,
+  ) {
+    const organizationId = req.organizationId!;
+    return this.diagnosticSessionsService.getAuditTrail(
+      organizationId,
+      sessionId,
+    );
+  }
 }

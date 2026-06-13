@@ -9,6 +9,8 @@ import { DiagnosticSessionsModule } from './diagnostic-sessions/diagnostic-sessi
 import { ObdModule } from './obd/obd.module';
 import { FaultCodesModule } from './fault-codes/fault-codes.module';
 import { LiveDataModule } from './live-data/live-data.module';
+import { VehicleDataModule } from './vehicle-data/vehicle-data.module';
+import { DtcClearModule } from './dtc-clear/dtc-clear.module';
 import { securityConfig } from './config/security.config';
 
 @Module({
@@ -30,6 +32,8 @@ import { securityConfig } from './config/security.config';
     ObdModule,
     FaultCodesModule,
     LiveDataModule,
+    VehicleDataModule,
+    DtcClearModule,
   ],
   providers: [PrismaService],
 })

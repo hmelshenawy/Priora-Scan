@@ -51,7 +51,7 @@ model VehicleDecode {
 /// `backend/data/model-pids.sqlite` (GM Mode 22) on first backend startup.
 ///
 /// Formula is interpreted by a small vetted expression evaluator
-/// (Correction 5). Allowed tokens: `A`, `B`, integer literals,
+/// (Correction 5). Allowed tokens: `A`, `B`, numeric literals,
 /// `+ - * / ( )`. No `eval`. No user-defined formulas.
 model PIDDefinition {
   id        String   @id @default(uuid()) @db.Uuid
@@ -97,6 +97,8 @@ model DiagnosticSession {
   createdBy        String                  @db.Uuid
   createdAt        DateTime                @default(now()) @db.Timestamptz(6)
   updatedAt        DateTime                @updatedAt @db.Timestamptz(6)
+  vehicleDataJson  Json?
+  vehicleDataReadAt DateTime?             @db.Timestamptz(6)
   scanJobs         ScanJob[]
   faultCodes       SessionFaultCode[]
   liveDataSessions LiveDataSession[]
@@ -338,21 +340,23 @@ enum LiveDataSessionStatus {
   STALE
 }
 
-/// A queued command for the Desktop Agent's live-data poller.
+/// A queued command for the Desktop Agent's command poller.
 /// `LIVE_DATA_POLL` carries the cadenceMs and the PID list; `LIVE_DATA_STOP`
-/// is the polite stop. Agents consume commands via the command-queue
-/// endpoint and ack via the poll-result endpoint.
+/// is the polite stop. `READ_VEHICLE_DATA` and `CLEAR_DTC` (Feature 009)
+/// carry `diagnosticSessionId` in the payload JSONB instead of referencing
+/// a LiveDataSession. Agents consume commands via the command-queue
+/// endpoint and ack via the poll-result or scan-events endpoint.
 model LiveDataCommand {
   id                String              @id @default(uuid()) @db.Uuid
   organizationId    String              @db.Uuid
   agentId           String              @db.Uuid
-  liveDataSessionId String              @db.Uuid
+  liveDataSessionId String?             @db.Uuid
   commandType       LiveDataCommandType
   payload           Json?
   consumedAt        DateTime?           @db.Timestamptz(6)
   createdAt         DateTime            @default(now()) @db.Timestamptz(6)
   agent             DesktopAgent        @relation(fields: [agentId], references: [id])
-  LiveDataSession   LiveDataSession     @relation(fields: [liveDataSessionId], references: [id])
+  LiveDataSession   LiveDataSession?    @relation(fields: [liveDataSessionId], references: [id])
 
   @@index([agentId, consumedAt])
   @@index([liveDataSessionId])
@@ -362,4 +366,6 @@ model LiveDataCommand {
 enum LiveDataCommandType {
   LIVE_DATA_POLL
   LIVE_DATA_STOP
+  READ_VEHICLE_DATA
+  CLEAR_DTC
 }

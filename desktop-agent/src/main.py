@@ -3,10 +3,24 @@ from src.pairing import exchange_pairing_token
 from src.api_client import ApiClient
 from src.heartbeat import heartbeat_loop
 from src.live_data.poller import LiveDataPoller
-from src.live_data.queue import poll_live_data_command_queue
+from src.live_data.queue import (
+    poll_live_data_command_queue,
+    set_vehicle_data_read_handler,
+    set_clear_dtc_handler,
+)
 from src.obd.elm327 import Elm327Adapter
 from src.obd.commands.vin import read_vin
 from src.obd.commands.dtc import read_fault_codes
+from src.obd.commands.vehicle_data import (
+    read_battery_voltage,
+    read_fuel_system_status,
+    read_engine_load,
+    read_fuel_level,
+    read_readiness_monitors,
+    read_supported_pids,
+    read_mileage,
+)
+from src.obd.commands.clear_dtc import clear_dtc
 from src.models.scan_job import ScanJob
 from src.models.fault_code import FaultCode
 from src.config import (
@@ -65,6 +79,68 @@ def _emit(api_client: ApiClient, scan_id: str, event_type: str, data: dict) -> N
     return response.json() if response else None
 
 
+def _emit_session(api_client: ApiClient, session_id: str, event_type: str, data: dict) -> None:
+    """Emit an event using sessionId instead of scanJobId (Feature 009)."""
+    response = api_client.post(
+        f"/obd/agents/{api_client.agent_id}/scan-events",
+        json={"sessionId": session_id, "event": event_type, "payload": data},
+    )
+    return response.json() if response else None
+
+
+def execute_vehicle_data_read(api_client: ApiClient, session_id: str, adapter) -> None:
+    """Read all vehicle data PIDs and emit VEHICLE_DATA_READ event.
+
+    Feature 009 Phase A: one-shot read of battery voltage, fuel
+    system status, engine load, fuel level, readiness monitors,
+    supported PIDs, and mileage. Unsupported PIDs are reported as
+    ``{ value: null, supported: false }`` rather than raising.
+    """
+    if not adapter.is_connected():
+        _emit_session(api_client, session_id, "ERROR", {"message": "No adapter connected"})
+        return
+
+    vehicle_data = {
+        "batteryVoltage": read_battery_voltage(adapter),
+        "fuelSystemStatus": read_fuel_system_status(adapter),
+        "calculatedEngineLoad": read_engine_load(adapter),
+        "fuelLevel": read_fuel_level(adapter),
+        "readinessMonitors": read_readiness_monitors(adapter),
+        "supportedPids": read_supported_pids(adapter),
+        "mileage": read_mileage(adapter),
+    }
+
+    # Also include VIN confirmation (PID 09 02)
+    try:
+        vin = read_vin(adapter)
+        vehicle_data["vin"] = {"value": vin, "supported": True}
+    except Exception:
+        vehicle_data["vin"] = {"value": None, "supported": False}
+
+    _emit_session(api_client, session_id, "VEHICLE_DATA_READ", {"vehicleData": vehicle_data})
+    print(f"Vehicle data read completed for session {session_id}")
+
+
+def execute_clear_dtc(api_client: ApiClient, session_id: str, adapter) -> None:
+    """Send Mode 04 clear DTC and emit DTC_CLEARED or DTC_CLEAR_FAILED event.
+
+    Feature 009 Phase B: safe clearing of fault codes.
+    """
+    if not adapter.is_connected():
+        _emit_session(api_client, session_id, "DTC_CLEAR_FAILED", {"reason": "No adapter connected"})
+        return
+
+    result = clear_dtc(adapter)
+
+    if result["success"]:
+        _emit_session(api_client, session_id, "DTC_CLEARED", {"success": True})
+        print(f"DTC clear succeeded for session {session_id}")
+    else:
+        reason = result.get("reason", "Unknown failure")
+        _emit_session(api_client, session_id, "DTC_CLEAR_FAILED", {"reason": reason})
+        print(f"DTC clear failed for session {session_id}: {reason}")
+
+
 def configure_agent_auth(api_client: ApiClient, args) -> None:
     if AGENT_ACCESS_TOKEN:
         if not AGENT_ID:
@@ -99,6 +175,16 @@ def main() -> None:
     configure_agent_auth(api_client, args)
 
     adapter = create_obd_adapter()
+
+    # Register Feature 009 command handlers with the queue dispatcher.
+    # Closures capture the adapter instance so the handlers don't need
+    # to recreate or import it (avoids circular imports).
+    set_vehicle_data_read_handler(
+        lambda api_client, session_id: execute_vehicle_data_read(api_client, session_id, adapter)
+    )
+    set_clear_dtc_handler(
+        lambda api_client, session_id: execute_clear_dtc(api_client, session_id, adapter)
+    )
 
     import threading
 

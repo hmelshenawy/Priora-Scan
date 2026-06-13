@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import type { FaultCode } from '@/hooks/useObdScan';
 import {
   buildControlUnitOverview,
@@ -9,6 +10,7 @@ import {
 import { ControlUnitSummaryCards } from './ControlUnitSummaryCards';
 import { ControlUnitCard } from './ControlUnitCard';
 import { MvpNoticeBanner } from './MvpNoticeBanner';
+import { ClearFaultCodesButton } from '../dtc-clear/ClearFaultCodesButton';
 import Link from 'next/link';
 
 interface ControlUnitOverviewProps {
@@ -26,6 +28,8 @@ interface ControlUnitOverviewProps {
   showNavigation?: boolean;
   /** Section title. Default: "Control Unit Overview". */
   title?: string;
+  /** Whether the session is open (not closed). Default: true. */
+  isSessionOpen?: boolean;
 }
 
 /**
@@ -43,9 +47,19 @@ export function ControlUnitOverview({
   vehicleId,
   showNavigation = true,
   title = 'Control Unit Overview',
+  isSessionOpen = true,
 }: ControlUnitOverviewProps) {
+  const router = useRouter();
   const effectiveScannedEcuCodes =
     scannedEcuCodes ?? DEFAULT_SCANNED_ECU_CODES;
+
+  /**
+   * Navigate to the OBD Dashboard where the technician can start a fresh scan.
+   * After a successful DTC clear, a new scan shows the current ECU state.
+   */
+  const handleRescan = () => {
+    router.push('/obd');
+  };
 
   const results = buildControlUnitOverview(faultCodes, effectiveScannedEcuCodes);
   const summary = computeControlUnitSummary(results);
@@ -60,6 +74,16 @@ export function ControlUnitOverview({
 
       {/* MVP limitation notice */}
       <MvpNoticeBanner />
+
+      {/* Clear fault codes action — Feature 009 Phase B */}
+      {sessionId && faultCodes.length > 0 && (
+        <ClearFaultCodesButton
+          sessionId={sessionId}
+          faultCodeCount={faultCodes.length}
+          isSessionOpen={isSessionOpen}
+          onRescan={handleRescan}
+        />
+      )}
 
       {/* Control unit cards — responsive grid */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

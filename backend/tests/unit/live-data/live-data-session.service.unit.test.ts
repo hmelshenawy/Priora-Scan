@@ -213,7 +213,7 @@ describe('LiveDataSessionService', () => {
       (prisma.liveDataSession.updateMany as jest.Mock).mockResolvedValue({
         count: 1,
       });
-      (prisma.liveDataCommand.create as jest.Mock).mockResolvedValue({});
+      (commands.enqueue as jest.Mock).mockResolvedValue({});
       (sessions.findById as jest.Mock)
         .mockResolvedValueOnce(makeLiveDataSession())
         .mockResolvedValueOnce(
@@ -223,10 +223,12 @@ describe('LiveDataSessionService', () => {
       const result = await service.stop('live-1', ORG_A);
 
       expect(result.status).toBe(LiveDataSessionStatus.STOPPED);
-      expect(prisma.liveDataCommand.create).toHaveBeenCalledWith(
+      expect(commands.enqueue).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ commandType: 'LIVE_DATA_STOP' }),
+          commandType: 'LIVE_DATA_STOP',
+          liveDataSessionId: 'live-1',
         }),
+        prisma,
       );
     });
 
@@ -238,7 +240,7 @@ describe('LiveDataSessionService', () => {
       const result = await service.stop('live-1', ORG_A);
 
       expect(result.status).toBe(LiveDataSessionStatus.STOPPED);
-      expect(prisma.liveDataCommand.create).not.toHaveBeenCalled();
+      expect(commands.enqueue).not.toHaveBeenCalled();
     });
 
     it('returns 404 when the session is unknown or in another tenant', async () => {

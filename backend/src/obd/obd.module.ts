@@ -11,12 +11,14 @@ import { DesktopAgentRepository } from './repositories/desktop-agent.repository'
 import { ScanJobRepository } from './repositories/scan-job.repository';
 import { SessionFaultCodeRepository } from './repositories/session-fault-code.repository';
 import { AdapterConnectionRepository } from './repositories/adapter-connection.repository';
+import { VehicleDataModule } from '../vehicle-data/vehicle-data.module';
+import { DtcClearModule } from '../dtc-clear/dtc-clear.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { FaultCodesModule } from '../fault-codes/fault-codes.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, FaultCodesModule],
+  imports: [PrismaModule, AuthModule, FaultCodesModule, VehicleDataModule, DtcClearModule],
   controllers: [
     AgentPairingController,
     AgentWebhookController,

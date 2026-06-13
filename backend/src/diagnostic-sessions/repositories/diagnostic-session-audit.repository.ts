@@ -28,4 +28,18 @@ export class DiagnosticSessionAuditRepository {
       },
     });
   }
+
+  /**
+   * Find all audit records for a session, tenant-scoped, newest first.
+   * Used by the session detail audit trail endpoint.
+   */
+  async findBySession(
+    sessionId: string,
+    organizationId: string,
+  ): Promise<DiagnosticSessionAuditRecord[]> {
+    return this.prisma.diagnosticSessionAuditRecord.findMany({
+      where: { sessionId, organizationId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 }

@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
-import { ObdModule } from '../obd/obd.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { DesktopAgentRepository } from '../obd/repositories/desktop-agent.repository';
 import { PidsController } from './controllers/pids.controller';
 import { LiveDataController } from './controllers/live-data.controller';
 import { LiveDataAgentController } from './controllers/live-data-agent.controller';
@@ -37,12 +37,13 @@ import { PrismaService } from '../prisma/prisma.service';
  * dashboard. The agent command-queue v2 path lands in a later sub-phase.
  */
 @Module({
-  imports: [AuthModule, ObdModule, PrismaModule],
+  imports: [AuthModule, PrismaModule],
   controllers: [PidsController, LiveDataController, LiveDataAgentController],
   providers: [
     PidDefinitionRepository,
     LiveDataSessionRepository,
     LiveDataCommandRepository,
+    DesktopAgentRepository,
     PidAssetImportService,
     PidDecoderService,
     LiveDataSessionService,

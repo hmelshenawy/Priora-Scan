@@ -2,7 +2,7 @@
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
 
-`specs/007-diagnostic-results-ui-polish/plan.md`
+`specs/009-vehicle-data-clear-codes/plan.md`
 
 # PrioraScan AI Agent Instructions
 

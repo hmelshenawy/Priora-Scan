@@ -2,6 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma, LiveDataCommand, LiveDataCommandType } from '@prisma/client';
 
+export interface EnqueueLiveDataCommandInput {
+  organizationId: string;
+  agentId: string;
+  liveDataSessionId?: string | null;
+  commandType: LiveDataCommandType;
+  payload?: Prisma.InputJsonValue | null;
+}
+
 /**
  * LiveDataCommandRepository — Feature 006 Phase B.2.
  *
@@ -14,10 +22,27 @@ export class LiveDataCommandRepository {
   constructor(private prisma: PrismaService) {}
 
   async enqueue(
-    data: Prisma.LiveDataCommandUncheckedCreateInput,
+    data: EnqueueLiveDataCommandInput,
     tx: Prisma.TransactionClient = this.prisma,
   ): Promise<LiveDataCommand> {
-    return tx.liveDataCommand.create({ data });
+    const payloadJson =
+      data.payload === undefined || data.payload === null
+        ? null
+        : JSON.stringify(data.payload);
+    const rows = await tx.$queryRaw<LiveDataCommand[]>`
+      INSERT INTO "LiveDataCommand"
+        ("organizationId", "agentId", "liveDataSessionId", "commandType", "payload")
+      VALUES
+        (
+          ${data.organizationId}::uuid,
+          ${data.agentId}::uuid,
+          ${data.liveDataSessionId ?? null}::uuid,
+          ${data.commandType}::"LiveDataCommandType",
+          ${payloadJson}::jsonb
+        )
+      RETURNING *
+    `;
+    return rows[0];
   }
 
   /**

@@ -207,14 +207,15 @@ export class LiveDataSessionService {
           stoppedAt: new Date(),
         },
       });
-      await tx.liveDataCommand.create({
-        data: {
+      await this.commands.enqueue(
+        {
           organizationId,
           agentId: existing.agentId,
           liveDataSessionId,
           commandType: 'LIVE_DATA_STOP',
         },
-      });
+        tx,
+      );
     });
     return this.sessions.findById(liveDataSessionId, organizationId) as Promise<LiveDataSession>;
   }

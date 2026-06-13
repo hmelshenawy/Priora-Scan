@@ -19,6 +19,10 @@ import { AgentHeartbeatDto } from '../dtos/agent-heartbeat.dto';
 import { ScanJobStatus } from '../types/scan-job-status.enum';
 import { ScanEventType } from '../types/scan-event-type.enum';
 import { FaultCodeStatus } from '../types/fault-code-status.enum';
+import { VehicleDataRepository } from '../../vehicle-data/repositories/vehicle-data.repository';
+import { VehicleDataService } from '../../vehicle-data/services/vehicle-data.service';
+import { DtcClearService } from '../../dtc-clear/services/dtc-clear.service';
+import { isValidVehicleDataJson } from '../../vehicle-data/dtos/vehicle-data-response.dto';
 
 @Controller('obd/agents')
 export class AgentWebhookController {
@@ -28,6 +32,9 @@ export class AgentWebhookController {
     private heartbeatService: AgentHeartbeatService,
     private scanService: ObdScanService,
     private scanJobRepository: ScanJobRepository,
+    private vehicleDataRepository: VehicleDataRepository,
+    private vehicleDataService: VehicleDataService,
+    private dtcClearService: DtcClearService,
   ) {}
 
   @Post('register')
@@ -134,7 +141,8 @@ export class AgentWebhookController {
   async scanEvents(
     @Param('id') id: string,
     @Body() body: {
-      scanJobId: string;
+      scanJobId?: string;
+      sessionId?: string;
       event: ScanEventType;
       payload: Record<string, unknown>;
     },
@@ -142,8 +150,26 @@ export class AgentWebhookController {
   ) {
     const agent = req.agent!;
 
+    // Feature 009 events use sessionId instead of scanJobId
+    if (
+      body.event === ScanEventType.VEHICLE_DATA_READ ||
+      body.event === ScanEventType.DTC_CLEARED ||
+      body.event === ScanEventType.DTC_CLEAR_FAILED
+    ) {
+      return this.handleFeature009Event(id, agent.organizationId, body);
+    }
+
+    // Existing Feature 004 flow — requires scanJobId
+    const scanJobId = body.scanJobId;
+    if (!scanJobId) {
+      throw new NotFoundException({
+        code: 'SCAN_JOB_NOT_FOUND',
+        message: 'Scan job not found.',
+      });
+    }
+
     const scan = await this.prisma.scanJob.findFirst({
-      where: { id: body.scanJobId, agentId: id, organizationId: agent.organizationId },
+      where: { id: scanJobId, agentId: id, organizationId: agent.organizationId },
     });
     if (!scan) {
       throw new NotFoundException({
@@ -208,6 +234,86 @@ export class AgentWebhookController {
           message,
         );
         return { status: 'FAILED' };
+      }
+
+      default:
+        return { status: 'OK' };
+    }
+  }
+
+  /**
+   * Handle Feature 009 agent events (VEHICLE_DATA_READ, DTC_CLEARED, DTC_CLEAR_FAILED).
+   * These events use sessionId instead of scanJobId.
+   */
+  private async handleFeature009Event(
+    agentId: string,
+    organizationId: string,
+    body: {
+      sessionId?: string;
+      event: ScanEventType;
+      payload: Record<string, unknown>;
+    },
+  ) {
+    const sessionId = body.sessionId;
+    if (!sessionId) {
+      throw new NotFoundException({
+        code: 'SESSION_NOT_FOUND',
+        message: 'sessionId is required for this event type.',
+      });
+    }
+
+    // Verify the session exists and belongs to the agent's organization
+    const session = await this.vehicleDataRepository.findSessionById(
+      sessionId,
+      organizationId,
+    );
+    if (!session) {
+      throw new NotFoundException({
+        code: 'SESSION_NOT_FOUND',
+        message: 'The diagnostic session does not exist or you do not have access to it.',
+      });
+    }
+
+    switch (body.event) {
+      case ScanEventType.VEHICLE_DATA_READ: {
+        const vehicleData = body.payload.vehicleData as Record<string, unknown>;
+        if (!vehicleData) {
+          return { status: 'OK', warning: 'No vehicleData in payload' };
+        }
+
+        // Delegate to VehicleDataService for persistence + audit
+        await this.vehicleDataService.processVehicleDataRead(
+          sessionId,
+          organizationId,
+          vehicleData,
+        );
+
+        return { status: 'OK' };
+      }
+
+      case ScanEventType.DTC_CLEARED: {
+        // Delegate to DtcClearService for audit + pending flag clear
+        await this.dtcClearService.processClearResult(
+          sessionId,
+          organizationId,
+          true,
+        );
+
+        return { status: 'OK' };
+      }
+
+      case ScanEventType.DTC_CLEAR_FAILED: {
+        const reason = (body.payload.reason as string) ?? 'Unknown failure';
+
+        // Delegate to DtcClearService for audit + pending flag clear
+        await this.dtcClearService.processClearResult(
+          sessionId,
+          organizationId,
+          false,
+          reason,
+        );
+
+        return { status: 'OK' };
       }
 
       default:

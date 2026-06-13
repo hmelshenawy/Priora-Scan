@@ -5,6 +5,7 @@ import { DiagnosticSessionAuditRepository } from '../repositories/diagnostic-ses
 import { CreateDiagnosticSessionDto } from '../dtos/create-diagnostic-session.dto';
 import { UpdateDiagnosticSessionDto } from '../dtos/update-diagnostic-session.dto';
 import { DiagnosticSessionResponseDto } from '../dtos/diagnostic-session-response.dto';
+import { AuditTrailResponseDto } from '../dtos/audit-trail-response.dto';
 import { DiagnosticSessionStatus } from '../types/diagnostic-session-status.enum';
 
 @Injectable()
@@ -171,6 +172,35 @@ export class DiagnosticSessionsService {
     }
 
     return DiagnosticSessionResponseDto.fromEntity(updatedSession);
+  }
+
+  /**
+   * Return the audit trail for a diagnostic session.
+   * Tenant-scoped — only returns records belonging to the organization.
+   */
+  async getAuditTrail(
+    organizationId: string,
+    sessionId: string,
+  ): Promise<AuditTrailResponseDto> {
+    const session = await this.diagnosticSessionRepository.getById(
+      organizationId,
+      sessionId,
+    );
+
+    if (!session) {
+      throw new NotFoundException({
+        code: 'DIAGNOSTIC_SESSION_NOT_FOUND',
+        message:
+          'The requested diagnostic session does not exist or you do not have access to it.',
+      });
+    }
+
+    const records = await this.diagnosticSessionAuditRepository.findBySession(
+      sessionId,
+      organizationId,
+    );
+
+    return AuditTrailResponseDto.fromEntries(sessionId, records);
   }
 
   private validateStatusTransition(

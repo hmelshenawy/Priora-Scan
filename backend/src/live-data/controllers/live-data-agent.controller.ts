@@ -48,6 +48,9 @@ export class LiveDataAgentController {
         id: cmd.id,
         commandType: cmd.commandType,
         liveDataSessionId: cmd.liveDataSessionId,
+        diagnosticSessionId:
+          (cmd.payload as Record<string, unknown> | null)?.diagnosticSessionId ??
+          null,
         payload: cmd.payload,
         createdAt: cmd.createdAt,
       },

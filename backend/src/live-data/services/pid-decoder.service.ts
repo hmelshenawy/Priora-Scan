@@ -12,9 +12,9 @@ import { PidDefinitionRepository } from '../repositories/pid-definition.reposito
  *
  *   expr   := term (('+' | '-') term)*
  *   term   := factor (('*' | '/') factor)*
- *   factor := 'A' | 'B' | integer | '(' expr ')'
+ *   factor := 'A' | 'B' | number | '(' expr ')'
  *
- * Integer literals are decimal. Division uses JavaScript's default
+ * Numeric literals are decimal integers or decimals. Division uses JavaScript's default
  * floating-point semantics, which is what OBD-II PIDs such as Control
  * Module Voltage (`(A*256+B)/1000`) and MAF (`(A*256+B)/100`) need to
  * display the correct engineering value. Whitespace is ignored.
@@ -183,7 +183,7 @@ export function evaluateFormula(formula: string, aValue: number, bValue: number)
 }
 
 interface Token {
-  kind: 'A' | 'B' | 'INT' | 'PLUS' | 'MINUS' | 'STAR' | 'SLASH' | 'LPAREN' | 'RPAREN' | 'EOF';
+  kind: 'A' | 'B' | 'NUMBER' | 'PLUS' | 'MINUS' | 'STAR' | 'SLASH' | 'LPAREN' | 'RPAREN' | 'EOF';
   value?: number;
   pos: number;
 }
@@ -249,12 +249,23 @@ function tokenize(input: string): Token[] {
     }
     if (/[0-9]/.test(c)) {
       const start = i;
-      let n = 0;
+      let raw = '';
       while (i < input.length && /[0-9]/.test(input[i])) {
-        n = n * 10 + Number.parseInt(input[i], 10);
+        raw += input[i];
         i++;
       }
-      out.push({ kind: 'INT', value: n, pos: start });
+      if (input[i] === '.') {
+        raw += input[i];
+        i++;
+        if (i >= input.length || !/[0-9]/.test(input[i])) {
+          throw formulaError('PID_FORMULA_INVALID', `Invalid number at position ${start}`);
+        }
+        while (i < input.length && /[0-9]/.test(input[i])) {
+          raw += input[i];
+          i++;
+        }
+      }
+      out.push({ kind: 'NUMBER', value: Number.parseFloat(raw), pos: start });
       continue;
     }
     throw formulaError('PID_FORMULA_INVALID', `Unexpected character '${c}' at position ${i}`);
@@ -315,7 +326,7 @@ function parseFactor(ctx: ParseContext): number {
     ctx.pos++;
     return ctx.b;
   }
-  if (t.kind === 'INT') {
+  if (t.kind === 'NUMBER') {
     ctx.pos++;
     return t.value as number;
   }

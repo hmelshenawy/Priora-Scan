@@ -10,12 +10,14 @@ import { useVehicle } from '../../../hooks/use-vehicles';
 import { useSessionFaultCodes } from '../../../hooks/useObdScan';
 import { ControlUnitOverview } from '../../../components/obd/ControlUnitOverview';
 import { LiveDataCard } from '../../../components/live-data/LiveDataCard';
+import { VehicleHealthPanel } from '../../../components/vehicle-data/VehicleHealthPanel';
 import { Breadcrumbs } from '../../../components/layout/Breadcrumbs';
 import { ErrorState } from '../../../components/ui/ErrorState';
 import { LoadingState } from '../../../components/ui/LoadingState';
 import { SessionHeader } from '../../../components/diagnostic-session/SessionHeader';
 import { SessionLifecyclePanel } from '../../../components/diagnostic-session/SessionLifecyclePanel';
 import { SessionNotesForm } from '../../../components/diagnostic-session/SessionNotesForm';
+import { AuditTrail } from '../../../components/diagnostic-session/AuditTrail';
 
 interface DiagnosticSessionDetailPageProps {
   params: {
@@ -94,8 +96,10 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
         <div className="flex flex-wrap gap-2">
           {[
             ['#overview', 'Overview'],
+            ['#vehicle-health', 'Vehicle Health'],
             ['#control-units', 'Control Units'],
             ['#live-data', 'Live Data'],
+            ['#audit-trail', 'Audit Trail'],
             ['#notes', 'Notes'],
           ].map(([href, label]) => (
             <Link
@@ -157,6 +161,16 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
       </section>
 
       <section
+        id="vehicle-health"
+        className="scroll-mt-32"
+      >
+        <VehicleHealthPanel
+          sessionId={session.id}
+          isSessionOpen={session.status !== 'CLOSED'}
+        />
+      </section>
+
+      <section
         id="control-units"
         className="scroll-mt-32 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
       >
@@ -180,12 +194,20 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
             sessionId={session.id}
             vehicleId={session.vehicleId}
             showNavigation={false}
+            isSessionOpen={session.status !== 'CLOSED'}
           />
         )}
       </section>
 
       <section id="live-data" className="mt-6 scroll-mt-20">
         <LiveDataCard diagnosticSessionId={session.id} />
+      </section>
+
+      <section
+        id="audit-trail"
+        className="scroll-mt-32"
+      >
+        <AuditTrail sessionId={session.id} />
       </section>
 
       <SessionNotesForm
