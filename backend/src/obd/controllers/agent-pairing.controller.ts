@@ -65,19 +65,23 @@ export class AgentPairingController {
         agents.map((agent) => agent.id),
         organizationId,
       );
-    const connectedAgentIds = new Set(
-      connections.map((connection) => connection.agentId),
+    const connectionByAgent = new Map(
+      connections.map((c) => [c.agentId, c]),
     );
     return agents.map(
-      (a) =>
-        new AgentStatusResponseDto({
+      (a) => {
+        const conn = connectionByAgent.get(a.id);
+        return new AgentStatusResponseDto({
           id: a.id,
           name: a.name ?? undefined,
           version: a.version,
           status: a.status as any,
           lastSeenAt: a.lastSeenAt ?? undefined,
-          adapterConnected: connectedAgentIds.has(a.id),
-        }),
+          adapterConnected: !!conn,
+          adapterType: conn?.adapterType ?? undefined,
+          connectionType: conn?.connectionType ?? undefined,
+        });
+      },
     );
   }
 
@@ -104,6 +108,8 @@ export class AgentPairingController {
       status: agent.status as any,
       lastSeenAt: agent.lastSeenAt ?? undefined,
       adapterConnected: connections.length > 0,
+      adapterType: connections[0]?.adapterType ?? undefined,
+      connectionType: connections[0]?.connectionType ?? undefined,
     });
   }
 }

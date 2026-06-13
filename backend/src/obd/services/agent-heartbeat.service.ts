@@ -48,9 +48,12 @@ export class AgentHeartbeatService {
     });
 
     if (dto.adapterConnected) {
+      const connectionType =
+        dto.connectionType ??
+        (dto.adapterType === 'MOCK' ? 'MOCK' : 'USB');
       const data = {
         adapterType: dto.adapterType ?? 'ELM327',
-        connectionType: dto.adapterType === 'MOCK' ? 'MOCK' : 'USB',
+        connectionType,
         protocol: dto.protocol,
         status: 'CONNECTED',
         endedAt: null,

@@ -27,7 +27,7 @@ from src.config import (
     AGENT_ACCESS_TOKEN,
     AGENT_ID,
     AGENT_NAME,
-    OBD_MOCK,
+    OBD_ADAPTER_TYPE,
     SCAN_QUEUE_INTERVAL_SECONDS,
 )
 
@@ -158,10 +158,14 @@ def configure_agent_auth(api_client: ApiClient, args) -> None:
 
 
 def create_obd_adapter():
-    if OBD_MOCK:
+    if OBD_ADAPTER_TYPE == "mock":
         from src.obd.mock_adapter import MockObdAdapter
 
         return MockObdAdapter()
+    if OBD_ADAPTER_TYPE == "wifi":
+        from src.obd.wifi_elm327 import WifiElm327Adapter
+
+        return WifiElm327Adapter()
     return Elm327Adapter()
 
 
@@ -190,12 +194,7 @@ def main() -> None:
 
     hb = threading.Thread(
         target=heartbeat_loop,
-        args=(
-            api_client,
-            adapter.is_connected(),
-            getattr(adapter, "adapter_type", None),
-            getattr(adapter, "protocol", None),
-        ),
+        args=(api_client, adapter),
         daemon=True,
     )
     hb.start()

@@ -3,11 +3,26 @@ from src.models.fault_code import FaultCode
 
 
 class Elm327Adapter:
+    adapter_type = "ELM327"
+    protocol = "ISO_15765_4_CAN"
+
     def __init__(self, port: str = None):
         self.port = port
         self._connection = None
-        self.protocol = "ISO_15765_4_CAN"
-        self.adapter_type = "ELM327"
+
+    def connect(self) -> bool:
+        """Establish USB serial connection and initialize ELM327.
+
+        Delegates to existing lazy-connect logic in is_connected().
+        """
+        try:
+            if not self._connection:
+                from src.obd.connection.usb import UsbConnection
+                self._connection = UsbConnection(self.port)
+                self._connection.open()
+            return self._connection.is_open()
+        except Exception:
+            return False
 
     def is_connected(self) -> bool:
         try:

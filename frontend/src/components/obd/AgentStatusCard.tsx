@@ -6,6 +6,32 @@ interface AgentStatusCardProps {
   onPairAgent: () => void;
 }
 
+function getAdapterLabel(connectionType?: string): string {
+  switch (connectionType) {
+    case 'MOCK':
+      return 'Mock Adapter';
+    case 'WIFI':
+      return 'WiFi Adapter';
+    case 'USB':
+      return 'USB Adapter';
+    default:
+      return 'Adapter';
+  }
+}
+
+function getAdapterColor(connectionType?: string): string {
+  switch (connectionType) {
+    case 'MOCK':
+      return 'text-slate-600 bg-slate-50';
+    case 'WIFI':
+      return 'text-blue-600 bg-blue-50';
+    case 'USB':
+      return 'text-emerald-600 bg-emerald-50';
+    default:
+      return 'text-slate-600 bg-slate-50';
+  }
+}
+
 export function AgentStatusCard({ onPairAgent }: AgentStatusCardProps) {
   const { data: agents, isLoading, isError } = useAgentStatus();
 
@@ -42,6 +68,9 @@ export function AgentStatusCard({ onPairAgent }: AgentStatusCardProps) {
         ? 'text-amber-600 bg-amber-50'
         : 'text-red-600 bg-red-50';
 
+  const adapterLabel = getAdapterLabel(agent.connectionType);
+  const adapterColor = getAdapterColor(agent.connectionType);
+
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex items-center justify-between">
@@ -69,9 +98,24 @@ export function AgentStatusCard({ onPairAgent }: AgentStatusCardProps) {
         </div>
         <div>
           <p className="text-xs font-medium text-slate-500">Adapter</p>
-          <p className="mt-1 text-sm text-slate-900">
-            {agent.adapterConnected ? 'Connected' : 'Disconnected'}
-          </p>
+          <div className="mt-1 flex items-center gap-2">
+            <div
+              className={`h-2 w-2 rounded-full ${
+                agent.adapterConnected ? 'bg-emerald-500' : 'bg-red-500'
+              }`}
+            />
+            {agent.adapterConnected ? (
+              <span
+                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${adapterColor}`}
+              >
+                {adapterLabel} · Connected
+              </span>
+            ) : (
+              <span className="text-sm text-slate-900">
+                {adapterLabel} · Disconnected
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>

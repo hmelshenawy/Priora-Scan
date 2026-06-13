@@ -12,6 +12,9 @@ class MockObdAdapter:
         self._dtcs_cleared = False
         print("Using mock OBD adapter")
 
+    def connect(self) -> bool:
+        return True
+
     def is_connected(self) -> bool:
         return True
 

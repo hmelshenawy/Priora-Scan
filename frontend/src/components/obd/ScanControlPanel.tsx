@@ -8,12 +8,27 @@ interface ScanControlPanelProps {
   onScanStarted: (scanJobId: string) => void;
 }
 
+function getAdapterLabel(connectionType?: string): string {
+  switch (connectionType) {
+    case 'MOCK':
+      return 'Mock Adapter';
+    case 'WIFI':
+      return 'WiFi Adapter';
+    case 'USB':
+      return 'USB Adapter';
+    default:
+      return 'Adapter';
+  }
+}
+
 export function ScanControlPanel({ onScanStarted }: ScanControlPanelProps) {
   const { adapterConnected, isLoading, agent } = useAdapterStatus();
   const startScan = useStartScan();
   const [error, setError] = useState<string | null>(null);
 
   const canStart = agent?.status === 'ONLINE' && adapterConnected;
+
+  const adapterLabel = getAdapterLabel(agent?.connectionType);
 
   const handleStart = async () => {
     if (!agent) return;
@@ -38,7 +53,9 @@ export function ScanControlPanel({ onScanStarted }: ScanControlPanelProps) {
             }`}
           />
           <p className="text-sm text-slate-700">
-            {adapterConnected ? 'Adapter connected' : 'No adapter connected'}
+            {adapterConnected
+              ? `${adapterLabel} · Connected`
+              : `${adapterLabel} · Disconnected`}
           </p>
         </div>
       </div>

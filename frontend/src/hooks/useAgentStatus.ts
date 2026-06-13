@@ -10,6 +10,8 @@ export interface AgentStatus {
   status: 'ONLINE' | 'OFFLINE' | 'BUSY';
   lastSeenAt?: string;
   adapterConnected: boolean;
+  adapterType?: string;
+  connectionType?: string;
 }
 
 async function fetchAgents(): Promise<AgentStatus[]> {

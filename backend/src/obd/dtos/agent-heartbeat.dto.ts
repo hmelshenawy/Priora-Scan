@@ -14,5 +14,9 @@ export class AgentHeartbeatDto {
 
   @IsOptional()
   @IsString()
+  connectionType?: string;
+
+  @IsOptional()
+  @IsString()
   protocol?: string;
 }

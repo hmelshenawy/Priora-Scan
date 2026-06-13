@@ -1,8 +1,42 @@
-from src.obd.elm327 import Elm327Adapter
+import logging
+
+from src.obd.commands.elm_parser import clean_raw_response, parse_vin
+
+logger = logging.getLogger(__name__)
 
 
-def read_vin(adapter: Elm327Adapter) -> str:
+def read_vin(adapter) -> str:
+    """Read Vehicle Identification Number via Mode 09 PID 02.
+
+    For real adapters (USB/WiFi ELM327), uses elm_parser for robust
+    response handling including NO DATA, SEARCHING, and multi-frame.
+    For mock adapter, uses existing simple hex decode.
+    """
     raw = adapter.send("0902")
+    adapter_type = getattr(adapter, "adapter_type", "ELM327")
+
+    if adapter_type == "MOCK":
+        # Mock adapter returns clean hex — use simple decode
+        return _read_vin_mock(raw)
+
+    # Real adapter — use ELM327 parser
+    cleaned = clean_raw_response(raw)
+    result = parse_vin(cleaned)
+
+    if not result.get("supported", False):
+        if "error" in result:
+            raise RuntimeError(f"VIN read failed: {result['error']}")
+        raise RuntimeError("VIN not supported by vehicle")
+
+    vin = result["value"]
+    if len(vin) != 17:
+        raise RuntimeError(f"Invalid VIN length: {len(vin)} (expected 17)")
+
+    return vin
+
+
+def _read_vin_mock(raw: bytes) -> str:
+    """Parse VIN from mock adapter response (simple hex decode)."""
     hex_str = raw.decode("utf-8", errors="ignore").replace(" ", "").replace("\r", "").replace("\n", "")
     if not hex_str.startswith("4902"):
         raise RuntimeError("Unexpected VIN response")
