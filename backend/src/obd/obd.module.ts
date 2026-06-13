@@ -12,18 +12,22 @@ import { ScanJobRepository } from './repositories/scan-job.repository';
 import { SessionFaultCodeRepository } from './repositories/session-fault-code.repository';
 import { AdapterConnectionRepository } from './repositories/adapter-connection.repository';
 import { VehicleDataModule } from '../vehicle-data/vehicle-data.module';
+import { VehiclesModule } from '../vehicles/vehicles.module';
 import { DtcClearModule } from '../dtc-clear/dtc-clear.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { FaultCodesModule } from '../fault-codes/fault-codes.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, FaultCodesModule, VehicleDataModule, DtcClearModule],
-  controllers: [
-    AgentPairingController,
-    AgentWebhookController,
-    ObdScanController,
+  imports: [
+    PrismaModule,
+    AuthModule,
+    FaultCodesModule,
+    VehicleDataModule,
+    VehiclesModule,
+    DtcClearModule,
   ],
+  controllers: [AgentPairingController, AgentWebhookController, ObdScanController],
   providers: [
     AgentPairingService,
     AgentHeartbeatService,
@@ -35,10 +39,6 @@ import { FaultCodesModule } from '../fault-codes/fault-codes.module';
     SessionFaultCodeRepository,
     AdapterConnectionRepository,
   ],
-  exports: [
-    AgentPairingService,
-    PrismaModule,
-    DesktopAgentRepository,
-  ]
+  exports: [AgentPairingService, PrismaModule, DesktopAgentRepository],
 })
 export class ObdModule {}

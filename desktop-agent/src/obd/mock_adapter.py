@@ -21,7 +21,7 @@ class MockObdAdapter:
     def send(self, command: str) -> bytes:
         if command == "0902":
             print("Mock VIN read")
-            return b"49025744443231333030343141313233343536"
+            return b"490257314B4146344742315246313234333231"
 
         if command in {"03", "07", "0A"}:
             # After DTC clear, return zero codes

@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleDestroy,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import type { Database as BetterSqlite3Database } from 'better-sqlite3';
 import { AssetLoaderService } from '../../shared/assets/asset-loader.service';
 
@@ -51,9 +46,7 @@ export class VpicAssetService implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly assetLoader: AssetLoaderService) {}
 
   async onModuleInit(): Promise<void> {
-    const materialized = await this.assetLoader.materialize(
-      this.assetRelativePath,
-    );
+    const materialized = await this.assetLoader.materialize(this.assetRelativePath);
     if (!materialized) {
       this.logger.warn(
         'VPIC asset unavailable — VIN decode endpoint will return VPIC_ASSET_UNAVAILABLE',
@@ -157,6 +150,10 @@ export class VpicAssetService implements OnModuleInit, OnModuleDestroy {
       if (mfg) result.manufacturer = mfg.name;
     }
 
+    if (!result.make && result.manufacturer) {
+      result.make = this.makeFromManufacturer(result.manufacturer);
+    }
+
     if (!result.make && !result.model && !result.bodyStyle && !result.engine) {
       return null;
     }
@@ -210,19 +207,10 @@ export class VpicAssetService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private lookupName(
-    tableName: string,
-    attributeId: string,
-  ): string | null {
+  private lookupName(tableName: string, attributeId: string): string | null {
     if (!this.db) return null;
     // Whitelist: only known-safe lookup tables
-    const allowed = new Set([
-      'Make',
-      'Model',
-      'Manufacturer',
-      'BodyStyle',
-      'EngineConfiguration',
-    ]);
+    const allowed = new Set(['Make', 'Model', 'Manufacturer', 'BodyStyle', 'EngineConfiguration']);
     if (!allowed.has(tableName)) return null;
 
     const row = this.db
@@ -277,6 +265,10 @@ export class VpicAssetService implements OnModuleInit, OnModuleDestroy {
     const index = cycle.indexOf(char);
     if (index < 0) return null;
     return 2010 + index;
+  }
+
+  private makeFromManufacturer(manufacturer: string): string {
+    return manufacturer.replace(/\s+Cars$/i, '').trim();
   }
 }
 

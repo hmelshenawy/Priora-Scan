@@ -8,15 +8,16 @@ logger = logging.getLogger(__name__)
 def read_vin(adapter) -> str:
     """Read Vehicle Identification Number via Mode 09 PID 02.
 
-    For real adapters (USB/WiFi ELM327), uses elm_parser for robust
-    response handling including NO DATA, SEARCHING, and multi-frame.
-    For mock adapter, uses existing simple hex decode.
+    For explicitly declared real adapters (USB/WiFi ELM327), uses elm_parser
+    for robust response handling including NO DATA, SEARCHING, and multi-frame.
+    For mock and legacy adapters without adapter_type, uses existing simple
+    hex decode.
     """
     raw = adapter.send("0902")
-    adapter_type = getattr(adapter, "adapter_type", "ELM327")
+    adapter_type = getattr(adapter, "adapter_type", None)
 
-    if adapter_type == "MOCK":
-        # Mock adapter returns clean hex — use simple decode
+    if adapter_type is None or adapter_type == "MOCK":
+        # Mock and legacy test adapters return clean hex — use simple decode.
         return _read_vin_mock(raw)
 
     # Real adapter — use ELM327 parser

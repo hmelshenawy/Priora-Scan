@@ -1,10 +1,6 @@
 'use client';
 
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '../lib/api-client';
 
 export type ScanJobStatus =
@@ -27,6 +23,20 @@ export interface ScanJob {
   startedAt?: string;
   completedAt?: string;
   createdAt: string;
+  decodedVehicle?: DecodedVehicle;
+}
+
+export interface DecodedVehicle {
+  vin: string;
+  make: string | null;
+  model: string | null;
+  year: number | null;
+  engine: string | null;
+  bodyStyle: string | null;
+  manufacturer: string | null;
+  source: string;
+  decodedAt: string;
+  cacheHit: boolean;
 }
 
 export interface FaultCode {
@@ -56,6 +66,8 @@ export interface ConfirmVehicleInput {
   year: number;
   vin: string;
   plateNumber?: string;
+  engine?: string;
+  bodyStyle?: string;
 }
 
 async function startScan(agentId: string): Promise<ScanJob> {
@@ -76,27 +88,18 @@ async function cancelScan(id: string): Promise<ScanJob> {
   return response.data;
 }
 
-async function confirmVehicle(
-  id: string,
-  input: ConfirmVehicleInput,
-): Promise<ScanJob> {
-  const response = await apiClient.post<ScanJob>(
-    `/obd/scans/${id}/confirm-vehicle`,
-    input,
-  );
+async function confirmVehicle(id: string, input: ConfirmVehicleInput): Promise<ScanJob> {
+  const response = await apiClient.post<ScanJob>(`/obd/scans/${id}/confirm-vehicle`, input);
   return response.data;
 }
 
 async function fetchScanResults(id: string): Promise<{ data: FaultCode[] }> {
-  const response = await apiClient.get<{ data: FaultCode[] }>(
-    `/obd/scans/${id}/results`,
-  );
+  const response = await apiClient.get<{ data: FaultCode[] }>(`/obd/scans/${id}/results`);
   return response.data;
 }
 
 export function useScanJob(id: string | null) {
-  const isActive =
-    id !== null;
+  const isActive = id !== null;
 
   return useQuery<ScanJob>({
     queryKey: ['obd', 'scan', id],
@@ -104,11 +107,7 @@ export function useScanJob(id: string | null) {
     enabled: isActive,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      if (
-        status === 'PENDING' ||
-        status === 'RUNNING' ||
-        status === 'NEEDS_VEHICLE_CONFIRMATION'
-      ) {
+      if (status === 'PENDING' || status === 'RUNNING' || status === 'NEEDS_VEHICLE_CONFIRMATION') {
         return 2000;
       }
       return false;
@@ -151,9 +150,7 @@ export function useConfirmVehicle() {
   });
 }
 
-async function fetchSessionFaultCodes(
-  sessionId: string,
-): Promise<{ data: FaultCode[] }> {
+async function fetchSessionFaultCodes(sessionId: string): Promise<{ data: FaultCode[] }> {
   const response = await apiClient.get<{ data: FaultCode[] }>(
     `/obd/scans/sessions/${sessionId}/results`,
   );

@@ -138,5 +138,51 @@ describe('VpicAssetService', () => {
         manufacturer: 'Daimler AG',
       });
     });
+
+    it('uses manufacturer as make fallback when VPIC WMI has no MakeId', async () => {
+      assetLoader.materialize.mockResolvedValue('C:/data/_runtime/vpic.sqlite');
+      await service.onModuleInit();
+
+      const wmiRow = { id: 1, manufacturerId: 10, makeId: null };
+      const schemaRow = { vinSchemaId: 100, yearFrom: 2024, yearTo: 2024 };
+      const patterns = [
+        { keys: 'AF4G', elementId: 28, attributeId: '2085' },
+        { keys: 'AF4G', elementId: 5, attributeId: '13' },
+      ];
+
+      fakeDb.prepare.mockImplementation((sql: string) => {
+        if (sql.includes('FROM Wmi WHERE Wmi')) {
+          return { get: () => wmiRow, all: () => [] };
+        }
+        if (sql.includes('FROM Wmi_VinSchema')) {
+          return { get: () => undefined, all: () => [schemaRow] };
+        }
+        if (sql.includes('FROM Pattern')) {
+          return { get: () => undefined, all: () => patterns };
+        }
+        if (sql.includes('FROM Element')) {
+          return { get: () => ({ lt: null }), all: () => [] };
+        }
+        if (sql.includes('FROM Model')) {
+          return { get: () => ({ name: 'C-Class' }), all: () => [] };
+        }
+        if (sql.includes('FROM BodyStyle')) {
+          return { get: () => ({ name: 'Sedan/Saloon' }), all: () => [] };
+        }
+        if (sql.includes('FROM Manufacturer')) {
+          return { get: () => ({ name: 'Mercedes-Benz Cars' }), all: () => [] };
+        }
+        return { get: () => undefined, all: () => [] };
+      });
+
+      const out = service.decode('W1KAF4GB1RF124321');
+      expect(out).toMatchObject({
+        vin: 'W1KAF4GB1RF124321',
+        make: 'Mercedes-Benz',
+        model: 'C-Class',
+        bodyStyle: 'Sedan/Saloon',
+        manufacturer: 'Mercedes-Benz Cars',
+      });
+    });
   });
 });

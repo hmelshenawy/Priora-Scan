@@ -25,24 +25,15 @@ export class LiveDataCommandRepository {
     data: EnqueueLiveDataCommandInput,
     tx: Prisma.TransactionClient = this.prisma,
   ): Promise<LiveDataCommand> {
-    const payloadJson =
-      data.payload === undefined || data.payload === null
-        ? null
-        : JSON.stringify(data.payload);
-    const rows = await tx.$queryRaw<LiveDataCommand[]>`
-      INSERT INTO "LiveDataCommand"
-        ("organizationId", "agentId", "liveDataSessionId", "commandType", "payload")
-      VALUES
-        (
-          ${data.organizationId}::uuid,
-          ${data.agentId}::uuid,
-          ${data.liveDataSessionId ?? null}::uuid,
-          ${data.commandType}::"LiveDataCommandType",
-          ${payloadJson}::jsonb
-        )
-      RETURNING *
-    `;
-    return rows[0];
+    return tx.liveDataCommand.create({
+      data: {
+        organizationId: data.organizationId,
+        agentId: data.agentId,
+        liveDataSessionId: data.liveDataSessionId ?? null,
+        commandType: data.commandType,
+        payload: data.payload ?? undefined,
+      },
+    });
   }
 
   /**

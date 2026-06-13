@@ -4,6 +4,8 @@ import { ScanJobRepository } from '../../../src/obd/repositories/scan-job.reposi
 import { DesktopAgentRepository } from '../../../src/obd/repositories/desktop-agent.repository';
 import { VinResolutionService } from '../../../src/obd/services/vin-resolution.service';
 import { FaultCodeImportService } from '../../../src/obd/services/fault-code-import.service';
+import { VehicleDecodeService } from '../../../src/vehicles/services/vehicle-decode.service';
+import { VehicleDecodeRepository } from '../../../src/vehicles/repositories/vehicle-decode.repository';
 import { PrismaService } from '../../../src/prisma/prisma.service';
 import { ScanJobStatus } from '../../../src/obd/types/scan-job-status.enum';
 import { AgentStatus } from '../../../src/obd/types/agent-status.enum';
@@ -15,6 +17,8 @@ describe('ObdScanService', () => {
   let agentRepository: jest.Mocked<DesktopAgentRepository>;
   let vinResolutionService: jest.Mocked<VinResolutionService>;
   let faultCodeImportService: jest.Mocked<FaultCodeImportService>;
+  let vehicleDecodeService: jest.Mocked<VehicleDecodeService>;
+  let vehicleDecodeRepository: jest.Mocked<VehicleDecodeRepository>;
 
   beforeEach(() => {
     scanJobRepository = {
@@ -35,6 +39,14 @@ describe('ObdScanService', () => {
       importFaultCodes: jest.fn(),
     } as any;
 
+    vehicleDecodeService = {
+      decodeVin: jest.fn(),
+    } as any;
+
+    vehicleDecodeRepository = {
+      findByVin: jest.fn().mockResolvedValue(null),
+    } as any;
+
     prisma = {
       scanJob: {
         create: jest.fn(),
@@ -52,6 +64,8 @@ describe('ObdScanService', () => {
       agentRepository,
       vinResolutionService,
       faultCodeImportService,
+      vehicleDecodeService,
+      vehicleDecodeRepository,
     );
   });
 
@@ -63,12 +77,7 @@ describe('ObdScanService', () => {
       });
 
       await expect(
-        service.createScan(
-          { vehicleId: undefined },
-          'org-1',
-          'user-1',
-          'agent-1',
-        ),
+        service.createScan({ vehicleId: undefined }, 'org-1', 'user-1', 'agent-1'),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -82,12 +91,7 @@ describe('ObdScanService', () => {
         status: ScanJobStatus.PENDING,
       });
 
-      const result = await service.createScan(
-        {},
-        'org-1',
-        'user-1',
-        'agent-1',
-      );
+      const result = await service.createScan({}, 'org-1', 'user-1', 'agent-1');
 
       expect(result.id).toBe('scan-1');
       expect(prisma.scanJob.create).toHaveBeenCalledWith(
@@ -111,6 +115,60 @@ describe('ObdScanService', () => {
     });
   });
 
+  describe('processVinRead', () => {
+    it('decodes the OBD VIN before asking for vehicle confirmation', async () => {
+      (scanJobRepository.findById as jest.Mock).mockResolvedValue({
+        id: 'scan-1',
+        status: ScanJobStatus.RUNNING,
+        organizationId: 'org-1',
+        userId: 'user-1',
+      });
+      vinResolutionService.resolve.mockResolvedValue(null);
+
+      const result = await service.processVinRead('scan-1', 'org-1', 'WDD2130041A123456');
+
+      expect(vehicleDecodeService.decodeVin).toHaveBeenCalledWith(
+        'WDD2130041A123456',
+        'org-1',
+        'user-1',
+      );
+      expect(prisma.scanJob.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'scan-1', organizationId: 'org-1' },
+          data: {
+            vin: 'WDD2130041A123456',
+            status: ScanJobStatus.NEEDS_VEHICLE_CONFIRMATION,
+          },
+        }),
+      );
+      expect(result.status).toBe(ScanJobStatus.NEEDS_VEHICLE_CONFIRMATION);
+    });
+
+    it('keeps the scan workflow moving when automatic VIN decode fails', async () => {
+      (scanJobRepository.findById as jest.Mock).mockResolvedValue({
+        id: 'scan-1',
+        status: ScanJobStatus.RUNNING,
+        organizationId: 'org-1',
+        userId: 'user-1',
+      });
+      vinResolutionService.resolve.mockResolvedValue(null);
+      vehicleDecodeService.decodeVin.mockRejectedValue(new Error('asset unavailable'));
+
+      await expect(service.processVinRead('scan-1', 'org-1', 'WDD2130041A123456')).resolves.toEqual(
+        { status: ScanJobStatus.NEEDS_VEHICLE_CONFIRMATION },
+      );
+
+      expect(prisma.scanJob.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {
+            vin: 'WDD2130041A123456',
+            status: ScanJobStatus.NEEDS_VEHICLE_CONFIRMATION,
+          },
+        }),
+      );
+    });
+  });
+
   describe('completeScan', () => {
     it('should import fault codes, transition to COMPLETED, and write audit', async () => {
       (scanJobRepository.findById as jest.Mock).mockResolvedValue({
@@ -125,9 +183,7 @@ describe('ObdScanService', () => {
         await cb(prisma);
       });
 
-      const faultCodes = [
-        { code: 'P0301', status: 'ACTIVE', ecu: 'Engine' },
-      ];
+      const faultCodes = [{ code: 'P0301', status: 'ACTIVE', ecu: 'Engine' }];
 
       await service.completeScan('scan-1', 'org-1', 'user-1', faultCodes as any);
 
@@ -165,29 +221,27 @@ describe('ObdScanService', () => {
         diagnosticSessionId: 'session-1',
       });
 
-      await expect(
-        service.completeScan('scan-1', 'org-1', 'user-1', []),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.completeScan('scan-1', 'org-1', 'user-1', [])).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
   describe('cross-tenant access', () => {
     it('should not find scan jobs from another tenant', async () => {
-      (scanJobRepository.findById as jest.Mock).mockImplementation(
-        (id: string, orgId: string) => {
-          if (orgId === 'org-1') {
-            return { id, status: ScanJobStatus.PENDING, organizationId: 'org-1' };
-          }
-          return null;
-        },
-      );
+      (scanJobRepository.findById as jest.Mock).mockImplementation((id: string, orgId: string) => {
+        if (orgId === 'org-1') {
+          return { id, status: ScanJobStatus.PENDING, organizationId: 'org-1' };
+        }
+        return null;
+      });
 
       const result = await service.cancelScan('scan-1', 'org-1', 'user-1');
       expect(result).toBeDefined();
 
-      await expect(
-        service.cancelScan('scan-1', 'org-2', 'user-1'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.cancelScan('scan-1', 'org-2', 'user-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

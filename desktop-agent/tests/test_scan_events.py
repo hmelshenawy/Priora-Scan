@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from src.main import execute_scan
+from src.main import ensure_adapter_connected, execute_scan
 from src.models.fault_code import FaultCode
 from src.models.scan_job import ScanJob
 
@@ -17,6 +17,22 @@ class DisconnectedAdapter:
 
     def is_connected(self):
         return False
+
+
+class ConnectableAdapter:
+    protocol = "MOCK"
+
+    def __init__(self):
+        self.connect_calls = 0
+        self.connected = False
+
+    def is_connected(self):
+        return self.connected
+
+    def connect(self):
+        self.connect_calls += 1
+        self.connected = True
+        return True
 
 
 class Client:
@@ -176,4 +192,40 @@ def test_execute_scan_emits_error_when_adapter_disconnected():
                 "payload": {"message": "No adapter connected"},
             },
         ),
+    ]
+
+
+def test_ensure_adapter_connected_calls_connect_when_needed():
+    adapter = ConnectableAdapter()
+
+    assert ensure_adapter_connected(adapter) is True
+    assert adapter.connect_calls == 1
+    assert adapter.is_connected() is True
+
+
+def test_execute_scan_connects_adapter_before_reading():
+    client = Client(
+        responses=[
+            Response({"status": "OK"}),
+            Response({"status": "COMPLETED"}),
+        ],
+    )
+    job = ScanJob(
+        "scan-123",
+        "RUNNING",
+        "2026-06-09T00:00:00Z",
+        vin="WDD2130041A123456",
+    )
+    adapter = ConnectableAdapter()
+
+    with patch(
+        "src.main.read_fault_codes",
+        return_value=[FaultCode("P0301", status="ACTIVE", ecu="ECM")],
+    ):
+        execute_scan(client, adapter, job)
+
+    assert adapter.connect_calls == 1
+    assert [post[1]["event"] for post in client.posts] == [
+        "ADAPTER_CONNECTED",
+        "DTC_READ",
     ]

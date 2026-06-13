@@ -12,7 +12,7 @@ def test_mock_adapter_returns_expected_vin_and_logs(capsys):
 
     vin = read_vin(adapter)
 
-    assert vin == "WDD2130041A123456"
+    assert vin == "W1KAF4GB1RF124321"
     output = capsys.readouterr().out
     assert "Using mock OBD adapter" in output
     assert "Mock VIN read" in output
@@ -57,7 +57,7 @@ def test_fault_code_defaults_remain_backward_compatible():
 def test_create_obd_adapter_uses_mock_when_enabled(monkeypatch):
     import src.main as main
 
-    monkeypatch.setattr(main, "OBD_MOCK", True)
+    monkeypatch.setattr(main, "OBD_ADAPTER_TYPE", "mock")
 
     assert isinstance(main.create_obd_adapter(), MockObdAdapter)
 
@@ -80,6 +80,7 @@ def test_mock_adapter_heartbeat_payload_reports_connected():
         client,
         adapter.is_connected(),
         adapter.adapter_type,
+        "MOCK",
         adapter.protocol,
     )
 
@@ -94,8 +95,14 @@ def test_heartbeat_loop_accepts_adapter_metadata(monkeypatch):
 
     calls = []
 
-    def fake_send_heartbeat(api_client, adapter_connected, adapter_type=None, protocol=None):
-        calls.append((adapter_connected, adapter_type, protocol))
+    def fake_send_heartbeat(
+        api_client,
+        adapter_connected,
+        adapter_type=None,
+        connection_type=None,
+        protocol=None,
+    ):
+        calls.append((adapter_connected, adapter_type, connection_type, protocol))
 
     monkeypatch.setattr(heartbeat, "send_heartbeat", fake_send_heartbeat)
     monkeypatch.setattr(
@@ -105,23 +112,17 @@ def test_heartbeat_loop_accepts_adapter_metadata(monkeypatch):
     )
 
     try:
-        heartbeat.heartbeat_loop(
-            object(),
-            True,
-            "MOCK",
-            "MOCK",
-            interval=0,
-        )
+        heartbeat.heartbeat_loop(object(), MockObdAdapter(), interval=0)
     except KeyboardInterrupt:
         pass
 
-    assert calls == [(True, "MOCK", "MOCK")]
+    assert calls == [(True, "MOCK", "MOCK", "MOCK")]
 
 
 def test_create_obd_adapter_uses_elm327_when_mock_disabled(monkeypatch):
     import src.main as main
 
-    monkeypatch.setattr(main, "OBD_MOCK", False)
+    monkeypatch.setattr(main, "OBD_ADAPTER_TYPE", "usb")
 
     with patch("src.main.Elm327Adapter", return_value="real-adapter") as adapter:
         assert main.create_obd_adapter() == "real-adapter"

@@ -12,13 +12,10 @@ export class VehicleDecodeResponseDto {
   decodedAt: Date;
   cacheHit: boolean;
 
-  static fromEntity(
-    entity: VehicleDecode,
-    origin: 'cache' | 'asset',
-  ): VehicleDecodeResponseDto {
+  static fromEntity(entity: VehicleDecode, origin: 'cache' | 'asset'): VehicleDecodeResponseDto {
     const dto = new VehicleDecodeResponseDto();
     dto.vin = entity.vin;
-    dto.make = entity.make;
+    dto.make = entity.make ?? this.makeFromManufacturer(entity.manufacturer);
     dto.model = entity.model;
     dto.year = entity.year;
     dto.engine = entity.engine;
@@ -28,5 +25,9 @@ export class VehicleDecodeResponseDto {
     dto.decodedAt = entity.decodedAt;
     dto.cacheHit = origin === 'cache';
     return dto;
+  }
+
+  private static makeFromManufacturer(manufacturer: string | null): string | null {
+    return manufacturer?.replace(/\s+Cars$/i, '').trim() ?? null;
   }
 }

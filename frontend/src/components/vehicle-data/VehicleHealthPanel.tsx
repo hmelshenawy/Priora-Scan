@@ -10,10 +10,8 @@ import {
   AlertCircle,
   RotateCw,
 } from 'lucide-react';
-import {
-  useVehicleData,
-  useReadVehicleData,
-} from '../../services/vehicle-data-api';
+import { useVehicleData, useReadVehicleData } from '../../services/vehicle-data-api';
+import type { Vehicle } from '../../hooks/use-vehicles';
 import { VehicleDataPointRow } from './VehicleDataPointRow';
 import { SupportedPidList } from './SupportedPidList';
 import { LoadingState } from '../ui/LoadingState';
@@ -24,6 +22,7 @@ interface VehicleHealthPanelProps {
   isSessionOpen?: boolean;
   /** Whether an adapter is connected (from live data or agent status). */
   isAdapterConnected?: boolean;
+  vehicle?: Vehicle;
 }
 
 /**
@@ -37,6 +36,7 @@ export function VehicleHealthPanel({
   sessionId,
   isSessionOpen = true,
   isAdapterConnected = true,
+  vehicle,
 }: VehicleHealthPanelProps) {
   const vehicleDataQuery = useVehicleData(sessionId);
   const readVehicleData = useReadVehicleData();
@@ -58,10 +58,7 @@ export function VehicleHealthPanel({
   if (vehicleDataQuery.isLoading) {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <LoadingState
-          title="Loading vehicle data"
-          message="Fetching vehicle health information."
-        />
+        <LoadingState title="Loading vehicle data" message="Fetching vehicle health information." />
       </section>
     );
   }
@@ -69,15 +66,24 @@ export function VehicleHealthPanel({
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-slate-900">
-          Vehicle Health
-        </h2>
+        <h2 className="text-base font-semibold text-slate-900">Vehicle Health</h2>
         {readAt && (
           <span className="text-xs text-slate-400">
             Read at {new Date(readAt).toLocaleTimeString()}
           </span>
         )}
       </div>
+
+      {vehicle && (
+        <dl className="mt-4 grid gap-3 rounded-md bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-3">
+          <VehicleIdentityDetail label="VIN" value={vehicle.vin} mono />
+          <VehicleIdentityDetail label="Make" value={vehicle.make} />
+          <VehicleIdentityDetail label="Model" value={vehicle.model} />
+          <VehicleIdentityDetail label="Year" value={vehicle.year.toString()} />
+          <VehicleIdentityDetail label="Engine" value={vehicle.engine} />
+          <VehicleIdentityDetail label="Body Style" value={vehicle.bodyStyle} />
+        </dl>
+      )}
 
       {/* No data yet — show read button */}
       {!vehicleData && (
@@ -152,9 +158,7 @@ export function VehicleHealthPanel({
 
           {/* Readiness Monitors — special rendering */}
           {vehicleData.readinessMonitors && (
-            <ReadinessMonitorsRow
-              data={vehicleData.readinessMonitors}
-            />
+            <ReadinessMonitorsRow data={vehicleData.readinessMonitors} />
           )}
 
           {/* Re-read button when data already exists */}
@@ -195,6 +199,25 @@ export function VehicleHealthPanel({
   );
 }
 
+function VehicleIdentityDetail({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value?: string | null;
+  mono?: boolean;
+}) {
+  return (
+    <div>
+      <dt className="text-xs font-medium uppercase text-slate-500">{label}</dt>
+      <dd className={`mt-0.5 text-sm font-medium text-slate-900 ${mono ? 'font-mono' : ''}`}>
+        {value || '—'}
+      </dd>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Readiness Monitors sub-component
 // ---------------------------------------------------------------------------
@@ -214,9 +237,7 @@ function ReadinessMonitorsRow({ data }: ReadinessMonitorsRowProps) {
           <Activity className="h-4 w-4 text-cyan-500" />
           Readiness Monitors
         </span>
-        <span className="text-xs italic text-slate-400">
-          Not supported by vehicle / adapter
-        </span>
+        <span className="text-xs italic text-slate-400">Not supported by vehicle / adapter</span>
       </div>
     );
   }
@@ -264,9 +285,7 @@ function ReadinessMonitorsRow({ data }: ReadinessMonitorsRowProps) {
               ) : (
                 <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
               )}
-              <span className="text-slate-600">
-                {MONITOR_LABELS[key] ?? key}
-              </span>
+              <span className="text-slate-600">{MONITOR_LABELS[key] ?? key}</span>
             </div>
           );
         })}

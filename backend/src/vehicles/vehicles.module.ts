@@ -22,5 +22,6 @@ import { SharedModule } from '../shared/shared.module';
     VehicleDecodeRepository,
     PrismaService,
   ],
+  exports: [VehicleDecodeService, VehicleDecodeRepository],
 })
 export class VehiclesModule {}

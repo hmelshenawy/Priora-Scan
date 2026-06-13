@@ -1,13 +1,12 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ScanJobRepository } from '../repositories/scan-job.repository';
 import { DesktopAgentRepository } from '../repositories/desktop-agent.repository';
 import { VinResolutionService } from './vin-resolution.service';
 import { FaultCodeImportService } from './fault-code-import.service';
+import { VehicleDecodeService } from '../../vehicles/services/vehicle-decode.service';
+import { VehicleDecodeRepository } from '../../vehicles/repositories/vehicle-decode.repository';
+import { VehicleDecodeResponseDto } from '../../vehicles/dtos/vehicle-decode-response.dto';
 import { CreateScanJobDto } from '../dtos/create-scan-job.dto';
 import { ConfirmVehicleDto } from '../dtos/confirm-vehicle.dto';
 import { ScanJobResponseDto } from '../dtos/scan-job-response.dto';
@@ -18,12 +17,16 @@ import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class ObdScanService {
+  private readonly logger = new Logger(ObdScanService.name);
+
   constructor(
     private prisma: PrismaService,
     private scanJobRepository: ScanJobRepository,
     private agentRepository: DesktopAgentRepository,
     private vinResolutionService: VinResolutionService,
     private faultCodeImportService: FaultCodeImportService,
+    private vehicleDecodeService: VehicleDecodeService,
+    private vehicleDecodeRepository: VehicleDecodeRepository,
   ) {}
 
   async createScan(
@@ -70,7 +73,7 @@ export class ObdScanService {
       return job;
     });
 
-    return ScanJobResponseDto.fromEntity(scanJob);
+    return this.toScanJobResponse(scanJob);
   }
 
   async cancelScan(
@@ -78,10 +81,7 @@ export class ObdScanService {
     organizationId: string,
     userId: string,
   ): Promise<ScanJobResponseDto> {
-    const scan = await this.scanJobRepository.findById(
-      scanJobId,
-      organizationId,
-    );
+    const scan = await this.scanJobRepository.findById(scanJobId, organizationId);
     if (!scan) {
       throw new NotFoundException({
         code: 'SCAN_JOB_NOT_FOUND',
@@ -108,11 +108,8 @@ export class ObdScanService {
       });
     });
 
-    const updated = await this.scanJobRepository.findById(
-      scanJobId,
-      organizationId,
-    );
-    return ScanJobResponseDto.fromEntity(updated!);
+    const updated = await this.scanJobRepository.findById(scanJobId, organizationId);
+    return this.toScanJobResponse(updated!);
   }
 
   async processVinRead(
@@ -120,10 +117,7 @@ export class ObdScanService {
     organizationId: string,
     vin: string,
   ): Promise<{ status: ScanJobStatus; vehicleId?: string }> {
-    const scan = await this.scanJobRepository.findById(
-      scanJobId,
-      organizationId,
-    );
+    const scan = await this.scanJobRepository.findById(scanJobId, organizationId);
     if (!scan) {
       throw new NotFoundException({
         code: 'SCAN_JOB_NOT_FOUND',
@@ -138,10 +132,9 @@ export class ObdScanService {
       });
     }
 
-    const vehicle = await this.vinResolutionService.resolve(
-      vin,
-      organizationId,
-    );
+    await this.decodeVinForScan(vin, organizationId, scan.userId);
+
+    const vehicle = await this.vinResolutionService.resolve(vin, organizationId);
 
     if (vehicle) {
       await this.prisma.scanJob.updateMany({
@@ -166,10 +159,7 @@ export class ObdScanService {
     organizationId: string,
     userId: string,
   ): Promise<ScanJobResponseDto> {
-    const scan = await this.scanJobRepository.findById(
-      scanJobId,
-      organizationId,
-    );
+    const scan = await this.scanJobRepository.findById(scanJobId, organizationId);
     if (!scan) {
       throw new NotFoundException({
         code: 'SCAN_JOB_NOT_FOUND',
@@ -193,6 +183,8 @@ export class ObdScanService {
           year: dto.year,
           vin: dto.vin,
           plateNumber: dto.plateNumber ?? null,
+          engine: dto.engine ?? null,
+          bodyStyle: dto.bodyStyle ?? null,
         },
       });
 
@@ -208,6 +200,8 @@ export class ObdScanService {
             year: vehicle.year,
             vin: vehicle.vin,
             plateNumber: vehicle.plateNumber,
+            engine: vehicle.engine,
+            bodyStyle: vehicle.bodyStyle,
           },
         },
       });
@@ -223,7 +217,7 @@ export class ObdScanService {
       return updated;
     });
 
-    return ScanJobResponseDto.fromEntity(scanJob);
+    return this.toScanJobResponse(scanJob);
   }
 
   async createSessionFromScan(
@@ -296,10 +290,7 @@ export class ObdScanService {
     userId: string,
     faultCodes: FaultCodeImportDto[],
   ): Promise<ScanJobResponseDto> {
-    const scan = await this.scanJobRepository.findById(
-      scanJobId,
-      organizationId,
-    );
+    const scan = await this.scanJobRepository.findById(scanJobId, organizationId);
     if (!scan) {
       throw new NotFoundException({
         code: 'SCAN_JOB_NOT_FOUND',
@@ -350,11 +341,8 @@ export class ObdScanService {
       });
     });
 
-    const updated = await this.scanJobRepository.findById(
-      scanJobId,
-      organizationId,
-    );
-    return ScanJobResponseDto.fromEntity(updated!);
+    const updated = await this.scanJobRepository.findById(scanJobId, organizationId);
+    return this.toScanJobResponse(updated!);
   }
 
   async failScan(
@@ -363,10 +351,7 @@ export class ObdScanService {
     userId: string,
     errorMessage: string,
   ): Promise<ScanJobResponseDto> {
-    const scan = await this.scanJobRepository.findById(
-      scanJobId,
-      organizationId,
-    );
+    const scan = await this.scanJobRepository.findById(scanJobId, organizationId);
     if (!scan) {
       throw new NotFoundException({
         code: 'SCAN_JOB_NOT_FOUND',
@@ -396,32 +381,59 @@ export class ObdScanService {
       });
     });
 
-    const updated = await this.scanJobRepository.findById(
-      scanJobId,
-      organizationId,
-    );
-    return ScanJobResponseDto.fromEntity(updated!);
+    const updated = await this.scanJobRepository.findById(scanJobId, organizationId);
+    return this.toScanJobResponse(updated!);
   }
 
-  private validateTransition(
-    current: ScanJobStatus,
-    next: ScanJobStatus,
-  ): void {
+  async toScanJobResponse(entity: {
+    id: string;
+    status: ScanJobStatus | string;
+    vehicleId: string | null;
+    diagnosticSessionId: string | null;
+    vin: string | null;
+    adapterType: string | null;
+    adapterProtocol: string | null;
+    errorMessage: string | null;
+    startedAt: Date | null;
+    completedAt: Date | null;
+    createdAt: Date;
+  }): Promise<ScanJobResponseDto> {
+    const decodedVehicle = await this.findCachedDecodedVehicle(entity.vin);
+    return ScanJobResponseDto.fromEntity(entity, decodedVehicle);
+  }
+
+  private async decodeVinForScan(
+    vin: string,
+    organizationId: string,
+    userId: string,
+  ): Promise<void> {
+    try {
+      await this.vehicleDecodeService.decodeVin(vin, organizationId, userId);
+    } catch (err) {
+      this.logger.warn(`OBD VIN decode unavailable for ${vin}: ${(err as Error).message}`);
+    }
+  }
+
+  private async findCachedDecodedVehicle(
+    vin: string | null,
+  ): Promise<VehicleDecodeResponseDto | null> {
+    if (!vin) {
+      return null;
+    }
+    const cached = await this.vehicleDecodeRepository.findByVin(vin.trim().toUpperCase());
+    return cached ? VehicleDecodeResponseDto.fromEntity(cached, 'cache') : null;
+  }
+
+  private validateTransition(current: ScanJobStatus, next: ScanJobStatus): void {
     const allowed: Record<ScanJobStatus, ScanJobStatus[]> = {
-      [ScanJobStatus.PENDING]: [
-        ScanJobStatus.RUNNING,
-        ScanJobStatus.CANCELLED,
-      ],
+      [ScanJobStatus.PENDING]: [ScanJobStatus.RUNNING, ScanJobStatus.CANCELLED],
       [ScanJobStatus.RUNNING]: [
         ScanJobStatus.NEEDS_VEHICLE_CONFIRMATION,
         ScanJobStatus.COMPLETED,
         ScanJobStatus.FAILED,
         ScanJobStatus.CANCELLED,
       ],
-      [ScanJobStatus.NEEDS_VEHICLE_CONFIRMATION]: [
-        ScanJobStatus.RUNNING,
-        ScanJobStatus.CANCELLED,
-      ],
+      [ScanJobStatus.NEEDS_VEHICLE_CONFIRMATION]: [ScanJobStatus.RUNNING, ScanJobStatus.CANCELLED],
       [ScanJobStatus.COMPLETED]: [],
       [ScanJobStatus.FAILED]: [],
       [ScanJobStatus.CANCELLED]: [],

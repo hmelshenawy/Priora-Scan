@@ -57,11 +57,7 @@ export class ObdScanController {
 
   @Get()
   @Permissions('obd:scan:read')
-  async listScans(
-    @Query('page') page: string,
-    @Query('limit') limit: string,
-    @Req() req: Request,
-  ) {
+  async listScans(@Query('page') page: string, @Query('limit') limit: string, @Req() req: Request) {
     const organizationId = req.organizationId!;
     const result = await this.scanJobRepository.findByOrganization(
       organizationId,
@@ -69,7 +65,7 @@ export class ObdScanController {
       parseInt(limit || '25', 10),
     );
     return {
-      data: result.data.map(ScanJobResponseDto.fromEntity),
+      data: await Promise.all(result.data.map((scan) => this.scanService.toScanJobResponse(scan))),
       total: result.total,
     };
   }
@@ -85,7 +81,7 @@ export class ObdScanController {
         message: 'Scan job not found.',
       });
     }
-    return ScanJobResponseDto.fromEntity(scan);
+    return this.scanService.toScanJobResponse(scan);
   }
 
   @Post(':id/cancel')
@@ -112,10 +108,7 @@ export class ObdScanController {
   @Permissions('obd:fault-code:read')
   async getResults(@Param('id') id: string, @Req() req: Request) {
     const organizationId = req.organizationId!;
-    const codes = await this.faultCodeRepository.findByScanJob(
-      id,
-      organizationId,
-    );
+    const codes = await this.faultCodeRepository.findByScanJob(id, organizationId);
     return { data: await this.enrichFaultCodes(codes) };
   }
 
@@ -123,16 +116,11 @@ export class ObdScanController {
   @Permissions('obd:fault-code:read')
   async getSessionResults(@Param('id') id: string, @Req() req: Request) {
     const organizationId = req.organizationId!;
-    const codes = await this.faultCodeRepository.findBySession(
-      id,
-      organizationId,
-    );
+    const codes = await this.faultCodeRepository.findBySession(id, organizationId);
     return { data: await this.enrichFaultCodes(codes) };
   }
 
-  private async enrichFaultCodes<T extends { code: string; status: string }>(
-    codes: T[],
-  ) {
+  private async enrichFaultCodes<T extends { code: string; status: string }>(codes: T[]) {
     const enriched = await this.faultCodeEnrichment.enrichMany(codes);
     return codes.map((code) => {
       const normalizedCode = code.code.toUpperCase();

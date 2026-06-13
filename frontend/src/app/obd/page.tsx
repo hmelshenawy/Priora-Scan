@@ -11,12 +11,7 @@ import { ObdReadinessPanel } from '../../components/obd/ObdReadinessPanel';
 import { ScanEmptyState } from '../../components/obd/ScanEmptyState';
 import { ScanRecoveryActions } from '../../components/obd/ScanRecoveryActions';
 import { ScanResultActions } from '../../components/obd/ScanResultActions';
-import {
-  useScanJob,
-  useCancelScan,
-  useScanResults,
-  useStartScan,
-} from '../../hooks/useObdScan';
+import { useScanJob, useCancelScan, useScanResults, useStartScan } from '../../hooks/useObdScan';
 import { useAgentStatus } from '../../hooks/useAgentStatus';
 import { Breadcrumbs } from '../../components/layout/Breadcrumbs';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -37,14 +32,10 @@ export default function ObdDashboardPage() {
   const needsConfirmation = scan?.status === 'NEEDS_VEHICLE_CONFIRMATION';
   const faultCodes = scanResultsQuery.data?.data ?? [];
   const isActiveScan =
-    scan &&
-    scan.status !== 'COMPLETED' &&
-    scan.status !== 'FAILED' &&
-    scan.status !== 'CANCELLED';
-  const canStartNewScan =
-    !!agentsQuery.data?.find(
-      (agent) => agent.status === 'ONLINE' && agent.adapterConnected,
-    );
+    scan && scan.status !== 'COMPLETED' && scan.status !== 'FAILED' && scan.status !== 'CANCELLED';
+  const canStartNewScan = !!agentsQuery.data?.find(
+    (agent) => agent.status === 'ONLINE' && agent.adapterConnected,
+  );
 
   const handleScanStarted = (id: string) => {
     setActiveScanId(id);
@@ -79,10 +70,7 @@ export default function ObdDashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
         <div className="space-y-6">
-          <ObdReadinessPanel
-            agents={agentsQuery.data}
-            isLoading={agentsQuery.isLoading}
-          />
+          <ObdReadinessPanel agents={agentsQuery.data} isLoading={agentsQuery.isLoading} />
           <AgentStatusCard onPairAgent={() => setShowPairModal(true)} />
           <ScanControlPanel onScanStarted={handleScanStarted} />
 
@@ -104,6 +92,7 @@ export default function ObdDashboardPage() {
             <ScanProgressTimeline
               status={scan.status}
               vin={scan.vin}
+              decodedVehicle={scan.decodedVehicle}
               errorMessage={scan.errorMessage}
             />
           )}
@@ -146,24 +135,22 @@ export default function ObdDashboardPage() {
             </>
           )}
 
-          {(scan?.status === 'FAILED' || scan?.status === 'CANCELLED') &&
-            !canStartNewScan && (
+          {(scan?.status === 'FAILED' || scan?.status === 'CANCELLED') && !canStartNewScan && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              Start New Scan is available after an online agent with a connected
-              adapter is detected.
+              Start New Scan is available after an online agent with a connected adapter is
+              detected.
             </div>
           )}
         </div>
       </div>
 
-      {showPairModal && (
-        <PairAgentModal onClose={() => setShowPairModal(false)} />
-      )}
+      {showPairModal && <PairAgentModal onClose={() => setShowPairModal(false)} />}
 
       {needsConfirmation && scan?.vin && (
         <VehicleConfirmModal
           scanJobId={scan.id}
           vin={scan.vin}
+          decodedVehicle={scan.decodedVehicle}
           onClose={() => {
             /* Modal closes automatically on success; scan query will refetch */
           }}

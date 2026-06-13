@@ -44,10 +44,7 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
   if (sessionQuery.isLoading) {
     return (
       <div className="mx-auto max-w-7xl">
-        <LoadingState
-          title="Loading diagnostic session"
-          message="Opening the session workspace."
-        />
+        <LoadingState title="Loading diagnostic session" message="Opening the session workspace." />
       </div>
     );
   }
@@ -113,18 +110,13 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
         </div>
       </nav>
 
-      <section
-        id="overview"
-        className="grid scroll-mt-32 gap-6 lg:grid-cols-[1fr_320px]"
-      >
+      <section id="overview" className="grid scroll-mt-32 gap-6 lg:grid-cols-[1fr_320px]">
         <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">Overview</h2>
           <dl className="mt-5 grid gap-4 sm:grid-cols-2">
             <div>
               <dt className="text-sm font-medium text-slate-500">Session</dt>
-              <dd className="mt-1 text-sm font-semibold text-slate-900">
-                {session.number}
-              </dd>
+              <dd className="mt-1 text-sm font-semibold text-slate-900">{session.number}</dd>
             </div>
             <div>
               <dt className="text-sm font-medium text-slate-500">Vehicle</dt>
@@ -136,9 +128,7 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
             </div>
             <div>
               <dt className="text-sm font-medium text-slate-500">Status</dt>
-              <dd className="mt-1 text-sm font-semibold text-slate-900">
-                {session.status}
-              </dd>
+              <dd className="mt-1 text-sm font-semibold text-slate-900">{session.status}</dd>
             </div>
             <div>
               <dt className="text-sm font-medium text-slate-500">Fault Codes</dt>
@@ -147,7 +137,7 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
                   ? 'Loading...'
                   : faultCodesQuery.isError
                     ? 'Unavailable'
-                    : faultCodesQuery.data?.data.length ?? 0}
+                    : (faultCodesQuery.data?.data.length ?? 0)}
               </dd>
             </div>
           </dl>
@@ -160,13 +150,11 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
         />
       </section>
 
-      <section
-        id="vehicle-health"
-        className="scroll-mt-32"
-      >
+      <section id="vehicle-health" className="scroll-mt-32">
         <VehicleHealthPanel
           sessionId={session.id}
           isSessionOpen={session.status !== 'CLOSED'}
+          vehicle={vehicleQuery.data}
         />
       </section>
 
@@ -203,10 +191,7 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
         <LiveDataCard diagnosticSessionId={session.id} />
       </section>
 
-      <section
-        id="audit-trail"
-        className="scroll-mt-32"
-      >
+      <section id="audit-trail" className="scroll-mt-32">
         <AuditTrail sessionId={session.id} />
       </section>
 

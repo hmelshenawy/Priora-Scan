@@ -1,10 +1,11 @@
 'use client';
 
-import { ScanJobStatus } from '../../hooks/useObdScan';
+import type { DecodedVehicle, ScanJobStatus } from '../../hooks/useObdScan';
 
 interface ScanProgressTimelineProps {
   status: ScanJobStatus;
   vin?: string;
+  decodedVehicle?: DecodedVehicle;
   errorMessage?: string;
 }
 
@@ -18,6 +19,7 @@ const stages: { key: ScanJobStatus; label: string }[] = [
 export function ScanProgressTimeline({
   status,
   vin,
+  decodedVehicle,
   errorMessage,
 }: ScanProgressTimelineProps) {
   const isFailed = status === 'FAILED';
@@ -98,15 +100,26 @@ export function ScanProgressTimeline({
       </div>
 
       {vin && (
-        <p className="mt-3 text-sm text-slate-600">
-          VIN detected: <span className="font-mono font-medium">{vin}</span>
-        </p>
+        <div className="mt-3 rounded-md bg-slate-50 p-3 text-sm text-slate-600">
+          <p>
+            VIN detected: <span className="font-mono font-medium">{vin}</span>
+          </p>
+          {decodedVehicle ? (
+            <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+              <VehicleDetail label="Make" value={decodedVehicle.make} />
+              <VehicleDetail label="Model" value={decodedVehicle.model} />
+              <VehicleDetail label="Year" value={decodedVehicle.year?.toString() ?? null} />
+              <VehicleDetail label="Engine" value={decodedVehicle.engine} />
+              <VehicleDetail label="Body Style" value={decodedVehicle.bodyStyle} />
+            </dl>
+          ) : (
+            <p className="mt-2 text-amber-700">Vehicle details unavailable.</p>
+          )}
+        </div>
       )}
 
       {errorMessage && (
-        <div className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-700">
-          {errorMessage}
-        </div>
+        <div className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{errorMessage}</div>
       )}
 
       {isCancelled && (
@@ -114,6 +127,15 @@ export function ScanProgressTimeline({
           Scan was cancelled.
         </div>
       )}
+    </div>
+  );
+}
+
+function VehicleDetail({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div>
+      <dt className="text-xs font-medium uppercase text-slate-500">{label}</dt>
+      <dd className="mt-0.5 text-sm font-medium text-slate-900">{value || '—'}</dd>
     </div>
   );
 }

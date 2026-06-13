@@ -22,11 +22,7 @@ function formatDate(value: string) {
   return new Date(value).toLocaleString();
 }
 
-export function SessionHeader({
-  session,
-  vehicle,
-  vehicleLoading,
-}: SessionHeaderProps) {
+export function SessionHeader({ session, vehicle, vehicleLoading }: SessionHeaderProps) {
   const vehicleLabel = vehicle
     ? `${vehicle.year} ${vehicle.make} ${vehicle.model}`
     : vehicleLoading
@@ -38,9 +34,7 @@ export function SessionHeader({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold text-slate-950">
-              {session.number}
-            </h1>
+            <h1 className="text-2xl font-semibold text-slate-950">{session.number}</h1>
             <StatusBadge status={session.status} tone={sessionTone(session.status)} />
           </div>
           <p className="mt-2 max-w-3xl text-sm text-slate-600">
@@ -82,9 +76,10 @@ export function SessionHeader({
               vehicleLabel
             )}
           </dd>
-          {vehicle?.vin && (
-            <dd className="mt-1 font-mono text-xs text-slate-500">
-              {vehicle.vin}
+          {vehicle?.vin && <dd className="mt-1 font-mono text-xs text-slate-500">{vehicle.vin}</dd>}
+          {vehicle && (vehicle.engine || vehicle.bodyStyle) && (
+            <dd className="mt-2 text-xs text-slate-500">
+              {[vehicle.engine, vehicle.bodyStyle].filter(Boolean).join(' · ')}
             </dd>
           )}
         </div>

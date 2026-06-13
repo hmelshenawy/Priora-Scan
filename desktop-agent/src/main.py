@@ -32,6 +32,25 @@ from src.config import (
 )
 
 
+def ensure_adapter_connected(adapter) -> bool:
+    """Return True when the adapter is connected, attempting connect() if needed."""
+    try:
+        if adapter.is_connected():
+            return True
+    except Exception:
+        pass
+
+    connect = getattr(adapter, "connect", None)
+    if not callable(connect):
+        return False
+
+    try:
+        return bool(connect())
+    except Exception as e:
+        print(f"Adapter connection failed: {e}")
+        return False
+
+
 def poll_scan_queue(api_client: ApiClient, adapter: Elm327Adapter) -> None:
     response = api_client.get(f"/obd/agents/{api_client.agent_id}/scan-queue")
     if not response:
@@ -51,7 +70,7 @@ def poll_scan_queue(api_client: ApiClient, adapter: Elm327Adapter) -> None:
 
 def execute_scan(api_client: ApiClient, adapter: Elm327Adapter, job: ScanJob) -> None:
     try:
-        if not adapter.is_connected():
+        if not ensure_adapter_connected(adapter):
             _emit(api_client, job.id, "ERROR", {"message": "No adapter connected"})
             return
 
@@ -96,7 +115,7 @@ def execute_vehicle_data_read(api_client: ApiClient, session_id: str, adapter) -
     supported PIDs, and mileage. Unsupported PIDs are reported as
     ``{ value: null, supported: false }`` rather than raising.
     """
-    if not adapter.is_connected():
+    if not ensure_adapter_connected(adapter):
         _emit_session(api_client, session_id, "ERROR", {"message": "No adapter connected"})
         return
 
@@ -126,7 +145,7 @@ def execute_clear_dtc(api_client: ApiClient, session_id: str, adapter) -> None:
 
     Feature 009 Phase B: safe clearing of fault codes.
     """
-    if not adapter.is_connected():
+    if not ensure_adapter_connected(adapter):
         _emit_session(api_client, session_id, "DTC_CLEAR_FAILED", {"reason": "No adapter connected"})
         return
 
@@ -179,6 +198,14 @@ def main() -> None:
     configure_agent_auth(api_client, args)
 
     adapter = create_obd_adapter()
+    if ensure_adapter_connected(adapter):
+        print(
+            "Adapter connected: "
+            f"{getattr(adapter, 'adapter_type', 'UNKNOWN')} "
+            f"({getattr(adapter, 'protocol', 'UNKNOWN')})"
+        )
+    else:
+        print("Adapter not connected; the agent will retry when commands arrive")
 
     # Register Feature 009 command handlers with the queue dispatcher.
     # Closures capture the adapter instance so the handlers don't need

@@ -14,7 +14,7 @@ AGENT_VERSION = os.getenv("AGENT_VERSION", "1.0.0")
 
 # Adapter type: mock|usb|wifi — backward compat: OBD_MOCK=true → mock
 _OBD_MOCK = os.getenv("OBD_MOCK", "").lower() == "true"
-OBD_ADAPTER_TYPE = os.getenv("OBD_ADAPTER_TYPE", "mock" if _OBD_MOCK else "wifi").lower()
+OBD_ADAPTER_TYPE = "mock" if _OBD_MOCK else os.getenv("OBD_ADAPTER_TYPE", "wifi").lower()
 
 # WiFi adapter configuration
 OBD_WIFI_HOST = os.getenv("OBD_WIFI_HOST", "192.168.0.10")

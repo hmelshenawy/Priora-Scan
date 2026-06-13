@@ -1,11 +1,4 @@
-import {
-  IsInt,
-  IsOptional,
-  IsString,
-  Length,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
 
 export class ConfirmVehicleDto {
   @IsString()
@@ -29,4 +22,14 @@ export class ConfirmVehicleDto {
   @IsString()
   @Length(1, 20)
   plateNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  engine?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  bodyStyle?: string;
 }
