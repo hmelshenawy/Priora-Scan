@@ -35,6 +35,11 @@ PID_RESPONSES = {
     "010D": bytes.fromhex("410D00"),
     # PID 42 — Control Module Voltage ((34×256+69)/1000 = 13.417V)
     "0142": bytes.fromhex("41423469"),
+    # PID 01 — Readiness Monitors (SAE J1979)
+    # Synthetic readiness data for fault workflow testing. Do not use the
+    # real MIL OFF Toyota 2026-06-14 capture here; this profile intentionally
+    # simulates MIL ON with 3 stored DTCs to match its fault scenario.
+    "0101": bytes.fromhex("4101830007EF07FF"),
 }
 
 # VIN response (Mode 09 PID 02)
@@ -67,6 +72,3 @@ UNSUPPORTED_COMMANDS = {
     "0120",  # Supported PIDs 21-40 — not supported
     "0900",  # Mode 09 supported PIDs — not supported (except 02)
 }
-
-# Optional readiness monitors (None = unsupported)
-READINESS_MONITORS = None

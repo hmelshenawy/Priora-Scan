@@ -36,6 +36,7 @@ COMMANDS = [
     "0142",
     "012F",
     "0902",
+    "0101",
 ]
 
 COMMAND_NAMES = {
@@ -54,6 +55,7 @@ COMMAND_NAMES = {
     "0142": "Control Module Voltage",
     "012F": "Fuel Level",
     "0902": "VIN",
+    "0101": "REadiness Monitorss",
 }
 
 

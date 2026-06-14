@@ -43,6 +43,11 @@ PID_RESPONSES = {
     "010D": bytes.fromhex("410D00"),
     # PID 42 — Control Module Voltage ((34×256+69)/1000 = 13.417V)
     "0142": bytes.fromhex("41423469"),
+    # PID 01 — Readiness Monitors (SAE J1979)
+    # Real Toyota capture from 2026-06-14:
+    # raw b"410100044000\r\r>" cleaned to 410100044000.
+    # MIL OFF, 0 stored DTCs, variable-length readiness payload.
+    "0101": bytes.fromhex("410100044000"),
 }
 
 # VIN response (Mode 09 PID 02)
@@ -69,6 +74,3 @@ UNSUPPORTED_COMMANDS = {
     "012F",  # Fuel Level Input — not supported (not in 0120 bitmap)
     "0900",  # Mode 09 supported PIDs — not supported (except 02)
 }
-
-# Optional readiness monitors (None = unsupported)
-READINESS_MONITORS = None

@@ -395,7 +395,9 @@ class TestBackwardCompatibility:
         assert adapter.send("0A") == b"4A00"
 
         # Health PIDs
-        assert adapter.send("0101") == b"41010007FF07EF"
+        # PID 0101 is tested in test_readiness_monitors.py for decoded values
+        # Raw bytes updated to 6-data-byte SAE J1979 format (was 5-byte legacy)
+        assert adapter.send("0101") == b"4101000007FF07FF"
         assert adapter.send("0103") == b"41030200"
         assert adapter.send("0104") == b"410480"
         assert adapter.send("012F") == b"412FCC"

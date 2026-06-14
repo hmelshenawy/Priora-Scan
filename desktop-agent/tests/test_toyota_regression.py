@@ -146,5 +146,22 @@ class TestMockRealParserConsistency:
         assert health["fuelLevel"]["supported"] is False
 
 
+class TestToyotaReadinessRegression:
+    """Regression tests for the real Toyota 0101 readiness response."""
+
+    def test_toyota_real_0101_readiness_decodes(self):
+        """Real Toyota 2026-06-14 0101 response decodes to valid ReadinessResult."""
+        from src.obd.commands.vehicle_data import read_readiness_monitors
+
+        adapter = MockObdAdapter(profile_name="toyota_real_sample")
+        result = read_readiness_monitors(adapter)
+        assert result["supported"] is True
+        value = result["value"]
+        assert value["milStatus"] == "OFF"
+        assert value["storedDtcCount"] == 0
+        assert value["rawResponse"] == "410100044000"
+        assert len(value["monitors"]) == 11
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

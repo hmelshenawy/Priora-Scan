@@ -17,8 +17,9 @@ PROFILE_DESCRIPTION = "Clean vehicle with valid VIN and no fault codes"
 PID_RESPONSES = {
     # PID 00 — Supported PIDs 01-20 (matches default profile)
     "0100": bytes.fromhex("4100BE1FB820"),
-    # PID 01 — Readiness Monitors
-    "0101": bytes.fromhex("41010007FF07EF"),
+    # PID 01 — Readiness Monitors (SAE J1979)
+    # data[0]=0x00 (MIL OFF, 0 DTCs), all monitors supported and ready
+    "0101": bytes.fromhex("4101000007FF07FF"),
     # PID 03 — Fuel System Status (Closed Loop)
     "0103": bytes.fromhex("41030200"),
     # PID 04 — Calculated Engine Load (50.2%)
@@ -56,5 +57,3 @@ FAULT_METADATA = {}
 # Commands that return empty bytes (unsupported)
 UNSUPPORTED_COMMANDS = set()
 
-# Optional readiness monitors (None = unsupported)
-READINESS_MONITORS = None

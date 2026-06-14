@@ -17,8 +17,10 @@ PROFILE_DESCRIPTION = "Vehicle with fault codes P0301, P0171, U0100 and valid VI
 PID_RESPONSES = {
     # PID 00 — Supported PIDs 01-20 (matches default profile)
     "0100": bytes.fromhex("4100BE1FB820"),
-    # PID 01 — Readiness Monitors
-    "0101": bytes.fromhex("41010007FF07EF"),
+    # PID 01 — Readiness Monitors (SAE J1979)
+    # data[0]=0x83 (MIL ON, 3 DTCs), data[3]=0xEF (acRefrigerant NOT ready),
+    # all monitors supported
+    "0101": bytes.fromhex("4101830007EF07FF"),
     # PID 03 — Fuel System Status (Closed Loop)
     "0103": bytes.fromhex("41030200"),
     # PID 04 — Calculated Engine Load (50.2%)
@@ -60,5 +62,3 @@ FAULT_METADATA = {
 # Commands that return empty bytes (unsupported)
 UNSUPPORTED_COMMANDS = set()
 
-# Optional readiness monitors (None = unsupported)
-READINESS_MONITORS = None

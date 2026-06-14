@@ -290,62 +290,127 @@ def read_vehicle_speed(adapter: BaseAdapter, *, pid: str = "0D") -> Dict[str, An
 
 
 # ---------------------------------------------------------------------------
-# PID 01 — Readiness Monitors
-# 6-byte response: [MIL+DTFcount, DTCcount, supported_lo, supported_hi,
-#                    complete_lo, complete_hi]
+# PID 01 — Readiness Monitors (SAE J1979)
+#
+# Response format (after header "41 01"):
+#   data[0] = Byte A: MIL (bit 7) + DTC count (bits 0-6)
+#   data[1] = Byte B: Reserved (usually 0x00)
+#   data[2] = Byte C: Continuous monitor COMPLETION (bits 0-2) + reserved
+#   data[3] = Byte D: Non-continuous monitor COMPLETION (bits 0-7)
+#   data[4] = Byte E: Continuous monitor AVAILABILITY (bits 0-2) + reserved
+#   data[5] = Byte F: Non-continuous monitor AVAILABILITY (bits 0-7)
+#
+# Monitor names in SAE J1979 order:
+#   Continuous (bits 0-2 of bytes C/E):
+#     misfire, fuelSystem, components
+#   Non-continuous (bits 0-7 of bytes D/F):
+#     catalyst, heatedCatalyst, evap, secondaryAir,
+#     acRefrigerant, oxygenSensor, oxygenSensorHeater, egrVvt
 # ---------------------------------------------------------------------------
 
 _MONITOR_NAMES = [
-    "misfire",        # bit 0 of supported_lo
-    "fuelSystem",     # bit 1
-    "components",    # bit 2
-    # bits 3-7 reserved
-    "catalyst",       # bit 0 of supported_hi
-    "heatedCatalyst", # bit 1
-    "evap",           # bit 2
-    "secondaryAir",   # bit 3
-    "acRefrigerant",  # bit 4
-    "oxygenSensor",   # bit 5
-    "oxygenSensorHeater", # bit 6
-    "egrVvt",         # bit 7
+    "misfire",               # bit 0 of continuous group
+    "fuelSystem",            # bit 1 of continuous group
+    "components",            # bit 2 of continuous group
+    "catalyst",              # bit 0 of non-continuous group
+    "heatedCatalyst",        # bit 1
+    "evap",                  # bit 2
+    "secondaryAir",          # bit 3
+    "acRefrigerant",         # bit 4
+    "oxygenSensor",          # bit 5
+    "oxygenSensorHeater",    # bit 6
+    "egrVvt",                # bit 7
 ]
 
 
+def parse_readiness_monitors(hex_str: str) -> Optional[Dict[str, Any]]:
+    """Parse a raw PID 0101 response into a ReadinessResult dict.
+
+    Takes a cleaned hex string (output of compact_raw_response or _send_pid)
+    and returns a ReadinessResult dict, or None if parsing fails.
+
+    ReadinessResult shape:
+        {
+            "milStatus": "ON" | "OFF" | "UNKNOWN",
+            "storedDtcCount": int | None,
+            "monitors": [
+                {"name": str, "supported": bool, "ready": bool | None},
+                ...
+            ],
+            "rawResponse": str
+        }
+    """
+    if hex_str is None or not hex_str:
+        return None
+
+    prefix = "4101"
+    if not hex_str.startswith(prefix):
+        return None
+
+    try:
+        bytes_ = _parse_bytes(hex_str, len(prefix))
+    except (ValueError, IndexError):
+        return None
+
+    if len(bytes_) < 1:
+        return None
+
+    # Extract MIL status and DTC count from byte 0
+    byte_a = bytes_[0]
+    mil_status = "ON" if (byte_a & 0x80) else "OFF"
+    dtc_count = byte_a & 0x7F
+
+    # Decode monitors using SAE J1979 byte mapping:
+    #   data[2] = Byte C: continuous monitor COMPLETION (bits 0-2)
+    #   data[3] = Byte D: non-continuous monitor COMPLETION (bits 0-7)
+    #   data[4] = Byte E: continuous monitor AVAILABILITY (bits 0-2)
+    #   data[5] = Byte F: non-continuous monitor AVAILABILITY (bits 0-7)
+    # Default missing bytes to 0 (conservative: unsupported)
+    completion_continuous = bytes_[2] if len(bytes_) > 2 else 0
+    completion_noncontinuous = bytes_[3] if len(bytes_) > 3 else 0
+    availability_continuous = bytes_[4] if len(bytes_) > 4 else 0
+    availability_noncontinuous = bytes_[5] if len(bytes_) > 5 else 0
+
+    monitors: list = []
+    for i, name in enumerate(_MONITOR_NAMES):
+        if i < 3:
+            # Continuous monitors: bits 0-2
+            is_supported = bool(availability_continuous & (1 << i))
+            is_ready = bool(completion_continuous & (1 << i)) if is_supported else None
+        else:
+            # Non-continuous monitors: bits 0-7
+            bit = i - 3
+            is_supported = bool(availability_noncontinuous & (1 << bit))
+            is_ready = bool(completion_noncontinuous & (1 << bit)) if is_supported else None
+        monitors.append({"name": name, "supported": is_supported, "ready": is_ready})
+
+    return {
+        "milStatus": mil_status,
+        "storedDtcCount": dtc_count,
+        "monitors": monitors,
+        "rawResponse": hex_str,
+    }
+
+
 def read_readiness_monitors(adapter: BaseAdapter) -> Dict[str, Any]:
+    """Read OBD-II Mode 01 PID 01 (Readiness Monitors) from the vehicle.
+
+    Returns a dict with outer compatibility wrapper:
+        {"supported": True, "value": ReadinessResult}
+    or {"supported": False, "value": {}}
+
+    where ReadinessResult contains:
+        milStatus, storedDtcCount, monitors[], rawResponse
+    """
     hex_str = _send_pid(adapter, "01", "01")
     if hex_str is None:
         return {"supported": False, "value": {}}
-    prefix = "4101"
-    if not hex_str.startswith(prefix):
-        return {"supported": False, "value": {}}
-    try:
-        bytes_ = _parse_bytes(hex_str, len(prefix))
-        # Need at least 4 bytes after the 2 header bytes:
-        # supported_lo (byte 2), supported_hi (byte 3),
-        # complete_lo (byte 4), complete_hi (byte 5)
-        if len(bytes_) < 4:
-            return {"supported": False, "value": {}}
-        supported_lo = bytes_[2]
-        supported_hi = bytes_[3]
-        complete_lo = bytes_[4] if len(bytes_) > 4 else 0
-        complete_hi = bytes_[5] if len(bytes_) > 5 else 0
 
-        monitors: Dict[str, Dict[str, Any]] = {}
-        for i, name in enumerate(_MONITOR_NAMES):
-            if i < 3:
-                # Lower 3 bits of supported_lo
-                is_supported = bool(supported_lo & (1 << i))
-                is_complete = bool(complete_lo & (1 << i)) if is_supported else None
-            else:
-                # Upper 8 bits (shifted by 3 for the reserved bits)
-                bit = i - 3
-                is_supported = bool(supported_hi & (1 << bit))
-                is_complete = bool(complete_hi & (1 << bit)) if is_supported else None
-            monitors[name] = {"supported": is_supported, "complete": is_complete}
-
-        return {"supported": True, "value": monitors}
-    except (ValueError, IndexError):
+    result = parse_readiness_monitors(hex_str)
+    if result is None:
         return {"supported": False, "value": {}}
+
+    return {"supported": True, "value": result}
 
 
 # ---------------------------------------------------------------------------

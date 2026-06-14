@@ -16,9 +16,11 @@ PROFILE_DESCRIPTION = "Default mock vehicle (backward compatible with original M
 
 # OBD PID responses (command string → raw bytes)
 PID_RESPONSES = {
-    # PID 01 — Readiness Monitors
-    # [MIL+DTCcnt, 00, supported_lo, supported_hi, complete_lo, complete_hi]
-    "0101": bytes.fromhex("41010007FF07EF"),
+    # PID 01 — Readiness Monitors (SAE J1979)
+    # data[0]=0x00 (MIL OFF, 0 DTCs), data[1]=0x00, data[2]=0x07 (continuous completion),
+    # data[3]=0xFF (non-continuous completion), data[4]=0x07 (continuous availability),
+    # data[5]=0xFF (non-continuous availability) — all monitors supported and ready
+    "0101": bytes.fromhex("4101000007FF07FF"),
     # PID 03 — Fuel System Status (Closed Loop)
     "0103": bytes.fromhex("41030200"),
     # PID 04 — Calculated Engine Load (A=0x80 → 50.2%)
@@ -62,5 +64,3 @@ FAULT_METADATA = {
 # Commands that return empty bytes (unsupported PIDs)
 UNSUPPORTED_COMMANDS = set()
 
-# Optional readiness monitors (None = unsupported)
-READINESS_MONITORS = None
