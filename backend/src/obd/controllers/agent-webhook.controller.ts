@@ -43,20 +43,12 @@ export class AgentWebhookController {
     @Body('agentName') agentName: string,
     @Body('version') version: string,
   ) {
-    return this.pairingService.exchangePairingToken(
-      pairingToken,
-      agentName,
-      version,
-    );
+    return this.pairingService.exchangePairingToken(pairingToken, agentName, version);
   }
 
   @Post(':id/heartbeat')
   @UseGuards(AgentAuthGuard)
-  async heartbeat(
-    @Param('id') id: string,
-    @Body() dto: AgentHeartbeatDto,
-    @Req() req: Request,
-  ) {
+  async heartbeat(@Param('id') id: string, @Body() dto: AgentHeartbeatDto, @Req() req: Request) {
     await this.heartbeatService.processHeartbeat(id, dto);
     return { success: true };
   }
@@ -65,7 +57,14 @@ export class AgentWebhookController {
   @UseGuards(AgentAuthGuard)
   async adapterStatus(
     @Param('id') id: string,
-    @Body() body: { status: string; adapterType?: string; connectionType?: string; protocol?: string; errorMessage?: string },
+    @Body()
+    body: {
+      status: string;
+      adapterType?: string;
+      connectionType?: string;
+      protocol?: string;
+      errorMessage?: string;
+    },
     @Req() req: Request,
   ) {
     const agent = req.agent!;
@@ -76,22 +75,13 @@ export class AgentWebhookController {
 
   @Get(':id/scan-queue')
   @UseGuards(AgentAuthGuard)
-  async scanQueue(
-    @Param('id') id: string,
-    @Req() req: Request,
-  ) {
+  async scanQueue(@Param('id') id: string, @Req() req: Request) {
     const agent = req.agent!;
 
-    const pendingJob = await this.scanJobRepository.findPendingForAgent(
-      id,
-      agent.organizationId,
-    );
+    const pendingJob = await this.scanJobRepository.findPendingForAgent(id, agent.organizationId);
     const job =
       pendingJob ??
-      (await this.scanJobRepository.findConfirmedRunningForAgent(
-        id,
-        agent.organizationId,
-      ));
+      (await this.scanJobRepository.findConfirmedRunningForAgent(id, agent.organizationId));
     if (!job) {
       return [];
     }
@@ -121,10 +111,11 @@ export class AgentWebhookController {
         status: ScanJobStatus.RUNNING,
         createdAt: job.createdAt,
         vin: job.vin,
+        vehicleId: job.vehicleId,
         diagnosticSessionId: job.diagnosticSessionId,
         scanJobId: job.id,
         commands: [
-          ...(job.vin
+          ...(job.vin || job.vehicleId
             ? []
             : [
                 { type: 'CONNECT_ADAPTER', timeoutMs: 10000 },
@@ -140,7 +131,8 @@ export class AgentWebhookController {
   @UseGuards(AgentAuthGuard)
   async scanEvents(
     @Param('id') id: string,
-    @Body() body: {
+    @Body()
+    body: {
       scanJobId?: string;
       sessionId?: string;
       event: ScanEventType;
@@ -180,11 +172,27 @@ export class AgentWebhookController {
 
     switch (body.event) {
       case ScanEventType.VIN_READ: {
-        const vin = body.payload.vin as string;
+        const vin = body.payload.vin;
+        const unsupportedVin =
+          body.payload.supported === false ||
+          body.payload.vinStatus === 'UNSUPPORTED' ||
+          vin === null ||
+          vin === undefined ||
+          vin === '';
+        if (unsupportedVin) {
+          return {
+            status: 'RUNNING',
+            vin: null,
+            supported: false,
+            vinStatus: 'UNSUPPORTED',
+            reason: body.payload.reason,
+          };
+        }
+
         const result = await this.scanService.processVinRead(
           scan.id,
           scan.organizationId,
-          vin,
+          vin as string,
         );
 
         if (result.vehicleId) {
@@ -199,40 +207,52 @@ export class AgentWebhookController {
       }
 
       case ScanEventType.DTC_READ: {
-        const codes = (body.payload.codes as Array<{
-          code: string;
-          status: string;
-          ecu?: string;
-        }>) ?? [];
+        const codes =
+          (body.payload.codes as Array<{
+            code: string;
+            status: string;
+            ecu?: string;
+          }>) ?? [];
         const faultCodes = codes.map((c) => ({
           code: c.code,
           status: c.status as FaultCodeStatus,
           ecu: c.ecu,
         }));
-        if (!scan.diagnosticSessionId && scan.vehicleId) {
-          await this.scanService.createSessionFromScan(
-            scan.id,
-            scan.organizationId,
-            scan.userId,
-          );
+        if (!scan.diagnosticSessionId && !scan.vehicleId) {
+          await this.prisma.$transaction(async (tx) => {
+            await tx.scanJob.updateMany({
+              where: { id: scan.id, organizationId: scan.organizationId },
+              data: { status: ScanJobStatus.NEEDS_VEHICLE_CONFIRMATION },
+            });
+
+            await tx.scanJobAuditRecord.create({
+              data: {
+                organizationId: scan.organizationId,
+                userId: scan.userId,
+                scanJobId: scan.id,
+                action: 'DTC_READ_PENDING_VEHICLE',
+                status: ScanJobStatus.NEEDS_VEHICLE_CONFIRMATION,
+                metadata: { faultCodes },
+              },
+            });
+          });
+
+          return {
+            status: 'NEEDS_VEHICLE_CONFIRMATION',
+            reason: 'VEHICLE_REQUIRED',
+          };
         }
-        await this.scanService.completeScan(
-          scan.id,
-          scan.organizationId,
-          scan.userId,
-          faultCodes,
-        );
+
+        if (!scan.diagnosticSessionId && scan.vehicleId) {
+          await this.scanService.createSessionFromScan(scan.id, scan.organizationId, scan.userId);
+        }
+        await this.scanService.completeScan(scan.id, scan.organizationId, scan.userId, faultCodes);
         return { status: 'COMPLETED' };
       }
 
       case ScanEventType.ERROR: {
         const message = (body.payload.message as string) ?? 'Unknown error';
-        await this.scanService.failScan(
-          scan.id,
-          scan.organizationId,
-          scan.userId,
-          message,
-        );
+        await this.scanService.failScan(scan.id, scan.organizationId, scan.userId, message);
         return { status: 'FAILED' };
       }
 
@@ -263,10 +283,7 @@ export class AgentWebhookController {
     }
 
     // Verify the session exists and belongs to the agent's organization
-    const session = await this.vehicleDataRepository.findSessionById(
-      sessionId,
-      organizationId,
-    );
+    const session = await this.vehicleDataRepository.findSessionById(sessionId, organizationId);
     if (!session) {
       throw new NotFoundException({
         code: 'SESSION_NOT_FOUND',
@@ -293,11 +310,7 @@ export class AgentWebhookController {
 
       case ScanEventType.DTC_CLEARED: {
         // Delegate to DtcClearService for audit + pending flag clear
-        await this.dtcClearService.processClearResult(
-          sessionId,
-          organizationId,
-          true,
-        );
+        await this.dtcClearService.processClearResult(sessionId, organizationId, true);
 
         return { status: 'OK' };
       }
@@ -306,12 +319,7 @@ export class AgentWebhookController {
         const reason = (body.payload.reason as string) ?? 'Unknown failure';
 
         // Delegate to DtcClearService for audit + pending flag clear
-        await this.dtcClearService.processClearResult(
-          sessionId,
-          organizationId,
-          false,
-          reason,
-        );
+        await this.dtcClearService.processClearResult(sessionId, organizationId, false, reason);
 
         return { status: 'OK' };
       }

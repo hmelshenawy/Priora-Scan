@@ -9,7 +9,7 @@ from src.live_data.queue import (
     set_clear_dtc_handler,
 )
 from src.obd.elm327 import Elm327Adapter
-from src.obd.commands.vin import read_vin
+from src.obd.commands.vin import read_vin, VIN_SUPPORTED
 from src.obd.commands.dtc import read_fault_codes
 from src.obd.commands.vehicle_data import (
     read_battery_voltage,
@@ -76,13 +76,22 @@ def execute_scan(api_client: ApiClient, adapter: Elm327Adapter, job: ScanJob) ->
 
         _emit(api_client, job.id, "ADAPTER_CONNECTED", {"protocol": adapter.protocol})
 
-        if not job.vin:
-            vin = read_vin(adapter)
-            vin_result = _emit(api_client, job.id, "VIN_READ", {"vin": vin})
-            print(f"VIN detected: {vin}")
-            if vin_result and vin_result.get("status") == "NEEDS_VEHICLE_CONFIRMATION":
-                print("Vehicle confirmation required")
-                return
+        if not job.vin and not job.vehicle_id:
+            vin_result = read_vin(adapter)
+            if vin_result.status == VIN_SUPPORTED:
+                vin_emit_result = _emit(api_client, job.id, "VIN_READ", {"vin": vin_result.vin})
+                print(f"VIN detected: {vin_result.vin}")
+                if vin_emit_result and vin_emit_result.get("status") == "NEEDS_VEHICLE_CONFIRMATION":
+                    print("Vehicle confirmation required")
+                    return
+            else:
+                _emit(api_client, job.id, "VIN_READ", {
+                    "vin": None,
+                    "supported": False,
+                    "vinStatus": "UNSUPPORTED",
+                    "reason": vin_result.reason,
+                })
+                print(f"VIN not supported: {vin_result.reason}")
 
         fault_codes = read_fault_codes(adapter)
         _emit(api_client, job.id, "DTC_READ", {"codes": [fc.to_dict() for fc in fault_codes]})
@@ -91,6 +100,7 @@ def execute_scan(api_client: ApiClient, adapter: Elm327Adapter, job: ScanJob) ->
 
 
 def _emit(api_client: ApiClient, scan_id: str, event_type: str, data: dict) -> None:
+    print(f"Scan event {event_type}: {data}")
     response = api_client.post(
         f"/obd/agents/{api_client.agent_id}/scan-events",
         json={"scanJobId": scan_id, "event": event_type, "payload": data},
@@ -130,11 +140,13 @@ def execute_vehicle_data_read(api_client: ApiClient, session_id: str, adapter) -
     }
 
     # Also include VIN confirmation (PID 09 02)
-    try:
-        vin = read_vin(adapter)
-        vehicle_data["vin"] = {"value": vin, "supported": True}
-    except Exception:
-        vehicle_data["vin"] = {"value": None, "supported": False}
+    vin_result = read_vin(adapter)
+    vehicle_data["vin"] = {
+        "value": vin_result.vin,
+        "supported": vin_result.status == VIN_SUPPORTED,
+    }
+    if vin_result.status != VIN_SUPPORTED and vin_result.reason:
+        vehicle_data["vin"]["reason"] = vin_result.reason
 
     _emit_session(api_client, session_id, "VEHICLE_DATA_READ", {"vehicleData": vehicle_data})
     print(f"Vehicle data read completed for session {session_id}")

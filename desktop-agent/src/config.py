@@ -16,6 +16,9 @@ AGENT_VERSION = os.getenv("AGENT_VERSION", "1.0.0")
 _OBD_MOCK = os.getenv("OBD_MOCK", "").lower() == "true"
 OBD_ADAPTER_TYPE = "mock" if _OBD_MOCK else os.getenv("OBD_ADAPTER_TYPE", "wifi").lower()
 
+# Mock profile selection — only used when OBD_MOCK=true
+OBD_MOCK_PROFILE = os.getenv("OBD_MOCK_PROFILE", "default")
+
 # WiFi adapter configuration
 OBD_WIFI_HOST = os.getenv("OBD_WIFI_HOST", "192.168.0.10")
 OBD_WIFI_PORT = int(os.getenv("OBD_WIFI_PORT", "35000"))

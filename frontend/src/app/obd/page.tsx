@@ -146,7 +146,7 @@ export default function ObdDashboardPage() {
 
       {showPairModal && <PairAgentModal onClose={() => setShowPairModal(false)} />}
 
-      {needsConfirmation && scan?.vin && (
+      {needsConfirmation && scan && (
         <VehicleConfirmModal
           scanJobId={scan.id}
           vin={scan.vin}

@@ -1,22 +1,30 @@
-import { IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsUUID, Length, Max, Min } from 'class-validator';
 
 export class ConfirmVehicleDto {
+  @IsOptional()
+  @IsUUID()
+  vehicleId?: string;
+
+  @IsOptional()
   @IsString()
   @Length(1, 100)
-  make: string;
+  make?: string;
 
+  @IsOptional()
   @IsString()
   @Length(1, 100)
-  model: string;
+  model?: string;
 
+  @IsOptional()
   @IsInt()
   @Min(1900)
   @Max(2100)
-  year: number;
+  year?: number;
 
+  @IsOptional()
   @IsString()
   @Length(17, 17)
-  vin: string;
+  vin?: string;
 
   @IsOptional()
   @IsString()

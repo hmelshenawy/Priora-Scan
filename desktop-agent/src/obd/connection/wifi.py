@@ -85,43 +85,76 @@ class WifiConnection:
                 time.sleep(delay)
 
         try:
+            logger.debug("WiFi TX %r", data)
             self._socket.sendall(data)
             self._last_command_at = time.monotonic()
         except OSError as exc:
             self._connected = False
+            logger.warning("WiFi write failed: %s", exc)
             raise ConnectionError(f"Write failed: {exc}") from exc
 
     def read(self) -> bytes:
-        """Read response until '>' prompt delimiter.
+        """Read response until '>' prompt delimiter or timeout.
 
         Returns:
-            Raw bytes including the prompt character.
+            Raw bytes, including the prompt character when present. If bytes
+            arrive but no prompt appears before timeout, returns the partial
+            response for clone adapters that omit prompts.
 
         Raises:
-            TimeoutError: If no response within timeout.
+            TimeoutError: If zero bytes are received before timeout.
             ConnectionError: If socket is closed.
         """
         if not self.is_open():
             raise ConnectionError("WiFi connection is not open")
 
         buf = bytearray()
+        started_at = time.monotonic()
+        prompt_found = False
         try:
             while True:
                 chunk = self._socket.recv(256)
                 if not chunk:
                     self._connected = False
+                    elapsed = time.monotonic() - started_at
+                    if buf:
+                        logger.warning(
+                            "WiFi remote closed after partial RX elapsed=%.3fs bytes=%r",
+                            elapsed,
+                            bytes(buf),
+                        )
+                        return bytes(buf)
+                    logger.warning("WiFi remote closed with no response")
                     raise ConnectionError("Connection closed by remote")
                 buf.extend(chunk)
+                logger.debug("WiFi RX chunk %r", chunk)
                 if b">" in buf:
+                    prompt_found = True
                     break
         except socket.timeout as exc:
-            raise TimeoutError(
-                f"Read timed out after {self.timeout}s"
-            ) from exc
+            elapsed = time.monotonic() - started_at
+            if buf:
+                logger.warning(
+                    "WiFi RX partial timeout elapsed=%.3fs prompt_found=%s bytes=%r",
+                    elapsed,
+                    prompt_found,
+                    bytes(buf),
+                )
+                return bytes(buf)
+            logger.warning("WiFi RX timeout after %.3fs with zero bytes", elapsed)
+            raise TimeoutError(f"Read timed out after {self.timeout}s") from exc
         except OSError as exc:
             self._connected = False
+            logger.warning("WiFi read failed: %s", exc)
             raise ConnectionError(f"Read failed: {exc}") from exc
 
+        elapsed = time.monotonic() - started_at
+        logger.debug(
+            "WiFi RX complete elapsed=%.3fs prompt_found=%s bytes=%r",
+            elapsed,
+            prompt_found,
+            bytes(buf),
+        )
         return bytes(buf)
 
     def close(self) -> None:

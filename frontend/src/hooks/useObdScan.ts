@@ -16,7 +16,7 @@ export interface ScanJob {
   status: ScanJobStatus;
   vehicleId?: string;
   diagnosticSessionId?: string;
-  vin?: string;
+  vin?: string | null;
   adapterType?: string;
   adapterProtocol?: string;
   errorMessage?: string;
@@ -61,10 +61,11 @@ export interface FaultCode {
 }
 
 export interface ConfirmVehicleInput {
-  make: string;
-  model: string;
-  year: number;
-  vin: string;
+  vehicleId?: string;
+  make?: string;
+  model?: string;
+  year?: number;
+  vin?: string;
   plateNumber?: string;
   engine?: string;
   bodyStyle?: string;

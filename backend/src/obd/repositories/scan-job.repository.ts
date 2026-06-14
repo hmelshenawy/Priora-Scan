@@ -81,7 +81,6 @@ export class ScanJobRepository {
         agentId,
         organizationId,
         status: ScanJobStatus.RUNNING,
-        vin: { not: null },
         vehicleId: { not: null },
       },
       orderBy: { startedAt: 'asc' },

@@ -2,7 +2,7 @@
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
 
-`specs/010-elm327-wifi-adapter/plan.md`
+`specs/012-vin-unsupported-handler/plan.md`
 
 # PrioraScan AI Agent Instructions
 

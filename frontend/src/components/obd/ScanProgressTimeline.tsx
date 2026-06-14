@@ -4,7 +4,7 @@ import type { DecodedVehicle, ScanJobStatus } from '../../hooks/useObdScan';
 
 interface ScanProgressTimelineProps {
   status: ScanJobStatus;
-  vin?: string;
+  vin?: string | null;
   decodedVehicle?: DecodedVehicle;
   errorMessage?: string;
 }

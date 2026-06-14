@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from src.obd.commands.vin import read_vin
+from src.obd.commands.vin import read_vin, VinResult, VIN_SUPPORTED, VIN_UNSUPPORTED
 
 
 # ---------------------------------------------------------------------------
@@ -59,39 +59,45 @@ class TestReadVinReal:
             b">"
         )
         adapter = _make_wifi_adapter([raw])
-        vin = read_vin(adapter)
-        assert len(vin) == 17
+        result = read_vin(adapter)
+        assert result.status == VIN_SUPPORTED
+        assert len(result.vin) == 17
         # VIN should start with "1HG" (common Honda prefix)
-        assert vin.startswith("1HG")
+        assert result.vin.startswith("1HG")
 
     def test_no_data_response(self):
         """NO DATA from ECU means VIN not supported."""
         adapter = _make_wifi_adapter([b"NO DATA\r>"])
-        with pytest.raises(RuntimeError, match="not supported"):
-            read_vin(adapter)
+        result = read_vin(adapter)
+        assert result.status == VIN_UNSUPPORTED
+        assert result.reason == "NO_DATA"
+        assert result.vin is None
 
     def test_unsupported_command(self):
         """'?' from ELM327 means command not understood."""
         adapter = _make_wifi_adapter([b"?\r>"])
-        with pytest.raises(RuntimeError, match="failed"):
-            read_vin(adapter)
+        result = read_vin(adapter)
+        assert result.status == VIN_UNSUPPORTED
+        assert result.reason == "NO_DATA"
+        assert result.vin is None
 
     def test_truncated_response(self):
-        """Partial VIN frame data — should raise for invalid length."""
+        """Partial VIN frame data — returns UNSUPPORTED with MALFORMED reason."""
         # Only frame 1, no frame 2 — incomplete VIN
         raw = b"49 02 01 05 00 00 00 31 48 47 43\r>"
         adapter = _make_wifi_adapter([raw])
-        # Will either get a VIN with wrong length or an error
-        with pytest.raises(RuntimeError):
-            read_vin(adapter)
+        result = read_vin(adapter)
+        assert result.status == VIN_UNSUPPORTED
+        assert result.reason == "MALFORMED"
 
     def test_mock_adapter_still_works(self):
         """Mock adapter should continue using simple hex decode."""
         # Mock adapter returns compact hex: "1DBINID3801234AB" encoded
         vin_hex = b"49025744443231333030343141313233343536"
         adapter = _make_mock_adapter(vin_hex)
-        vin = read_vin(adapter)
-        assert len(vin) == 17
+        result = read_vin(adapter)
+        assert result.status == VIN_SUPPORTED
+        assert len(result.vin) == 17
 
     def test_searching_stripped(self):
         """SEARCHING... prefix is handled before VIN parsing."""
@@ -103,5 +109,6 @@ class TestReadVinReal:
             b">"
         )
         adapter = _make_wifi_adapter([raw])
-        vin = read_vin(adapter)
-        assert len(vin) == 17
+        result = read_vin(adapter)
+        assert result.status == VIN_SUPPORTED
+        assert len(result.vin) == 17

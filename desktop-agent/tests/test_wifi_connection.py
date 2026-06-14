@@ -97,6 +97,35 @@ class TestWifiConnectionRead:
         with pytest.raises(TimeoutError):
             conn.read()
 
+    def test_read_returns_partial_bytes_when_timeout_after_data(self):
+        conn, mock_sock = _make_connected_conn([
+            b"ELM327 v2.3\r",
+            socket.timeout("timed out"),
+        ])
+
+        result = conn.read()
+
+        assert result == b"ELM327 v2.3\r"
+
+    def test_read_timeout_only_when_zero_bytes_received(self):
+        conn, mock_sock = _make_connected_conn([
+            socket.timeout("timed out"),
+        ])
+
+        with pytest.raises(TimeoutError):
+            conn.read()
+
+    def test_remote_close_with_partial_bytes_returns_partial_response(self):
+        conn, mock_sock = _make_connected_conn([
+            b"41 00 BE 1F B8 20\r",
+            b"",
+        ])
+
+        result = conn.read()
+
+        assert result == b"41 00 BE 1F B8 20\r"
+        assert not conn.is_open()
+
 
 # ---------------------------------------------------------------------------
 # Write & inter-command delay

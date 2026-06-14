@@ -174,14 +174,62 @@ export class ObdScanService {
       });
     }
 
+    if (dto.vehicleId) {
+      const vehicle = await this.prisma.vehicle.findFirst({
+        where: { id: dto.vehicleId, organizationId },
+      });
+      if (!vehicle) {
+        throw new NotFoundException({
+          code: 'VEHICLE_NOT_FOUND',
+          message: 'Vehicle not found.',
+        });
+      }
+
+      const scanJob = await this.prisma.$transaction(async (tx) => {
+        const updated = await tx.scanJob.update({
+          where: { id: scanJobId },
+          data: {
+            vehicleId: vehicle.id,
+            status: ScanJobStatus.RUNNING,
+          },
+        });
+
+        await tx.scanJobAuditRecord.create({
+          data: {
+            organizationId,
+            userId,
+            scanJobId,
+            action: 'VEHICLE_CONFIRMED',
+            status: ScanJobStatus.RUNNING,
+            metadata: {
+              vehicleId: vehicle.id,
+              source: 'existing_vehicle',
+            },
+          },
+        });
+
+        return updated;
+      });
+
+      return this.toScanJobResponse(scanJob);
+    }
+
+    if (!dto.make || !dto.model || dto.year === undefined) {
+      throw new ConflictException({
+        code: 'VEHICLE_DETAILS_REQUIRED',
+        message: 'Make, model, and year are required when creating a vehicle.',
+      });
+    }
+
     const scanJob = await this.prisma.$transaction(async (tx) => {
+      const vin = dto.vin ?? scan.vin ?? null;
       const vehicle = await tx.vehicle.create({
         data: {
           organizationId,
           make: dto.make,
           model: dto.model,
           year: dto.year,
-          vin: dto.vin,
+          vin,
           plateNumber: dto.plateNumber ?? null,
           engine: dto.engine ?? null,
           bodyStyle: dto.bodyStyle ?? null,

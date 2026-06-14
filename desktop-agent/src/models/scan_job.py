@@ -5,12 +5,14 @@ class ScanJob:
         status: str,
         created_at: str,
         vin: str = None,
+        vehicle_id: str = None,
         diagnostic_session_id: str = None,
     ):
         self.id = id
         self.status = status
         self.created_at = created_at
         self.vin = vin
+        self.vehicle_id = vehicle_id
         self.diagnostic_session_id = diagnostic_session_id
 
     @classmethod
@@ -20,5 +22,6 @@ class ScanJob:
             status=data["status"],
             created_at=data.get("createdAt"),
             vin=data.get("vin"),
+            vehicle_id=data.get("vehicleId"),
             diagnostic_session_id=data.get("diagnosticSessionId"),
         )

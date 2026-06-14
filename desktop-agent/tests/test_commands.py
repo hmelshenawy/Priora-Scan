@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 
-from src.obd.commands.vin import read_vin
+from src.obd.commands.vin import read_vin, VinResult, VIN_SUPPORTED, VIN_UNSUPPORTED
 from src.obd.commands.dtc import read_fault_codes, _decode_dtc, _parse_mode_response
 
 
@@ -24,22 +24,81 @@ class TestVinParser:
         adapter = MockAdapter({"0902": raw})
 
         result = read_vin(adapter)
-        assert result == "1HGCM82633A123456"
-        assert len(result) == 17
+        assert result.status == VIN_SUPPORTED
+        assert result.vin == "1HGCM82633A123456"
+        assert len(result.vin) == 17
 
     def test_read_vin_rejects_wrong_prefix(self):
         adapter = MockAdapter({"0902": b"4802BAD"})
-        with pytest.raises(RuntimeError, match="Unexpected VIN response"):
-            read_vin(adapter)
+        result = read_vin(adapter)
+        assert result.status == VIN_UNSUPPORTED
+        assert result.reason == "MALFORMED"
+        assert result.vin is None
 
     def test_read_vin_rejects_short_vin(self):
         short_hex = "AB".encode("ascii").hex().upper()
         adapter = MockAdapter({"0902": f"4902{short_hex}".encode("ascii")})
-        with pytest.raises(RuntimeError, match="Invalid VIN length"):
-            read_vin(adapter)
+        result = read_vin(adapter)
+        assert result.status == VIN_UNSUPPORTED
+        assert result.reason == "MALFORMED"
+        assert result.vin is None
 
 
-class TestDtcParser:
+class TestVinResultMalformed:
+    """Tests for malformed VIN detection in _read_vin_mock."""
+
+    def test_non_ascii_characters_in_vin(self):
+        """VIN with non-printable characters returns UNSUPPORTED MALFORMED."""
+        from src.obd.commands.vin import _read_vin_mock
+
+        # VIN with a null byte (0x00) encoded in hex
+        # 4902 + "1HGCM8263" + "00" + "A123456" (has a null byte)
+        # The decode will produce a null byte which is < 0x20
+        vin_with_null = b"4902" + b"31" * 8 + b"00" + b"41" * 8
+        result = _read_vin_mock(vin_with_null)
+        assert result.status == "UNSUPPORTED"
+        assert result.reason == "MALFORMED"
+        assert result.vin is None
+
+    def test_short_vin_returns_unsupported_malformed(self):
+        """VIN response with valid prefix but fewer than 17 decoded chars."""
+        from src.obd.commands.vin import _read_vin_mock
+
+        # "AB" decoded = 1 character, too short for a VIN
+        short_hex = "AB".encode("ascii").hex().upper()
+        adapter_response = b"4902" + short_hex.encode("ascii")
+        result = _read_vin_mock(adapter_response)
+        assert result.status == "UNSUPPORTED"
+        assert result.reason == "MALFORMED"
+        assert result.vin is None
+
+    def test_long_vin_returns_unsupported_malformed(self):
+        """VIN response with valid prefix but more than 17 decoded chars."""
+        from src.obd.commands.vin import _read_vin_mock
+
+        # 18-char VIN (one extra character)
+        long_vin = "1HGCM82633A1234567"  # 18 chars
+        vin_hex = long_vin.encode("ascii").hex().upper()
+        adapter_response = b"4902" + vin_hex.encode("ascii")
+        result = _read_vin_mock(adapter_response)
+        assert result.status == "UNSUPPORTED"
+        assert result.reason == "MALFORMED"
+        assert result.vin is None
+
+    def test_null_bytes_in_decoded_vin(self):
+        """VIN with null bytes (0x00) in decoded string returns MALFORMED."""
+        from src.obd.commands.vin import _read_vin_mock
+
+        # Construct a response where decoded VIN has embedded null bytes
+        # This is a 17-byte response with a null byte in the middle
+        # "1HGCM8263\x00A123456" — has a 0x00 byte at position 9
+        vin_bytes = b"1HGCM8263\x00A123456"
+        vin_hex = vin_bytes.hex().upper()
+        adapter_response = b"4902" + vin_hex.encode("ascii")
+        result = _read_vin_mock(adapter_response)
+        assert result.status == "UNSUPPORTED"
+        assert result.reason == "MALFORMED"
+        assert result.vin is None
     def test_decode_dtc_powertrain(self):
         # 0x03 = P0 (high byte: 0000 0011 -> prefix P, digit 0)
         # low byte 0x01 -> 01

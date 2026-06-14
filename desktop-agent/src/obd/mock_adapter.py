@@ -1,16 +1,49 @@
+"""Mock OBD adapter that delegates response generation to a vehicle profile.
+
+Refactored from hardcoded responses to a profile-based system where
+each mock vehicle is a self-contained module file. The active profile
+is selected via the OBD_MOCK_PROFILE environment variable.
+"""
+
+import logging
+import os
+
+from src.config import OBD_MOCK_PROFILE
+
+logger = logging.getLogger(__name__)
+
+
 class MockObdAdapter:
+    """OBD adapter that returns realistic vehicle responses from a mock profile.
+
+    Delegates response generation to the active mock profile loaded via
+    ProfileRegistry. Preserves the _dtcs_cleared state behavior for
+    Mode 04 (clear DTC).
+    """
+
     protocol = "MOCK"
     adapter_type = "MOCK"
-    fault_metadata = {
-        "P0301": {"status": "ACTIVE", "ecu": "ECM"},
-        "P0171": {"status": "PENDING", "ecu": "ECM"},
-        "U0100": {"status": "ACTIVE", "ecu": "TCM"},
-    }
 
-    def __init__(self):
-        self._dtcs_logged = False
+    def __init__(self, profile_name: str | None = None):
+        """Initialize with a specific profile, or auto-detect from config.
+
+        Args:
+            profile_name: Override profile name. If None, uses
+                OBD_MOCK_PROFILE from config.
+        """
+        from src.obd.mock_profiles.profile_registry import ProfileRegistry
+
+        self._registry = ProfileRegistry()
+        name = profile_name or os.getenv("OBD_MOCK_PROFILE", OBD_MOCK_PROFILE)
+        self._profile = self._registry.get_profile(name)
         self._dtcs_cleared = False
-        print("Using mock OBD adapter")
+        self._dtcs_logged = False
+        logger.info("Using mock OBD adapter with profile: %s", name)
+
+    @property
+    def fault_metadata(self) -> dict:
+        """Delegate to the active profile's FAULT_METADATA."""
+        return getattr(self._profile, "FAULT_METADATA", {})
 
     def connect(self) -> bool:
         return True
@@ -19,90 +52,67 @@ class MockObdAdapter:
         return True
 
     def send(self, command: str) -> bytes:
-        if command == "0902":
-            print("Mock VIN read")
-            return b"490257314B4146344742315246313234333231"
+        """Return the profile's response for the given OBD command.
 
-        if command in {"03", "07", "0A"}:
-            # After DTC clear, return zero codes
-            if self._dtcs_cleared:
-                return {"03": b"4300", "07": b"4700", "0A": b"4A00"}[command]
-            if not self._dtcs_logged:
-                print("Mock DTCs read")
-                self._dtcs_logged = True
-            responses = {
-                "03": b"43020301C100",
-                "07": b"47010171",
-                "0A": b"4A00",
-            }
-            return responses[command]
+        Profiles store raw OBD bytes (e.g. bytes.fromhex("410476")), but
+        the parser functions expect ASCII hex strings (e.g. b"410476").
+        This method converts raw bytes to ASCII hex before returning, so
+        the same parser code works for both mock and real adapters.
 
-        # ---- Feature 009 Phase A: Vehicle Data PIDs ----
+        Lookup order:
+        1. Mode 04 (clear DTC) — sets _dtcs_cleared flag
+        2. DTC modes (03, 07, 0A) — post-clear returns zero codes
+        3. VIN (0902) — returns profile's VIN_RESPONSE
+        4. Unsupported commands — returns b""
+        5. PID responses — returns profile's PID_RESPONSES[command]
+        6. Unknown command — returns b""
+        """
+        raw = self._get_raw_response(command)
+        if not raw:
+            return b""
+        # Convert raw bytes to ASCII hex string for parser compatibility.
+        # Profiles store bytes.fromhex("410476") = b'\x41\x04\x76', but
+        # parser functions expect b"410476" (ASCII hex string).
+        return raw.hex().upper().encode("ascii")
 
-        # PID 01 — Readiness Monitors
-        # Byte layout: [MIL+DTCcnt, 00, supported_lo, supported_hi, complete_lo, complete_hi]
-        # supported_lo=0x07 (misfire+fuelSystem+components), supported_hi=0xFF (all upper)
-        # complete_lo=0x07, complete_hi=0xEF (all except AC refrig)
-        if command == "0101":
-            print("Mock readiness monitors")
-            return b"41010007FF07EF"
-
-        # PID 03 — Fuel System Status
-        # Byte A=0x02 (Closed Loop), Byte B=0x00
-        if command == "0103":
-            print("Mock fuel system status")
-            return b"41030200"
-
-        # PID 04 — Calculated Engine Load
-        # A=0x80 → 50.2%
-        if command == "0104":
-            print("Mock engine load")
-            return b"410480"
-
-        # PID 2F — Fuel Level Input
-        # A=0xCC → 80%
-        if command == "012F":
-            print("Mock fuel level")
-            return b"412FCC"
-
-        # PID 31 — Distance Since DTC Clear (mileage proxy)
-        # A=0x27, B=0x10 → 10000 km
-        if command == "0131":
-            print("Mock mileage")
-            return b"41312710"
-
-        # PID 42 — Battery / Control Module Voltage
-        # A=0x36, B=0xD4 → (54*256 + 212)/1000 = 14.064V → rounds to 14.1V
-        if command == "0142":
-            print("Mock battery voltage")
-            return b"414236D4"
-
-        # PID 00 — Supported PIDs 01-20
-        # Bitmask: PIDs 01,03,04,05,06,07,0F,1F,20 supported
-        # 0xBE1F B820 → bytes 0xBE 0x1F 0xB8 0x20
-        if command == "0100":
-            print("Mock supported PIDs 01-20")
-            return b"4100BE1FB820"
-
-        # PID 20 — Supported PIDs 21-40
-        # PIDs 21,2F,31,42 supported → 0x81 0x00 0x84 0x02
-        if command == "0120":
-            print("Mock supported PIDs 21-40")
-            return b"412081008402"
-
-        # Mode 09 PID 00 — Supported Mode 09 PIDs
-        # Bit 1 = PID 02 supported → 0x02 0x00 0x00 0x00
-        if command == "0900":
-            print("Mock Mode 09 supported PIDs")
-            return b"490002000000"
-
-        # ---- Feature 009 Phase B: Clear DTC ----
-        # Mode 04 — positive response "44"
+    def _get_raw_response(self, command: str) -> bytes:
+        """Look up the raw bytes for a command from the active profile."""
+        # Mode 04 — Clear DTCs (always handled by adapter)
         if command == "04":
-            print("Mock clear DTC")
+            logger.info("Mock clear DTC")
             self._dtcs_cleared = True
-            return b"44"
+            return getattr(self._profile, "CLEAR_DTC_RESPONSE", b"\x44")
 
+        # DTC modes — after DTC clear, return zero-code responses
+        if command in {"03", "07", "0A"}:
+            if self._dtcs_cleared:
+                zero_responses = {
+                    "03": bytes.fromhex("4300"),
+                    "07": bytes.fromhex("4700"),
+                    "0A": bytes.fromhex("4A00"),
+                }
+                return zero_responses[command]
+            if not self._dtcs_logged:
+                logger.info("Mock DTCs read")
+                self._dtcs_logged = True
+            return getattr(self._profile, "DTC_RESPONSES", {}).get(command, b"")
+
+        # VIN (Mode 09 PID 02)
+        if command == "0902":
+            logger.info("Mock VIN read")
+            return getattr(self._profile, "VIN_RESPONSE", b"")
+
+        # Unsupported commands (returns empty bytes = NO DATA)
+        unsupported = getattr(self._profile, "UNSUPPORTED_COMMANDS", set())
+        if command in unsupported:
+            return b""
+
+        # PID responses
+        pid_responses = getattr(self._profile, "PID_RESPONSES", {})
+        if command in pid_responses:
+            return pid_responses[command]
+
+        # Unknown command
         return b""
 
     def close(self):

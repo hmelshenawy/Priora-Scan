@@ -51,6 +51,14 @@ describe('ObdScanService', () => {
       scanJob: {
         create: jest.fn(),
         updateMany: jest.fn(),
+        update: jest.fn(),
+      } as any,
+      vehicle: {
+        create: jest.fn(),
+        findFirst: jest.fn(),
+      } as any,
+      vehicleAuditRecord: {
+        create: jest.fn(),
       } as any,
       scanJobAuditRecord: {
         create: jest.fn(),
@@ -223,6 +231,122 @@ describe('ObdScanService', () => {
 
       await expect(service.completeScan('scan-1', 'org-1', 'user-1', [])).rejects.toThrow(
         ConflictException,
+      );
+    });
+  });
+
+  describe('confirmVehicle', () => {
+    it('allows confirming with an existing vehicle instead of creating a duplicate', async () => {
+      (scanJobRepository.findById as jest.Mock).mockResolvedValue({
+        id: 'scan-1',
+        status: ScanJobStatus.NEEDS_VEHICLE_CONFIRMATION,
+        organizationId: 'org-1',
+        userId: 'user-1',
+        vin: null,
+      });
+      (prisma.vehicle.findFirst as jest.Mock).mockResolvedValue({
+        id: 'vehicle-1',
+        organizationId: 'org-1',
+      });
+      (prisma.scanJob.update as jest.Mock).mockResolvedValue({
+        id: 'scan-1',
+        status: ScanJobStatus.RUNNING,
+        vehicleId: 'vehicle-1',
+        diagnosticSessionId: null,
+        vin: null,
+        adapterType: null,
+        adapterProtocol: null,
+        errorMessage: null,
+        startedAt: null,
+        completedAt: null,
+        createdAt: new Date(),
+      });
+
+      await service.confirmVehicle(
+        'scan-1',
+        { vehicleId: 'vehicle-1' },
+        'org-1',
+        'user-1',
+      );
+
+      expect(prisma.vehicle.create).not.toHaveBeenCalled();
+      expect(prisma.scanJob.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {
+            vehicleId: 'vehicle-1',
+            status: ScanJobStatus.RUNNING,
+          },
+        }),
+      );
+      expect(prisma.scanJobAuditRecord.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: 'VEHICLE_CONFIRMED',
+            metadata: {
+              vehicleId: 'vehicle-1',
+              source: 'existing_vehicle',
+            },
+          }),
+        }),
+      );
+    });
+
+    it('allows confirming a vehicle when VIN is unavailable', async () => {
+      (scanJobRepository.findById as jest.Mock).mockResolvedValue({
+        id: 'scan-1',
+        status: ScanJobStatus.NEEDS_VEHICLE_CONFIRMATION,
+        organizationId: 'org-1',
+        userId: 'user-1',
+        vin: null,
+      });
+      (prisma.vehicle.create as jest.Mock).mockResolvedValue({
+        id: 'vehicle-1',
+        make: 'Toyota',
+        model: 'Camry',
+        year: 2012,
+        vin: null,
+        plateNumber: null,
+        engine: null,
+        bodyStyle: null,
+      });
+      (prisma.scanJob.update as jest.Mock).mockResolvedValue({
+        id: 'scan-1',
+        status: ScanJobStatus.RUNNING,
+        vehicleId: 'vehicle-1',
+        diagnosticSessionId: null,
+        vin: null,
+        adapterType: null,
+        adapterProtocol: null,
+        errorMessage: null,
+        startedAt: null,
+        completedAt: null,
+        createdAt: new Date(),
+      });
+
+      await service.confirmVehicle(
+        'scan-1',
+        { make: 'Toyota', model: 'Camry', year: 2012 },
+        'org-1',
+        'user-1',
+      );
+
+      expect(prisma.vehicle.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            make: 'Toyota',
+            model: 'Camry',
+            year: 2012,
+            vin: null,
+          }),
+        }),
+      );
+      expect(prisma.scanJob.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {
+            vehicleId: 'vehicle-1',
+            status: ScanJobStatus.RUNNING,
+          },
+        }),
       );
     });
   });

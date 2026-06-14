@@ -1,27 +1,29 @@
+import logging
+
 from unittest.mock import patch
 
 from src.models.fault_code import FaultCode
 from src.obd.commands.dtc import read_fault_codes
-from src.obd.commands.vin import read_vin
+from src.obd.commands.vin import read_vin, VinResult
 from src.obd.elm327 import Elm327Adapter
 from src.obd.mock_adapter import MockObdAdapter
 
 
-def test_mock_adapter_returns_expected_vin_and_logs(capsys):
+def test_mock_adapter_returns_expected_vin_and_logs(caplog):
+    with caplog.at_level(logging.INFO):
+        adapter = MockObdAdapter(profile_name="default")
+        result = read_vin(adapter)
+
+    assert result.status == "SUPPORTED"
+    assert result.vin == "W1KAF4GB1RF124321"
+    assert "Mock VIN read" in caplog.text
+
+
+def test_mock_adapter_returns_expected_fault_codes_and_logs(caplog):
     adapter = MockObdAdapter()
 
-    vin = read_vin(adapter)
-
-    assert vin == "W1KAF4GB1RF124321"
-    output = capsys.readouterr().out
-    assert "Using mock OBD adapter" in output
-    assert "Mock VIN read" in output
-
-
-def test_mock_adapter_returns_expected_fault_codes_and_logs(capsys):
-    adapter = MockObdAdapter()
-
-    faults = read_fault_codes(adapter)
+    with caplog.at_level(logging.INFO):
+        faults = read_fault_codes(adapter)
 
     assert [fault.to_dict() for fault in faults] == [
         {
@@ -43,7 +45,7 @@ def test_mock_adapter_returns_expected_fault_codes_and_logs(capsys):
             "ecu": "ECM",
         },
     ]
-    assert "Mock DTCs read" in capsys.readouterr().out
+    assert "Mock DTCs read" in caplog.text
 
 
 def test_fault_code_defaults_remain_backward_compatible():
