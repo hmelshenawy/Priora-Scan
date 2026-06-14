@@ -21,6 +21,10 @@ from src.obd.commands.elm_parser import clean_raw_response, parse_vin
 
 logger = logging.getLogger(__name__)
 
+
+def _debug(message: str) -> None:
+    print(f"[OBD_VIN_DEBUG] {message}")
+
 # ---------------------------------------------------------------------------
 # VinResult — typed result for VIN read attempts
 # ---------------------------------------------------------------------------
@@ -88,7 +92,7 @@ def read_vin(adapter) -> VinResult:
         return _read_vin_mock(raw)
 
     # Real adapter — use ELM327 parser
-    cleaned = clean_raw_response(raw)
+    cleaned = clean_raw_response(raw, command="0902")
     result = parse_vin(cleaned)
 
     # ADAPTER_STOPPED is a genuine transport failure — still raise
@@ -139,7 +143,12 @@ def _read_vin_mock(raw: bytes) -> VinResult:
         return VinResult.unsupported(VIN_UNSUPPORTED_MALFORMED)
 
     data = hex_str[4:]
-    vin_bytes = bytearray.fromhex(data)
+    _debug(f"mock fromhex_data={data!r} raw={raw!r}")
+    try:
+        vin_bytes = bytearray.fromhex(data)
+    except ValueError as exc:
+        _debug(f"mock fromhex failed data={data!r} raw={raw!r} error={exc}")
+        return VinResult.unsupported(VIN_UNSUPPORTED_MALFORMED)
 
     # 3. All-0xFF payload — vehicle does not support VIN reporting
     if all(b == 0xFF for b in vin_bytes):

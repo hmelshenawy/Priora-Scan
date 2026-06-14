@@ -20,7 +20,7 @@ def test_mock_adapter_returns_expected_vin_and_logs(caplog):
 
 
 def test_mock_adapter_returns_expected_fault_codes_and_logs(caplog):
-    adapter = MockObdAdapter()
+    adapter = MockObdAdapter(profile_name="default")
 
     with caplog.at_level(logging.INFO):
         faults = read_fault_codes(adapter)
@@ -67,7 +67,7 @@ def test_create_obd_adapter_uses_mock_when_enabled(monkeypatch):
 def test_mock_adapter_heartbeat_payload_reports_connected():
     from src.heartbeat import send_heartbeat
 
-    adapter = MockObdAdapter()
+    adapter = MockObdAdapter(profile_name="default")
 
     class Client:
         agent_id = "agent-123"
@@ -114,7 +114,7 @@ def test_heartbeat_loop_accepts_adapter_metadata(monkeypatch):
     )
 
     try:
-        heartbeat.heartbeat_loop(object(), MockObdAdapter(), interval=0)
+        heartbeat.heartbeat_loop(object(), MockObdAdapter(profile_name="default"), interval=0)
     except KeyboardInterrupt:
         pass
 

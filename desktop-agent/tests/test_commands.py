@@ -119,6 +119,9 @@ class TestVinResultMalformed:
     def test_parse_mode_response_empty(self):
         assert _parse_mode_response(b"4300", "43") == []
 
+    def test_parse_mode_response_empty_with_prompt(self):
+        assert _parse_mode_response(b"4300\r\r>", "43") == []
+
     def test_parse_mode_response_with_codes(self):
         # 43 02 03 01 43 02 -> count=2, codes P0301, B0302
         raw = b"430203014302"
@@ -155,6 +158,31 @@ class TestVinResultMalformed:
         faults = read_fault_codes(adapter)
         assert len(faults) == 1
         assert faults[0].code == "P0301"
+
+    def test_read_fault_codes_rejects_non_hex_responses_without_crashing(self):
+        responses = {
+            "03": b"43A0NO DATA",
+            "07": b"47\r\r",
+            "0A": b"A0\r\r",
+        }
+        adapter = MockAdapter(responses)
+
+        faults = read_fault_codes(adapter)
+
+        assert faults == []
+
+    def test_read_fault_codes_handles_prompt_and_no_data_responses(self):
+        adapter = MockAdapter(
+            {
+                "03": b"4300\r\r>",
+                "07": b"4700\r\r>",
+                "0A": b"NO DATA\r\r>",
+            }
+        )
+
+        faults = read_fault_codes(adapter)
+
+        assert faults == []
 
 
 if __name__ == "__main__":

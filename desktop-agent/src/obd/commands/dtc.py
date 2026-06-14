@@ -1,9 +1,12 @@
 from typing import List
 from src.obd.elm327 import Elm327Adapter
 from src.models.fault_code import FaultCode
+from src.obd.commands.elm_parser import compact_raw_response, is_adapter_error_response
 
 
 _DTC_LETTERS = {"0": "P", "1": "B", "2": "C", "3": "U"}
+def _debug(message: str) -> None:
+    print(f"[OBD_DTC_DEBUG] {message}")
 
 
 def _decode_dtc(raw_bytes: bytes) -> str:
@@ -15,12 +18,25 @@ def _decode_dtc(raw_bytes: bytes) -> str:
     return code
 
 
-def _parse_mode_response(raw: bytes, mode: str) -> List[bytes]:
-    hex_str = raw.decode("utf-8", errors="ignore").replace(" ", "").replace("\r", "").replace("\n", "")
+def _parse_mode_response(raw: bytes, mode: str, command: str | None = None) -> List[bytes]:
+    hex_str = compact_raw_response(raw, command=command)
+    _debug(f"parse mode={mode} raw={raw!r} cleaned={hex_str!r}")
+    if not hex_str or is_adapter_error_response(hex_str):
+        _debug(f"reject mode={mode} reason=empty_or_error cleaned={hex_str!r}")
+        return []
     if not hex_str.startswith(mode):
+        _debug(f"reject mode={mode} reason=wrong_prefix cleaned={hex_str!r}")
+        return []
+    if any(ch not in "0123456789ABCDEFabcdef" for ch in hex_str):
+        _debug(f"reject mode={mode} reason=non_hex cleaned={hex_str!r}")
         return []
     data = hex_str[len(mode):]
-    byte_arr = bytearray.fromhex(data)
+    _debug(f"fromhex mode={mode} data={data!r} raw={raw!r}")
+    try:
+        byte_arr = bytearray.fromhex(data)
+    except ValueError as exc:
+        _debug(f"fromhex failed mode={mode} data={data!r} raw={raw!r} error={exc}")
+        return []
     count = byte_arr[0] if len(byte_arr) > 0 else 0
     return [byte_arr[i : i + 2] for i in range(1, len(byte_arr), 2)][:count]
 
@@ -35,9 +51,10 @@ def read_fault_codes(adapter: Elm327Adapter) -> List[FaultCode]:
         ("0A", True, "PERMANENT"),
     ]:
         raw = adapter.send(mode)
+        _debug(f"command={mode} raw={raw!r}")
         # ELM327 response prefix = mode + 0x40 (e.g., 03 -> 43, 07 -> 47, 0A -> 4A)
         response_prefix = f"{int(mode, 16) + 0x40:02X}"
-        entries = _parse_mode_response(raw, response_prefix)
+        entries = _parse_mode_response(raw, response_prefix, command=mode)
         for entry in entries:
             code = _decode_dtc(entry)
             if code:

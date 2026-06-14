@@ -19,28 +19,30 @@ export class PidDefinitionRepository {
   }
 
   async findByNamespaceModeAndPid(namespace: string, mode: string, pid: string) {
+    const key = normalizePidKey(namespace, mode, pid);
     return this.prisma.pIDDefinition.findUnique({
-      where: { namespace_mode_pid: { namespace, mode, pid } },
+      where: { namespace_mode_pid: key },
     });
   }
 
   async findByModeAndPid(mode: string, pid: string) {
+    const key = normalizePidKey('', mode, pid);
     return this.prisma.pIDDefinition.findMany({
-      where: { mode, pid },
+      where: { mode: key.mode, pid: key.pid },
       orderBy: { namespace: 'asc' },
     });
   }
 
   async findByNamespace(namespace: string) {
     return this.prisma.pIDDefinition.findMany({
-      where: { namespace },
+      where: { namespace: normalizeNamespace(namespace) },
       orderBy: [{ mode: 'asc' }, { pid: 'asc' }],
     });
   }
 
   async findByMode(mode: string) {
     return this.prisma.pIDDefinition.findMany({
-      where: { mode },
+      where: { mode: normalizeMode(mode) },
       orderBy: [{ namespace: 'asc' }, { pid: 'asc' }],
     });
   }
@@ -52,15 +54,17 @@ export class PidDefinitionRepository {
   }
 
   async upsert(data: Prisma.PIDDefinitionUncheckedCreateInput) {
+    const key = normalizePidKey(
+      String(data.namespace),
+      String(data.mode),
+      String(data.pid),
+    );
+    const normalizedData = { ...data, ...key };
     return this.prisma.pIDDefinition.upsert({
       where: {
-        namespace_mode_pid: {
-          namespace: data.namespace,
-          mode: data.mode,
-          pid: data.pid,
-        },
+        namespace_mode_pid: key,
       },
-      create: data,
+      create: normalizedData,
       update: {
         name: data.name,
         unit: data.unit,
@@ -78,16 +82,18 @@ export class PidDefinitionRepository {
    */
   async upsertMany(rows: Prisma.PIDDefinitionUncheckedCreateInput[]) {
     return this.prisma.$transaction(
-      rows.map((row) =>
-        this.prisma.pIDDefinition.upsert({
+      rows.map((row) => {
+        const key = normalizePidKey(
+          String(row.namespace),
+          String(row.mode),
+          String(row.pid),
+        );
+        const normalizedRow = { ...row, ...key };
+        return this.prisma.pIDDefinition.upsert({
           where: {
-            namespace_mode_pid: {
-              namespace: row.namespace,
-              mode: row.mode,
-              pid: row.pid,
-            },
+            namespace_mode_pid: key,
           },
-          create: row,
+          create: normalizedRow,
           update: {
             name: row.name,
             unit: row.unit,
@@ -96,12 +102,48 @@ export class PidDefinitionRepository {
             max: row.max,
             source: row.source ?? 'model-pids-sqlite',
           },
-        }),
-      ),
+        });
+      }),
     );
   }
 
   async count() {
     return this.prisma.pIDDefinition.count();
   }
+}
+
+export function normalizePidKey(namespace: string, mode: string, pid: string) {
+  const normalizedMode = normalizeMode(mode);
+  let normalizedPid = normalizePid(pid);
+  const normalizedNamespace = normalizeNamespace(namespace);
+  if (
+    normalizedNamespace === 'STD_OBD2' &&
+    normalizedMode === '01' &&
+    normalizedPid.length > 2 &&
+    normalizedPid.startsWith(normalizedMode) &&
+    normalizedMode.length === 2
+  ) {
+    normalizedPid = normalizePid(normalizedPid.slice(normalizedMode.length));
+  }
+  if (normalizedPid.length === 1) {
+    normalizedPid = normalizedPid.padStart(2, '0');
+  }
+
+  return {
+    namespace: normalizedNamespace,
+    mode: normalizedMode,
+    pid: normalizedPid,
+  };
+}
+
+export function normalizeNamespace(namespace: string) {
+  return (namespace ?? '').trim().toUpperCase();
+}
+
+export function normalizeMode(mode: string) {
+  return normalizePid(mode).padStart(2, '0');
+}
+
+export function normalizePid(pid: string) {
+  return (pid ?? '').trim().replace(/\s+/g, '').toUpperCase();
 }

@@ -15,6 +15,7 @@ import logging
 from typing import Dict, Any
 
 from src.obd.adapter import BaseAdapter
+from src.obd.commands.elm_parser import compact_raw_response, is_adapter_error_response
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +34,13 @@ def clear_dtc(adapter: BaseAdapter) -> Dict[str, Any]:
             logger.warning("clear_dtc: adapter returned empty response")
             return {"success": False, "reason": "No response from adapter"}
 
-        hex_str = raw.decode("utf-8", errors="ignore").replace(" ", "").replace("\r", "").replace("\n", "")
+        hex_str = compact_raw_response(raw, command=command)
         if not hex_str:
             logger.warning("clear_dtc: adapter returned empty hex response")
             return {"success": False, "reason": "Empty response from adapter"}
+        if is_adapter_error_response(hex_str):
+            logger.warning("clear_dtc: adapter returned error response: %s", hex_str)
+            return {"success": False, "reason": hex_str}
 
         # Mode 04 positive response prefix is "44"
         if hex_str.startswith("44"):

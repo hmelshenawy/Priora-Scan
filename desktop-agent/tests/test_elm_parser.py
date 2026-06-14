@@ -4,6 +4,7 @@ import pytest
 
 from src.obd.commands.elm_parser import (
     clean_raw_response,
+    compact_raw_response,
     parse_vin,
     parse_dtcs,
     parse_clear_result,
@@ -43,6 +44,14 @@ class TestCleanRawResponse:
     def test_empty_response(self):
         result = clean_raw_response(b">")
         assert result == ""
+
+    def test_strip_command_echo(self):
+        result = clean_raw_response(b"010C\r410C0E10\r\r>", command="010C")
+        assert result == "410C0E10"
+
+    def test_compact_strip_prompt_and_echo(self):
+        result = compact_raw_response(b"010C\r41 0C 0E 10\r\r>", command="010C")
+        assert result == "410C0E10"
 
 
 # ---------------------------------------------------------------------------
@@ -187,6 +196,17 @@ class TestParsePidBytes:
         result = parse_pid_bytes(cleaned)
         assert result["supported"] is True
         assert result["value"] == bytes.fromhex("FF1A")
+
+    def test_prompt_terminated_response(self):
+        cleaned = clean_raw_response(b"410C0E10\r\r>")
+        result = parse_pid_bytes(cleaned)
+        assert result["supported"] is True
+        assert result["value"] == bytes.fromhex("0E10")
+
+    def test_prompt_terminated_no_data(self):
+        cleaned = clean_raw_response(b"NO DATA\r\r>")
+        result = parse_pid_bytes(cleaned)
+        assert result == UNSUPPORTED
 
     def test_truncated_data(self):
         # Only mode byte, no data

@@ -1,4 +1,7 @@
-import { PidDefinitionRepository } from '../../../src/live-data/repositories/pid-definition.repository';
+import {
+  PidDefinitionRepository,
+  normalizePidKey,
+} from '../../../src/live-data/repositories/pid-definition.repository';
 import { PrismaService } from '../../../src/prisma/prisma.service';
 
 describe('PidDefinitionRepository', () => {
@@ -36,6 +39,27 @@ describe('PidDefinitionRepository', () => {
           pid: '0C',
         },
       },
+    });
+  });
+
+  it('findByNamespaceModeAndPid normalizes namespace, mode, and pid casing', async () => {
+    await repo.findByNamespaceModeAndPid(' std_obd2 ', '1', ' c ');
+    expect(prisma.pIDDefinition.findUnique).toHaveBeenCalledWith({
+      where: {
+        namespace_mode_pid: {
+          namespace: 'STD_OBD2',
+          mode: '01',
+          pid: '0C',
+        },
+      },
+    });
+  });
+
+  it('normalizes accidental combined standard PID values without looking up 010C', () => {
+    expect(normalizePidKey('std_obd2', '01', '010C')).toEqual({
+      namespace: 'STD_OBD2',
+      mode: '01',
+      pid: '0C',
     });
   });
 

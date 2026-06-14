@@ -121,6 +121,18 @@ class _RecordingClient:
         return resp
 
 
+class _FakeRealAdapter:
+    adapter_type = "ELM327_WIFI"
+
+    def __init__(self, responses: dict[str, bytes]):
+        self.responses = responses
+        self.commands: list[str] = []
+
+    def send(self, command: str) -> bytes:
+        self.commands.append(command)
+        return self.responses[command]
+
+
 class TestLiveDataPoller:
     def test_start_posts_to_poll_result_endpoint(self):
         client = _RecordingClient(status_code=200)
@@ -208,6 +220,46 @@ class TestLiveDataPoller:
             assert client.post.call_count >= 1
         finally:
             poller.stop()
+
+    def test_real_adapter_prompt_response_posts_payload_bytes(self, capsys):
+        client = _RecordingClient(status_code=200)
+        adapter = _FakeRealAdapter({"010C": b"410C0E10\r\r>"})
+        poller = LiveDataPoller(client, agent_id="agent-1", adapter=adapter)
+        poller._session_id = "live-1"
+        poller._generator = MockLiveDataGenerator(pids=[_payload_pid("rpm", "01", "0C")])
+
+        assert poller._tick() is True
+
+        assert adapter.commands == ["010C"]
+        path, body = client.posts[0]
+        assert path == "/api/v1/obd/agents/agent-1/live-data/live-1/poll-result"
+        assert body["readings"] == [
+            {
+                "shortName": "rpm",
+                "namespace": "STD_OBD2",
+                "mode": "01",
+                "pid": "0C",
+                "rawValue": "0E 10",
+            }
+        ]
+        out = capsys.readouterr().out
+        assert "sending PID command" in out
+        assert "raw=b'410C0E10\\r\\r>'" in out
+        assert "cleaned='410C0E10'" in out
+        assert "decoded={'value': 900.0, 'unit': 'rpm'}" in out
+        assert "payload posted to backend" in out
+        assert "backend poll-result response status=200" in out
+
+    def test_real_adapter_no_data_posts_empty_raw_value(self):
+        client = _RecordingClient(status_code=200)
+        adapter = _FakeRealAdapter({"010D": b"NO DATA\r\r>"})
+        poller = LiveDataPoller(client, agent_id="agent-1", adapter=adapter)
+        poller._session_id = "live-1"
+        poller._generator = MockLiveDataGenerator(pids=[_payload_pid("speed", "01", "0D")])
+
+        assert poller._tick() is True
+
+        assert client.posts[0][1]["readings"][0]["rawValue"] == ""
 
 
 # ---------------------------------------------------------------------------

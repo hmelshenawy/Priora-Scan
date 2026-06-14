@@ -460,8 +460,8 @@ class TestParserCodePath:
         # These use the same parser code as real vehicle data
         voltage = read_battery_voltage(adapter)
         assert voltage["supported"] is True
-        # (0x36*256 + 0xD4)/1000 = 14036/1000 = 14.036 → rounds to 14.0
-        assert voltage["value"] == 14.0
+        # (0x36*256 + 0xD4)/1000 = 14036/1000 = 14.036
+        assert voltage["value"] == 14.036
 
         load = read_engine_load(adapter)
         assert load["supported"] is True
@@ -480,10 +480,10 @@ class TestParserCodePath:
 
         adapter = MockObdAdapter(profile_name="toyota_real_sample")
 
-        # Voltage: (0x34*256 + 0x69)/1000 = 13417/1000 = 13.417 → rounds to 13.4
+        # Voltage: (0x34*256 + 0x69)/1000 = 13417/1000 = 13.417
         voltage = read_battery_voltage(adapter)
         assert voltage["supported"] is True
-        assert voltage["value"] == 13.4
+        assert voltage["value"] == 13.417
 
         # Engine load: 0x76 * 100 / 255 = 46.27... → rounds to 46.3%
         load = read_engine_load(adapter)

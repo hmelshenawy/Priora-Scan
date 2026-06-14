@@ -93,6 +93,32 @@ describe('PidDecoderService', () => {
     }
   });
 
+  describe('real adapter live-data payloads', () => {
+    const cases: Array<{
+      shortName: string;
+      pid: string;
+      raw: string;
+      expected: number;
+      unit: string;
+    }> = [
+      { shortName: 'rpm', pid: '0C', raw: '0E 35', expected: 909.25, unit: 'RPM' },
+      { shortName: 'speed', pid: '0D', raw: '00', expected: 0, unit: 'km/h' },
+      { shortName: 'coolantTemp', pid: '05', raw: '7E', expected: 86, unit: '°C' },
+      { shortName: 'batteryVoltage', pid: '42', raw: '34 1B', expected: 13.339, unit: 'V' },
+      { shortName: 'engineLoad', pid: '04', raw: '79', expected: 47.450980392156865, unit: '%' },
+    ];
+
+    for (const tc of cases) {
+      it(`decodes ${tc.shortName} ${tc.raw} as OK`, async () => {
+        const out = await service.decode('STD_OBD2', '01', tc.pid, tc.raw);
+        expect(out.status).toBe('OK');
+        expect(out.errorCode).toBeNull();
+        expect(out.value).toBeCloseTo(tc.expected, 6);
+        expect(out.unit).toBe(tc.unit);
+      });
+    }
+  });
+
   describe('edge cases', () => {
     it('strips a leading 41 (Mode 01 response header) from the payload', async () => {
       const out = await service.decode('STD_OBD2', '01', '0C', '41 12 38');

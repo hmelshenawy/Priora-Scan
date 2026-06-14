@@ -353,10 +353,17 @@ def test_execute_vehicle_data_read_continues_when_vin_unsupported():
             return True
 
     with patch("src.main.read_vin", return_value=VinResult.unsupported("ALL_FF")), \
-         patch("src.main.read_battery_voltage", return_value={"value": 14.0, "unit": "V", "supported": True}), \
+         patch("src.main.read_vehicle_health", return_value={
+             "rpm": {"pid": "0C", "value": None, "unit": "RPM", "supported": False, "available": False, "rawResponse": None},
+             "vehicleSpeed": {"pid": "0D", "value": None, "unit": "km/h", "supported": False, "available": False, "rawResponse": None},
+             "coolantTemperature": {"pid": "05", "value": None, "unit": "°C", "supported": False, "available": False, "rawResponse": None},
+             "batteryVoltage": {"pid": "42", "value": 14.036, "unit": "V", "supported": True, "available": True, "rawResponse": "414236D4"},
+             "calculatedEngineLoad": {"pid": "04", "value": 50.0, "unit": "%", "supported": True, "available": True, "rawResponse": "410480"},
+             "fuelLevel": {"pid": "2F", "value": None, "unit": "%", "supported": False, "available": False, "rawResponse": None},
+             "supportedHealthPids": ["04", "42"],
+             "unsupportedHealthPids": ["05", "0C", "0D", "2F"],
+         }), \
          patch("src.main.read_fuel_system_status", return_value={"value": "Closed Loop", "supported": True}), \
-         patch("src.main.read_engine_load", return_value={"value": 50.0, "unit": "%", "supported": True}), \
-         patch("src.main.read_fuel_level", return_value={"value": None, "unit": "%", "supported": False}), \
          patch("src.main.read_readiness_monitors", return_value={"supported": True, "value": {}}), \
          patch("src.main.read_supported_pids", return_value={"01": [], "09": []}), \
          patch("src.main.read_mileage", return_value={"value": None, "unit": "km", "supported": False}):

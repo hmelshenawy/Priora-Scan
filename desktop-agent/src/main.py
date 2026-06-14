@@ -12,13 +12,11 @@ from src.obd.elm327 import Elm327Adapter
 from src.obd.commands.vin import read_vin, VIN_SUPPORTED
 from src.obd.commands.dtc import read_fault_codes
 from src.obd.commands.vehicle_data import (
-    read_battery_voltage,
     read_fuel_system_status,
-    read_engine_load,
-    read_fuel_level,
     read_readiness_monitors,
     read_supported_pids,
     read_mileage,
+    read_vehicle_health,
 )
 from src.obd.commands.clear_dtc import clear_dtc
 from src.models.scan_job import ScanJob
@@ -118,37 +116,37 @@ def _emit_session(api_client: ApiClient, session_id: str, event_type: str, data:
 
 
 def execute_vehicle_data_read(api_client: ApiClient, session_id: str, adapter) -> None:
-    """Read all vehicle data PIDs and emit VEHICLE_DATA_READ event.
+    """Read vehicle health data and emit VEHICLE_DATA_READ event.
 
-    Feature 009 Phase A: one-shot read of battery voltage, fuel
-    system status, engine load, fuel level, readiness monitors,
-    supported PIDs, and mileage. Unsupported PIDs are reported as
-    ``{ value: null, supported: false }`` rather than raising.
+    Feature 013: discovers supported PIDs via bitmap chain-following,
+    reads only supported configured health PIDs, returns HealthPidResult
+    for each. Unsupported PIDs and VIN are reported as unsupported rather
+    than failing the read. Each PID result distinguishes capability
+    (supported) from per-read availability (available).
     """
     if not ensure_adapter_connected(adapter):
         _emit_session(api_client, session_id, "ERROR", {"message": "No adapter connected"})
         return
 
-    vehicle_data = {
-        "batteryVoltage": read_battery_voltage(adapter),
-        "fuelSystemStatus": read_fuel_system_status(adapter),
-        "calculatedEngineLoad": read_engine_load(adapter),
-        "fuelLevel": read_fuel_level(adapter),
-        "readinessMonitors": read_readiness_monitors(adapter),
-        "supportedPids": read_supported_pids(adapter),
-        "mileage": read_mileage(adapter),
-    }
+    # Vehicle health — PID discovery + configured health reads
+    vehicle_health = read_vehicle_health(adapter)
 
-    # Also include VIN confirmation (PID 09 02)
+    # Additional non-health data (existing features, no HealthPidResult shape)
+    vehicle_health["fuelSystemStatus"] = read_fuel_system_status(adapter)
+    vehicle_health["readinessMonitors"] = read_readiness_monitors(adapter)
+    vehicle_health["supportedPids"] = read_supported_pids(adapter)
+    vehicle_health["mileage"] = read_mileage(adapter)
+
+    # VIN — best-effort (Feature 012 VinResult)
     vin_result = read_vin(adapter)
-    vehicle_data["vin"] = {
+    vehicle_health["vin"] = {
         "value": vin_result.vin,
         "supported": vin_result.status == VIN_SUPPORTED,
     }
     if vin_result.status != VIN_SUPPORTED and vin_result.reason:
-        vehicle_data["vin"]["reason"] = vin_result.reason
+        vehicle_health["vin"]["reason"] = vin_result.reason
 
-    _emit_session(api_client, session_id, "VEHICLE_DATA_READ", {"vehicleData": vehicle_data})
+    _emit_session(api_client, session_id, "VEHICLE_DATA_READ", {"vehicleData": vehicle_health})
     print(f"Vehicle data read completed for session {session_id}")
 
 
@@ -238,7 +236,7 @@ def main() -> None:
     )
     hb.start()
 
-    live_data_poller = LiveDataPoller(api_client, api_client.agent_id)
+    live_data_poller = LiveDataPoller(api_client, api_client.agent_id, adapter=adapter)
 
     while True:
         try:

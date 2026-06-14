@@ -22,8 +22,17 @@ PROFILE_DESCRIPTION = "Toyota real sample — captured vehicle data, no faults, 
 # OBD PID responses (command string → raw bytes)
 PID_RESPONSES = {
     # PID 00 — Supported PIDs 01-20
-    # Bitmask: PIDs 01,03,04,05,06,07,0F,1F supported
+    # Bitmask BE1FB813: PIDs 01,03,04,05,06,07,0F,10,11,12,13,1A,1D,1E supported
+    # Last byte 0x13 = 00010011: bit 32 = 1 → 0120 must be queried (chain continues)
     "0100": bytes.fromhex("4100BE1FB813"),
+    # PID 20 — Supported PIDs 21-40
+    # Bitmask 00000001: no PIDs 21-3F supported (including 0x2F Fuel Level),
+    # but bit 32 = 1 → 0140 must be queried (chain continues)
+    "0120": bytes.fromhex("412000000001"),
+    # PID 40 — Supported PIDs 41-60
+    # Bitmask 40000000: PID 0x42 (Control Module Voltage) supported
+    # bit 32 = 0 → chain stops, no further ranges
+    "0140": bytes.fromhex("414040000000"),
     # PID 04 — Calculated Engine Load (A=0x76 → 46.3%)
     "0104": bytes.fromhex("410476"),
     # PID 05 — Coolant Temperature (A=0x7E → 86°C)
@@ -57,8 +66,7 @@ FAULT_METADATA = {}
 
 # Commands that return empty bytes (unsupported/no data)
 UNSUPPORTED_COMMANDS = {
-    "012F",  # Fuel Level Input — not supported
-    "0120",  # Supported PIDs 21-40 — not supported
+    "012F",  # Fuel Level Input — not supported (not in 0120 bitmap)
     "0900",  # Mode 09 supported PIDs — not supported (except 02)
 }
 

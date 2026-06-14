@@ -9,6 +9,7 @@ import { PidDefinitionRepository } from './repositories/pid-definition.repositor
 import { LiveDataSessionRepository } from './repositories/live-data-session.repository';
 import { LiveDataCommandRepository } from './repositories/live-data-command.repository';
 import { PidAssetImportService } from './services/pid-asset-import.service';
+import { PidBuiltInSeedService } from './services/pid-built-in-seed.service';
 import { PidDecoderService } from './services/pid-decoder.service';
 import { LiveDataSessionService } from './services/live-data-session.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -44,6 +45,7 @@ import { PrismaService } from '../prisma/prisma.service';
     LiveDataSessionRepository,
     LiveDataCommandRepository,
     DesktopAgentRepository,
+    PidBuiltInSeedService,
     PidAssetImportService,
     PidDecoderService,
     LiveDataSessionService,

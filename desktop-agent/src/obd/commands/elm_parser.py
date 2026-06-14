@@ -9,6 +9,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _debug(message: str) -> None:
+    print(f"[OBD_ELM_PARSER_DEBUG] {message}")
+
+
 # ---------------------------------------------------------------------------
 # Common result dicts
 # ---------------------------------------------------------------------------
@@ -23,28 +27,52 @@ ADAPTER_STOPPED = {"error": "adapter stopped"}
 # clean_raw_response
 # ---------------------------------------------------------------------------
 
-def clean_raw_response(raw: bytes) -> str:
+ADAPTER_ERROR_MARKERS = ("NO DATA", "NODATA", "?", "ERROR", "STOPPED", "UNABLE")
+
+
+def _response_lines(raw: bytes, command: str | None = None) -> list[str]:
+    """Return cleaned ELM response lines with prompt and optional echo removed."""
+    text = raw.decode("utf-8", errors="ignore")
+    text = text.replace(">", "")
+    text = text.replace("\r", "\n").replace("\t", " ")
+    command_compact = (command or "").replace(" ", "").upper()
+
+    lines: list[str] = []
+    for line in text.split("\n"):
+        normalized = " ".join(line.strip().upper().split())
+        if not normalized or normalized == "SEARCHING...":
+            continue
+        compact = normalized.replace(" ", "")
+        if command_compact and compact == command_compact:
+            continue
+        lines.append(normalized)
+    return lines
+
+
+def is_adapter_error_response(response: str) -> bool:
+    compact = response.replace(" ", "").upper()
+    spaced = response.upper()
+    return any(marker in compact or marker in spaced for marker in ADAPTER_ERROR_MARKERS)
+
+
+def compact_raw_response(raw: bytes, command: str | None = None) -> str:
+    """Return an uppercase compact response string for command readers.
+
+    Removes whitespace, CR/LF, prompts, and an optional command echo.
+    Non-payload text is preserved as compact text so callers can reject
+    NO DATA / ERROR markers before hex parsing.
+    """
+    return "".join(line.replace(" ", "") for line in _response_lines(raw, command=command))
+
+
+def clean_raw_response(raw: bytes, command: str | None = None) -> str:
     """Strip ELM327 artefacts from raw bytes and return clean hex string.
 
     Removes: '>' prompt, '\\r', '\\n', 'SEARCHING...', leading/trailing
     whitespace. Returns uppercase hex string with spaces preserved (caller
     may strip spaces depending on context).
     """
-    text = raw.decode("utf-8", errors="ignore")
-
-    # Strip prompt
-    text = text.replace(">", "")
-
-    # Remove carriage returns and line feeds
-    text = text.replace("\r", " ").replace("\n", " ")
-
-    # Remove SEARCHING... interjection
-    text = text.replace("SEARCHING...", "")
-
-    # Collapse whitespace
-    text = " ".join(text.split())
-
-    return text.strip().upper()
+    return " ".join(_response_lines(raw, command=command)).strip().upper()
 
 
 # ---------------------------------------------------------------------------
@@ -119,6 +147,7 @@ def parse_vin(response: str) -> dict:
 
     try:
         vin_hex = "".join(hex_bytes)
+        _debug(f"parse_vin fromhex_data={vin_hex!r} response={response!r}")
         vin = bytearray.fromhex(vin_hex).decode("ascii", errors="ignore")
     except (ValueError, UnicodeDecodeError):
         return INCOMPLETE_DATA.copy()
@@ -305,8 +334,10 @@ def parse_pid_bytes(response: str) -> dict:
             return INCOMPLETE_DATA.copy()
 
         try:
+            _debug(f"parse_pid_bytes compact fromhex_data={data_hex!r} response={response!r}")
             raw_bytes = bytes.fromhex(data_hex)
         except ValueError:
+            _debug(f"parse_pid_bytes compact fromhex failed data={data_hex!r} response={response!r}")
             return INCOMPLETE_DATA.copy()
 
         return {"value": raw_bytes, "supported": True}
@@ -332,8 +363,10 @@ def parse_pid_bytes(response: str) -> dict:
         return INCOMPLETE_DATA.copy()
 
     try:
+        _debug(f"parse_pid_bytes spaced fromhex_data={data_hex!r} response={response!r}")
         raw_bytes = bytes.fromhex(data_hex)
     except ValueError:
+        _debug(f"parse_pid_bytes spaced fromhex failed data={data_hex!r} response={response!r}")
         return INCOMPLETE_DATA.copy()
 
     return {"value": raw_bytes, "supported": True}
