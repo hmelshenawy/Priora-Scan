@@ -38,13 +38,13 @@ def test_exchange_pairing_token_sets_and_persists_agent_token(monkeypatch):
 
 
 def test_configure_agent_auth_uses_saved_token(monkeypatch, capsys):
-    import src.main as main
+    from src.agent import bootstrap
 
     client = ApiClient()
-    monkeypatch.setattr(main, "AGENT_ID", "agent-123")
-    monkeypatch.setattr(main, "AGENT_ACCESS_TOKEN", "token-abc")
+    monkeypatch.setattr(bootstrap, "AGENT_ID", "agent-123")
+    monkeypatch.setattr(bootstrap, "AGENT_ACCESS_TOKEN", "token-abc")
 
-    main.configure_agent_auth(client, SimpleNamespace(pairing_token=None, name="Agent"))
+    bootstrap.configure_agent_auth(client, SimpleNamespace(pairing_token=None, name="Agent"))
 
     assert client.agent_id == "agent-123"
     assert client.agent_token == "token-abc"
@@ -52,14 +52,14 @@ def test_configure_agent_auth_uses_saved_token(monkeypatch, capsys):
 
 
 def test_configure_agent_auth_requires_pairing_token_when_unsaved(monkeypatch, capsys):
-    import src.main as main
+    from src.agent import bootstrap
 
     client = ApiClient()
-    monkeypatch.setattr(main, "AGENT_ID", None)
-    monkeypatch.setattr(main, "AGENT_ACCESS_TOKEN", None)
+    monkeypatch.setattr(bootstrap, "AGENT_ID", None)
+    monkeypatch.setattr(bootstrap, "AGENT_ACCESS_TOKEN", None)
 
     with pytest.raises(SystemExit, match="--pairing-token is required"):
-        main.configure_agent_auth(
+        bootstrap.configure_agent_auth(
             client,
             SimpleNamespace(pairing_token=None, name="Agent"),
         )
@@ -68,19 +68,19 @@ def test_configure_agent_auth_requires_pairing_token_when_unsaved(monkeypatch, c
 
 
 def test_configure_agent_auth_pairs_when_no_saved_token(monkeypatch, capsys):
-    import src.main as main
+    from src.agent import bootstrap
 
     client = ApiClient()
-    monkeypatch.setattr(main, "AGENT_ID", None)
-    monkeypatch.setattr(main, "AGENT_ACCESS_TOKEN", None)
+    monkeypatch.setattr(bootstrap, "AGENT_ID", None)
+    monkeypatch.setattr(bootstrap, "AGENT_ACCESS_TOKEN", None)
 
     def fake_exchange(api_client, pairing_token, agent_name):
         api_client.set_agent_token("agent-123", "token-abc")
         return {"agentId": "agent-123", "accessToken": "token-abc"}
 
-    monkeypatch.setattr(main, "exchange_pairing_token", fake_exchange)
+    monkeypatch.setattr(bootstrap, "exchange_pairing_token", fake_exchange)
 
-    main.configure_agent_auth(
+    bootstrap.configure_agent_auth(
         client,
         SimpleNamespace(pairing_token="PAIR-TOKEN", name="Agent"),
     )

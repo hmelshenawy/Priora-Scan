@@ -57,11 +57,11 @@ def test_fault_code_defaults_remain_backward_compatible():
 
 
 def test_create_obd_adapter_uses_mock_when_enabled(monkeypatch):
-    import src.main as main
+    from src.agent import bootstrap
 
-    monkeypatch.setattr(main, "OBD_ADAPTER_TYPE", "mock")
+    monkeypatch.setattr(bootstrap, "OBD_ADAPTER_TYPE", "mock")
 
-    assert isinstance(main.create_obd_adapter(), MockObdAdapter)
+    assert isinstance(bootstrap.create_obd_adapter(), MockObdAdapter)
 
 
 def test_mock_adapter_heartbeat_payload_reports_connected():
@@ -122,10 +122,10 @@ def test_heartbeat_loop_accepts_adapter_metadata(monkeypatch):
 
 
 def test_create_obd_adapter_uses_elm327_when_mock_disabled(monkeypatch):
-    import src.main as main
+    from src.agent import bootstrap
 
-    monkeypatch.setattr(main, "OBD_ADAPTER_TYPE", "usb")
+    monkeypatch.setattr(bootstrap, "OBD_ADAPTER_TYPE", "usb")
 
-    with patch("src.main.Elm327Adapter", return_value="real-adapter") as adapter:
-        assert main.create_obd_adapter() == "real-adapter"
+    with patch("src.agent.bootstrap.Elm327Adapter", return_value="real-adapter") as adapter:
+        assert bootstrap.create_obd_adapter() == "real-adapter"
         adapter.assert_called_once_with()

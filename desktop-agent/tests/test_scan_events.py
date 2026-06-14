@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
-from src.main import ensure_adapter_connected, execute_scan
+from src.agent.bootstrap import ensure_adapter_connected
+from src.agent.scan_executor import execute_scan
 from src.models.fault_code import FaultCode
 from src.models.scan_job import ScanJob
 from src.obd.commands.vin import VinResult
@@ -69,9 +70,9 @@ def test_execute_scan_emits_backend_scan_event_contract():
     job = ScanJob("scan-123", "RUNNING", "2026-06-09T00:00:00Z")
 
     with (
-        patch("src.main.read_vin", return_value=VinResult.supported("WDD2130041A123456")),
+        patch("src.agent.scan_executor.read_vin", return_value=VinResult.supported("WDD2130041A123456")),
         patch(
-            "src.main.read_fault_codes",
+            "src.agent.scan_executor.read_fault_codes",
             return_value=[
                 FaultCode("P0301", status="ACTIVE", ecu="ECM"),
                 FaultCode("P0171", status="PENDING", ecu="ECM"),
@@ -133,8 +134,8 @@ def test_execute_scan_stops_when_vehicle_confirmation_required(capsys):
     job = ScanJob("scan-123", "RUNNING", "2026-06-09T00:00:00Z")
 
     with (
-        patch("src.main.read_vin", return_value=VinResult.supported("WDD2130041A123456")),
-        patch("src.main.read_fault_codes") as read_fault_codes,
+        patch("src.agent.scan_executor.read_vin", return_value=VinResult.supported("WDD2130041A123456")),
+        patch("src.agent.scan_executor.read_fault_codes") as read_fault_codes,
     ):
         execute_scan(client, ConnectedAdapter(), job)
 
@@ -163,9 +164,9 @@ def test_execute_scan_skips_vin_for_confirmed_job():
     )
 
     with (
-        patch("src.main.read_vin") as read_vin,
+        patch("src.agent.scan_executor.read_vin") as read_vin,
         patch(
-            "src.main.read_fault_codes",
+            "src.agent.scan_executor.read_fault_codes",
             return_value=[FaultCode("P0301", status="ACTIVE", ecu="ECM")],
         ),
     ):
@@ -193,9 +194,9 @@ def test_execute_scan_skips_vin_for_confirmed_no_vin_job():
     )
 
     with (
-        patch("src.main.read_vin") as read_vin,
+        patch("src.agent.scan_executor.read_vin") as read_vin,
         patch(
-            "src.main.read_fault_codes",
+            "src.agent.scan_executor.read_fault_codes",
             return_value=[FaultCode("P0301", status="ACTIVE", ecu="ECM")],
         ),
     ):
@@ -250,7 +251,7 @@ def test_execute_scan_connects_adapter_before_reading():
     adapter = ConnectableAdapter()
 
     with patch(
-        "src.main.read_fault_codes",
+        "src.agent.scan_executor.read_fault_codes",
         return_value=[FaultCode("P0301", status="ACTIVE", ecu="ECM")],
     ):
         execute_scan(client, adapter, job)
@@ -273,9 +274,9 @@ def test_execute_scan_continues_when_vin_unsupported():
     job = ScanJob("scan-123", "RUNNING", "2026-06-09T00:00:00Z")
 
     with (
-        patch("src.main.read_vin", return_value=VinResult.unsupported("ALL_FF")),
+        patch("src.agent.scan_executor.read_vin", return_value=VinResult.unsupported("ALL_FF")),
         patch(
-            "src.main.read_fault_codes",
+            "src.agent.scan_executor.read_fault_codes",
             return_value=[FaultCode("P0301", status="ACTIVE", ecu="ECM")],
         ),
     ):
@@ -352,8 +353,8 @@ def test_execute_vehicle_data_read_continues_when_vin_unsupported():
         def is_connected(self):
             return True
 
-    with patch("src.main.read_vin", return_value=VinResult.unsupported("ALL_FF")), \
-         patch("src.main.read_vehicle_health", return_value={
+    with patch("src.agent.scan_executor.read_vin", return_value=VinResult.unsupported("ALL_FF")), \
+         patch("src.agent.scan_executor.read_vehicle_health", return_value={
              "rpm": {"pid": "0C", "value": None, "unit": "RPM", "supported": False, "available": False, "rawResponse": None},
              "vehicleSpeed": {"pid": "0D", "value": None, "unit": "km/h", "supported": False, "available": False, "rawResponse": None},
              "coolantTemperature": {"pid": "05", "value": None, "unit": "°C", "supported": False, "available": False, "rawResponse": None},
@@ -363,10 +364,10 @@ def test_execute_vehicle_data_read_continues_when_vin_unsupported():
              "supportedHealthPids": ["04", "42"],
              "unsupportedHealthPids": ["05", "0C", "0D", "2F"],
          }), \
-         patch("src.main.read_fuel_system_status", return_value={"value": "Closed Loop", "supported": True}), \
-         patch("src.main.read_readiness_monitors", return_value={"supported": True, "value": {}}), \
-         patch("src.main.read_supported_pids", return_value={"01": [], "09": []}), \
-         patch("src.main.read_mileage", return_value={"value": None, "unit": "km", "supported": False}):
+         patch("src.agent.scan_executor.read_fuel_system_status", return_value={"value": "Closed Loop", "supported": True}), \
+         patch("src.agent.scan_executor.read_readiness_monitors", return_value={"supported": True, "value": {}}), \
+         patch("src.agent.scan_executor.read_supported_pids", return_value={"01": [], "09": []}), \
+         patch("src.agent.scan_executor.read_mileage", return_value={"value": None, "unit": "km", "supported": False}):
         execute_vehicle_data_read(client, "session-1", MockAdapterWithVIN())
 
     # Should have VEHICLE_DATA_READ event
