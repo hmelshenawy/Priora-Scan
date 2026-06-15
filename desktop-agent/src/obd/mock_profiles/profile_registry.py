@@ -22,6 +22,7 @@ _PROFILES = {
     "with_faults": lambda: _load_module("src.obd.mock_profiles.with_faults"),
     "unsupported_vin": lambda: _load_module("src.obd.mock_profiles.unsupported_vin"),
     "toyota_real_faults": lambda: _load_module("src.obd.mock_profiles.toyota_real_faults"),
+    "extended_pid_validation": lambda: _load_module("src.obd.mock_profiles.extended_pid_validation_profile"),
 }
 
 _active_profile = None

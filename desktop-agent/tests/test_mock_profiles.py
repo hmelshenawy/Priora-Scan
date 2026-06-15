@@ -22,12 +22,13 @@ from src.obd.mock_profiles.profile_registry import ProfileRegistry
 class TestProfileRegistry:
     """Tests for ProfileRegistry loading, validation, and fallback."""
 
-    def test_list_profiles_returns_all_six(self):
-        """All 6 profile names are listed."""
+    def test_list_profiles_returns_all_seven(self):
+        """All 7 profile names are listed."""
         registry = ProfileRegistry()
         profiles = registry.list_profiles()
         assert sorted(profiles) == [
             "default",
+            "extended_pid_validation",
             "no_faults",
             "toyota_real_faults",
             "toyota_real_sample",
