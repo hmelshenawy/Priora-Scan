@@ -40,6 +40,16 @@ PID_RESPONSES = {
     # real MIL OFF Toyota 2026-06-14 capture here; this profile intentionally
     # simulates MIL ON with 3 stored DTCs to match its fault scenario.
     "0101": bytes.fromhex("4101830007EF07FF"),
+    # Mode 02 PID 01 — Freeze Frame Data
+    # Placeholder: DTC P0301 with RPM, Speed, Load, Coolant (SAE J1979 standard).
+    # TODO: Replace with real Toyota 0201 captured response when vehicle probe
+    # is completed. See specs/017-freeze-frame-data/research.md R12.
+    # DTC P0301: 0x03 0x01
+    # PID 04 (Load 46.3%): 0x76 (118*100/255≈46.27%)
+    # PID 05 (Coolant 86°C): 0x7E (126+40=166? No, 0x7E=126, 126-40=86)
+    # PID 0C (RPM 900): 0x0E 0x10 ((14*256+16)/4=3600/4=900.0)
+    # PID 0D (Speed 0): 0x00
+    "0201": bytes.fromhex("420103010476055E0C0E100D00"),
 }
 
 # VIN response (Mode 09 PID 02)

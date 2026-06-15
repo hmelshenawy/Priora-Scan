@@ -1,6 +1,6 @@
 from src.api_client import ApiClient
 from src.config import AGENT_ACCESS_TOKEN, AGENT_ID, OBD_ADAPTER_TYPE
-from src.obd.elm327 import Elm327Adapter
+from src.obd.usb_elm327 import Elm327Adapter
 from src.pairing import exchange_pairing_token
 
 

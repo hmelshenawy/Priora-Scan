@@ -324,3 +324,29 @@ This places the freeze frame result alongside `readinessMonitors`, `fuelSystemSt
 **Alternatives considered**:
 - Separate event type: Rejected — FR-015 requires inclusion in `VEHICLE_DATA_READ` payload
 - Conditional read (only when DTCs exist): Deferred — always reading avoids complexity; the parser handles unsupported/unavailable gracefully
+
+---
+
+## R12: Toyota 0201 Real Vehicle Probe (TODO)
+
+**Decision**: Required pre-closure activity to validate real Toyota 0201 freeze frame behavior.
+
+**Status**: TODO — Blocked until Toyota vehicle access is available.
+
+**When the Toyota vehicle is available, complete the following steps**:
+
+1. Send command `0201` to the Toyota ELM327 adapter
+2. Capture the raw adapter response (before `compact_raw_response()`)
+3. Capture the cleaned response after `compact_raw_response()`
+4. Document whether a freeze frame exists (vehicle with stored DTCs)
+5. Document whether the ECU reports NO DATA or unsupported (vehicle with no stored DTCs)
+6. Add the captured response as a regression test in `desktop-agent/tests/test_toyota_regression.py`
+7. Update `desktop-agent/src/obd/mock_profiles/toyota_real_sample.py` with real data (replace placeholder DTC P0000)
+8. Update `desktop-agent/src/obd/mock_profiles/toyota_real_faults.py` with real data (replace placeholder SAE J1979 values)
+9. Validate that `read_freeze_frame()` correctly handles the real Toyota responses
+10. Verify the DTC P0000 → `supported: true, available: false` mapping against real Toyota behavior
+
+**Rationale**: The current implementation uses SAE J1979 standard example data as placeholders for Toyota profiles. Real vehicle validation is essential to confirm that:
+- The freeze frame response format matches our parser assumptions
+- The DTC P0000 "supported but unavailable" state mapping is correct for Toyota ECUs
+- The `additionalPids` handling for unknown PIDs works with real data

@@ -11,6 +11,7 @@ import {
   RotateCw,
 } from 'lucide-react';
 import { useVehicleData, useReadVehicleData } from '../../services/vehicle-data-api';
+import type { VehicleDataJson } from '../../services/vehicle-data-api';
 import type { Vehicle } from '../../hooks/use-vehicles';
 import { VehicleDataPointRow } from './VehicleDataPointRow';
 import { SupportedPidList } from './SupportedPidList';
@@ -161,6 +162,10 @@ export function VehicleHealthPanel({
             <ReadinessMonitorsRow data={vehicleData.readinessMonitors} />
           )}
 
+          {vehicleData.freezeFrame && (
+            <FreezeFrameCard freezeFrame={vehicleData.freezeFrame} />
+          )}
+
           {/* Re-read button when data already exists */}
           {isSessionOpen && isAdapterConnected && (
             <div className="mt-3 flex items-center gap-3 border-t border-slate-200 pt-3">
@@ -197,6 +202,84 @@ export function VehicleHealthPanel({
       )}
     </section>
   );
+}
+
+function FreezeFrameCard({
+  freezeFrame,
+}: {
+  freezeFrame: NonNullable<VehicleDataJson['freezeFrame']>;
+}) {
+  if (!freezeFrame.supported) {
+    return (
+      <div className="rounded-md bg-slate-50 px-3 py-2.5">
+        <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
+          <Gauge className="h-4 w-4 text-indigo-500" />
+          Freeze Frame
+        </span>
+        <p className="mt-1 text-xs italic text-slate-400">
+          Freeze frame not supported or unavailable
+        </p>
+      </div>
+    );
+  }
+
+  if (!freezeFrame.available) {
+    return (
+      <div className="rounded-md bg-slate-50 px-3 py-2.5">
+        <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
+          <Gauge className="h-4 w-4 text-indigo-500" />
+          Freeze Frame
+        </span>
+        <p className="mt-1 text-xs italic text-slate-400">No freeze frame stored</p>
+      </div>
+    );
+  }
+
+  const value = freezeFrame.value ?? {};
+
+  return (
+    <div className="rounded-md bg-slate-50 px-3 py-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
+          <Gauge className="h-4 w-4 text-indigo-500" />
+          Freeze Frame
+        </span>
+        {value.dtc && (
+          <span className="rounded-md bg-white px-2 py-0.5 font-mono text-xs font-semibold text-slate-700">
+            {value.dtc}
+          </span>
+        )}
+      </div>
+      <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
+        <FreezeFrameMetric label="RPM" value={formatFreezeFrameValue(value.rpm, 'rpm')} />
+        <FreezeFrameMetric label="Speed" value={formatFreezeFrameValue(value.speed, 'km/h')} />
+        <FreezeFrameMetric
+          label="Coolant"
+          value={formatFreezeFrameValue(value.coolantTemperature, '°C')}
+        />
+        <FreezeFrameMetric
+          label="Engine Load"
+          value={formatFreezeFrameValue(value.engineLoad, '%')}
+        />
+      </dl>
+    </div>
+  );
+}
+
+function FreezeFrameMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="font-medium text-slate-500">{label}</dt>
+      <dd className="mt-0.5 font-semibold text-slate-800">{value}</dd>
+    </div>
+  );
+}
+
+function formatFreezeFrameValue(value: number | null | undefined, unit: string) {
+  if (value === null || value === undefined) {
+    return '—';
+  }
+  return `${value} ${unit}`;
 }
 
 function VehicleIdentityDetail({

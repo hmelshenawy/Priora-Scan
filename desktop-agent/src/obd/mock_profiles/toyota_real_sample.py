@@ -48,6 +48,11 @@ PID_RESPONSES = {
     # raw b"410100044000\r\r>" cleaned to 410100044000.
     # MIL OFF, 0 stored DTCs, variable-length readiness payload.
     "0101": bytes.fromhex("410100044000"),
+    # Mode 02 PID 01 — Freeze Frame Data
+    # Placeholder: DTC P0000 with no PID data (supported but unavailable).
+    # TODO: Replace with real Toyota 0201 captured response when vehicle probe
+    # is completed. See specs/017-freeze-frame-data/research.md R12.
+    "0201": bytes.fromhex("42010000"),
 }
 
 # VIN response (Mode 09 PID 02)

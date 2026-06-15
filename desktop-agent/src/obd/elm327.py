@@ -1,47 +1,8 @@
-from typing import List
-from src.models.fault_code import FaultCode
+"""Compatibility import for the USB ELM327 adapter.
 
+act like a bridge between old elm327 and new usb_elm327 module.
 
-class Elm327Adapter:
-    adapter_type = "ELM327"
-    protocol = "ISO_15765_4_CAN"
+New code should import ``Elm327Adapter`` from ``src.obd.usb_elm327``.
+"""
 
-    def __init__(self, port: str = None):
-        self.port = port
-        self._connection = None
-
-    def connect(self) -> bool:
-        """Establish USB serial connection and initialize ELM327.
-
-        Delegates to existing lazy-connect logic in is_connected().
-        """
-        try:
-            if not self._connection:
-                from src.obd.connection.usb import UsbConnection
-                self._connection = UsbConnection(self.port)
-                self._connection.open()
-            return self._connection.is_open()
-        except Exception:
-            return False
-
-    def is_connected(self) -> bool:
-        try:
-            from src.obd.connection.usb import UsbConnection
-
-            if not self._connection:
-                self._connection = UsbConnection(self.port)
-                self._connection.open()
-            return self._connection.is_open()
-        except Exception:
-            return False
-
-    def send(self, command: str) -> bytes:
-        if not self.is_connected():
-            raise RuntimeError("Adapter not connected")
-        self._connection.write(command.encode() + b"\r")
-        return self._connection.read()
-
-    def close(self):
-        if self._connection:
-            self._connection.close()
-            self._connection = None
+from src.obd.usb_elm327 import Elm327Adapter

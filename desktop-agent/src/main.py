@@ -8,7 +8,7 @@ from src.agent.scan_executor import (
     execute_vehicle_data_read,
 )
 from src.app import run
-from src.obd.elm327 import Elm327Adapter
+from src.obd.usb_elm327 import Elm327Adapter
 
 
 def main() -> None:

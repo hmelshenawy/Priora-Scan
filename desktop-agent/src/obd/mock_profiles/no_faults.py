@@ -34,6 +34,10 @@ PID_RESPONSES = {
     "0120": bytes.fromhex("412081008402"),
     # Mode 09 PID 00 — Supported Mode 09 PIDs
     "0900": bytes.fromhex("490002000000"),
+    # Mode 02 PID 01 — Freeze Frame Data (no fault codes stored)
+    # DTC P0000 with no PID data — represents "supported but unavailable" state
+    # per the desired state model (research.md R8)
+    "0201": bytes.fromhex("42010000"),
 }
 
 # VIN response (Mode 09 PID 02)

@@ -35,6 +35,14 @@ PID_RESPONSES = {
     "0120": bytes.fromhex("412081008402"),
     # Mode 09 PID 00 — Supported Mode 09 PIDs
     "0900": bytes.fromhex("490002000000"),
+    # Mode 02 PID 01 — Freeze Frame Data (DTC P0301)
+    # RPM=1600, Speed=55, Load≈46%, Coolant=86°C
+    # DTC P0301: 0x03 0x01
+    # PID 04 (Load 46%): 0x76 (118*100/255≈46.27%)
+    # PID 05 (Coolant 86°C): 0x7E (0x7E=126, 126-40=86°C)
+    # PID 0C (RPM 1600): 0x19 0x00 ((25*256+0)/4=1600.0)
+    # PID 0D (Speed 55): 0x37
+    "0201": bytes.fromhex("420103010476057E0C19000D37"),
 }
 
 # VIN response (Mode 09 PID 02)

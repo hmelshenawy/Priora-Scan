@@ -186,6 +186,25 @@ def _normalize_hex_tokens(tokens: list[str]) -> str:
     return "".join(normalized)
 
 
+def _decode_dtc_byte_pair(first_byte: int, second_byte: int) -> str:
+    """Decode a 2-byte DTC code using SAE J1979 encoding.
+
+    Args:
+        first_byte: First byte of the DTC pair (contains type prefix and digits 1-2).
+        second_byte: Second byte of the DTC pair (contains digits 3-4).
+
+    Returns:
+        DTC code string, e.g. "P0301", "B0100", "C0300", "U0100".
+    """
+    prefix_map = {0: "P", 1: "C", 2: "B", 3: "U"}
+    prefix = prefix_map.get((first_byte >> 6) & 0x03, "P")
+    digit1 = str((first_byte >> 4) & 0x03)
+    digit2 = str(first_byte & 0x0F)
+    digit3 = str(second_byte >> 4)
+    digit4 = str(second_byte & 0x0F)
+    return f"{prefix}{digit1}{digit2}{digit3}{digit4}"
+
+
 def parse_dtcs(response: str) -> dict:
     """Parse Mode 03 DTC response into list of DTC code strings.
 
@@ -244,14 +263,8 @@ def parse_dtcs(response: str) -> dict:
         if first_byte == 0 and second_byte == 0:
             continue
 
-        prefix_map = {0: "P", 1: "C", 2: "B", 3: "U"}
-        prefix = prefix_map.get((first_byte >> 6) & 0x03, "P")
-        digit1 = str((first_byte >> 4) & 0x03)
-        digit2 = str(first_byte & 0x0F)
-        digit3 = str(second_byte >> 4)
-        digit4 = str(second_byte & 0x0F)
-
-        dtc_codes.append(f"{prefix}{digit1}{digit2}{digit3}{digit4}")
+        dtc_code = _decode_dtc_byte_pair(first_byte, second_byte)
+        dtc_codes.append(dtc_code)
 
     return {"codes": dtc_codes, "supported": True}
 

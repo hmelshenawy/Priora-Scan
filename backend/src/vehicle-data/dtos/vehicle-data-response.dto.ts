@@ -42,6 +42,19 @@ export interface VehicleDataJson {
     '01': string[];
     '09': string[];
   };
+  freezeFrame?: {
+    supported: boolean;
+    available: boolean;
+    value?: {
+      dtc?: string;
+      rpm?: number | null;
+      speed?: number | null;
+      coolantTemperature?: number | null;
+      engineLoad?: number | null;
+      additionalPids?: Record<string, string>;
+      rawResponse?: string;
+    };
+  };
 }
 
 /**

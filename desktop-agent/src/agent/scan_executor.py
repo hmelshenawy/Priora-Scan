@@ -6,13 +6,14 @@ from src.obd.commands.clear_dtc import clear_dtc
 from src.obd.commands.dtc import read_fault_codes
 from src.obd.commands.vehicle_data import (
     read_fuel_system_status,
+    read_freeze_frame,
     read_mileage,
     read_readiness_monitors,
     read_supported_pids,
     read_vehicle_health,
 )
 from src.obd.commands.vin import VIN_SUPPORTED, read_vin
-from src.obd.elm327 import Elm327Adapter
+from src.obd.usb_elm327 import Elm327Adapter
 
 
 def execute_scan(api_client: ApiClient, adapter: Elm327Adapter, job: ScanJob) -> None:
@@ -68,6 +69,7 @@ def execute_vehicle_data_read(api_client: ApiClient, session_id: str, adapter) -
 
     vehicle_health["fuelSystemStatus"] = read_fuel_system_status(adapter)
     vehicle_health["readinessMonitors"] = read_readiness_monitors(adapter)
+    vehicle_health["freezeFrame"] = read_freeze_frame(adapter)
     vehicle_health["supportedPids"] = read_supported_pids(adapter)
     vehicle_health["mileage"] = read_mileage(adapter)
 

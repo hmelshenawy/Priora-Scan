@@ -28,17 +28,19 @@ Add OBD-II Mode 02 PID 01 Freeze Frame Data retrieval to the PrioraScan desktop 
 
 | File | Change |
 |------|--------|
-| `desktop-agent/src/obd/commands/vehicle_data.py` | Add `parse_freeze_frame()`, `read_freeze_frame()`, extract `_decode_dtc_byte_pair()` helper |
-| `desktop-agent/src/main.py` | Add `vehicle_health["freezeFrame"] = read_freeze_frame(adapter)` |
+| `desktop-agent/src/obd/commands/freeze_frame.py` | **New**: `parse_freeze_frame()`, `read_freeze_frame()`, MVP PID decoding |
+| `desktop-agent/src/obd/commands/elm_parser.py` | Extract `_decode_dtc_byte_pair()` helper (shared with `parse_dtcs()`) |
+| `desktop-agent/src/obd/commands/vehicle_data.py` | Add import re-export of `parse_freeze_frame`, `read_freeze_frame` |
+| `desktop-agent/src/agent/scan_executor.py` | Add `vehicle_health["freezeFrame"] = read_freeze_frame(adapter)` |
 | `desktop-agent/src/obd/mock_profiles/default.py` | Add `PID_RESPONSES["0201"]` |
 | `desktop-agent/src/obd/mock_profiles/no_faults.py` | Add `PID_RESPONSES["0201"]` (unavailable case) |
 | `desktop-agent/src/obd/mock_profiles/with_faults.py` | Add `PID_RESPONSES["0201"]` |
 | `desktop-agent/src/obd/mock_profiles/unsupported_vin.py` | Add `"0201"` to `UNSUPPORTED_COMMANDS` |
 | `desktop-agent/src/obd/mock_profiles/toyota_real_sample.py` | Add `PID_RESPONSES["0201"]` or `UNSUPPORTED_COMMANDS` (TBD by research) |
 | `desktop-agent/src/obd/mock_profiles/toyota_real_faults.py` | Add `PID_RESPONSES["0201"]` (TBD by research) |
-| `desktop-agent/tests/test_freeze_frame.py` | **New**: Parser tests, read function tests, integration tests |
-| `desktop-agent/tests/test_mock_profiles.py` | Add freeze frame profile tests |
-| `desktop-agent/tests/test_toyota_regression.py` | Add 0201 regression test |
+| `desktop-agent/tests/test_freeze_frame.py` | **New**: Parser tests, read function tests, profile decoding tests, edge cases |
+| `desktop-agent/tests/test_elm_parser.py` | Add `_decode_dtc_byte_pair` helper tests |
+| `desktop-agent/tests/test_vehicle_health_integration.py` | Add `TestFreezeFrameIntegration` class |
 | `desktop-agent/tests/test_vehicle_health_integration.py` | Verify freezeFrame shape in event payload |
 
 ## Key Patterns to Follow

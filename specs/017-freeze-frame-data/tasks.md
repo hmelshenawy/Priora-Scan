@@ -26,9 +26,9 @@
 
 **Purpose**: Extract shared DTC decoding helper and establish SAE J1979 test data constants for the parser.
 
-- [ ] T001 Extract `_decode_dtc_byte_pair(byte1_hex, byte2_hex)` helper from `parse_dtcs()` in `desktop-agent/src/obd/commands/elm_parser.py` — refactor the existing DTC decoding logic into a reusable function while keeping `parse_dtcs()` working identically. Add unit test for the helper in `desktop-agent/tests/test_elm_parser.py`.
+- [x] T001 Extract `_decode_dtc_byte_pair(byte1_hex, byte2_hex)` helper from `parse_dtcs()` in `desktop-agent/src/obd/commands/elm_parser.py` — refactor the existing DTC decoding logic into a reusable function while keeping `parse_dtcs()` working identically. Add unit test for the helper in `desktop-agent/tests/test_elm_parser.py`.
 
-- [ ] T002 [P] Define SAE J1979 Mode 02 freeze frame test constants in `desktop-agent/tests/test_freeze_frame.py` — create the test file with hex string constants for known OBD-II freeze frame responses:
+- [x] T002 [P] Define SAE J1979 Mode 02 freeze frame test constants in `desktop-agent/tests/test_freeze_frame.py` — create the test file with hex string constants for known OBD-II freeze frame responses:
   - Valid response with DTC P0103 and all 4 MVP PIDs (RPM=2450, speed=72, load=58%, coolant=91°C)
   - Valid response with partial PIDs (DTC + RPM only)
   - DTC 0000 with no PID pairs (unavailable state)
@@ -45,7 +45,7 @@
 
 **⚠️ CRITICAL**: No mock profile updates or `read_freeze_frame()` implementation until parser tests pass.
 
-- [ ] T003 Write `parse_freeze_frame()` parser tests in `desktop-agent/tests/test_freeze_frame.py` — test all cases from T002 constants:
+- [x] T003 Write `parse_freeze_frame()` parser tests in `desktop-agent/tests/test_freeze_frame.py` — test all cases from T002 constants:
   - Valid freeze frame with all 4 MVP PIDs → correct DTC, rpm, speed, coolantTemperature, engineLoad
   - Valid freeze frame with partial PIDs → decoded PIDs present, missing PIDs as `null`
   - DTC 0000 with no PID pairs → returns result with dtc="P0000", all MVP PIDs null
@@ -59,7 +59,7 @@
   - Response with only header and DTC bytes → returns result with DTC decoded, all MVP PIDs null
   All tests must FAIL initially (parser does not exist yet).
 
-- [ ] T004 Implement `parse_freeze_frame(hex_str)` in `desktop-agent/src/obd/commands/vehicle_data.py` — pure function that:
+- [x] T004 Implement `parse_freeze_frame(hex_str)` in `desktop-agent/src/obd/commands/freeze_frame.py` — pure function that:
   - Validates `4201` prefix
   - Decodes 2-byte DTC using `_decode_dtc_byte_pair()`
   - MVP parser supports only the following known PIDs with fixed byte lengths:
@@ -71,7 +71,7 @@
   - Returns dict with `dtc`, `rpm`, `speed`, `coolantTemperature`, `engineLoad`, `additionalPids`, `rawResponse`; or `None` on parse failure
   All T003 tests must PASS after this task.
 
-- [ ] T005 Implement `read_freeze_frame(adapter)` in `desktop-agent/src/obd/commands/vehicle_data.py` — I/O function that:
+- [x] T005 Implement `read_freeze_frame(adapter)` in `desktop-agent/src/obd/commands/freeze_frame.py` — I/O function that:
   - Calls `_send_pid(adapter, "02", "01")`
   - Returns `{supported: False, available: False, value: {}}` if `_send_pid` returns `None`
   - Calls `parse_freeze_frame(hex_str)` with the cleaned response
@@ -80,7 +80,7 @@
   - Implements the desired-state handling for DTC P0000 with no PID data. The mapping of DTC P0000 to `{supported: True, available: False, value: {}}` follows current research assumptions (research.md R8) and may be refined after real Toyota 0201 validation. Document the mapping decision in code comments. Do not encode Toyota-specific or ECU-specific assumptions into the parser — the parser should remain generic and research-driven.
   - Preserves `rawResponse` in the result
 
-- [ ] T006 Write tests for `read_freeze_frame()` in `desktop-agent/tests/test_freeze_frame.py` — test with `MockObdAdapter` using various profiles:
+- [x] T006 Write tests for `read_freeze_frame()` in `desktop-agent/tests/test_freeze_frame.py` — test with `MockObdAdapter` using various profiles:
   - Profile with valid freeze frame data → `{supported: True, available: True, value: {dtc, rpm, ...}}`
   - Profile with `0201` in `UNSUPPORTED_COMMANDS` → `{supported: False, available: False, value: {}}`
   - Profile with no `0201` entry in `PID_RESPONSES` (falls through to empty bytes) → `{supported: False, available: False, value: {}}`
@@ -97,15 +97,15 @@
 
 **Independent Test**: Send PID 0201 to a mock adapter with stored DTCs and verify the response correctly decodes DTC, RPM, speed, engine load, coolant temperature, and additionalPids.
 
-- [ ] T007 [US1] Add `PID_RESPONSES["0201"]` to `desktop-agent/src/obd/mock_profiles/default.py` — add a valid freeze frame response with DTC P0103 and all 4 MVP PIDs. Construct hex bytes that decode to RPM=2450, speed=72, load=58%, coolant=91°C per the SAE J1979 encoding in research.md R1.
+- [x] T007 [US1] Add `PID_RESPONSES["0201"]` to `desktop-agent/src/obd/mock_profiles/default.py` — add a valid freeze frame response with DTC P0103 and all 4 MVP PIDs. Construct hex bytes that decode to RPM=2450, speed=72, load=58%, coolant=91°C per the SAE J1979 encoding in research.md R1.
 
-- [ ] T008 [P] [US1] Add `PID_RESPONSES["0201"]` to `desktop-agent/src/obd/mock_profiles/with_faults.py` — add a valid freeze frame response with DTC P0301 and all 4 MVP PIDs. Use different PID values from the default profile to exercise different decode paths.
+- [x] T008 [P] [US1] Add `PID_RESPONSES["0201"]` to `desktop-agent/src/obd/mock_profiles/with_faults.py` — add a valid freeze frame response with DTC P0301 and all 4 MVP PIDs. Use different PID values from the default profile to exercise different decode paths.
 
-- [ ] T009 [US1] Write profile decoding tests for freeze frame in `desktop-agent/tests/test_mock_profiles.py` — verify that `default` and `with_faults` profiles produce correct `FreezeFrameResult` structures when their `PID_RESPONSES["0201"]` bytes are decoded through `parse_freeze_frame()`.
+- [x] T009 [US1] Write profile decoding tests for freeze frame in `desktop-agent/tests/test_freeze_frame.py` — verify that `default` and `with_faults` profiles produce correct `FreezeFrameResult` structures when their `PID_RESPONSES["0201"]` bytes are decoded through `parse_freeze_frame()`.
 
-- [ ] T010 [US1] Add `vehicle_health["freezeFrame"] = read_freeze_frame(adapter)` to `desktop-agent/src/main.py` in `execute_vehicle_data_read()` — place after the `readinessMonitors` line, following the existing pattern. Verify the result shape in the `VEHICLE_DATA_READ` event payload.
+- [x] T010 [US1] Add `vehicle_health["freezeFrame"] = read_freeze_frame(adapter)` to `desktop-agent/src/agent/scan_executor.py` in `execute_vehicle_data_read()` — place after the `readinessMonitors` line, following the existing pattern. Verify the result shape in the `VEHICLE_DATA_READ` event payload.
 
-- [ ] T011 [US1] Write integration test for `freezeFrame` in `VEHICLE_DATA_READ` payload in `desktop-agent/tests/test_vehicle_health_integration.py` — verify the payload includes a `freezeFrame` key with the correct structure when using the default mock profile.
+- [x] T011 [US1] Write integration test for `freezeFrame` in `VEHICLE_DATA_READ` payload in `desktop-agent/tests/test_vehicle_health_integration.py` — verify the payload includes a `freezeFrame` key with the correct structure when using the default mock profile.
 
 **Checkpoint**: Freeze frame data is available in the `VEHICLE_DATA_READ` event payload. User Story 1 is complete and independently testable.
 
@@ -117,14 +117,14 @@
 
 **Independent Test**: Request freeze frame from a vehicle or mock profile with no stored DTCs, and verify the result correctly represents the ECU behavior without any exception.
 
-- [ ] T012 [US2] Add `PID_RESPONSES["0201"]` to `desktop-agent/src/obd/mock_profiles/no_faults.py` — add a response representing a vehicle with no stored DTCs. Use DTC bytes `00 00` with no PID pairs to represent the "supported but unavailable" state per the desired state model in research.md R8.
+- [x] T012 [US2] Add `PID_RESPONSES["0201"]` to `desktop-agent/src/obd/mock_profiles/no_faults.py` — add a response representing a vehicle with no stored DTCs. Use DTC bytes `00 00` with no PID pairs to represent the "supported but unavailable" state per the desired state model in research.md R8.
 
-- [ ] T013 [US2] Write parser tests for the "no freeze frame" case in `desktop-agent/tests/test_freeze_frame.py` — test that `parse_freeze_frame()` correctly handles:
+- [x] T013 [US2] Write parser tests for the "no freeze frame" case in `desktop-agent/tests/test_freeze_frame.py` — test that `parse_freeze_frame()` correctly handles:
   - DTC 0000 with no PID data after header → parser returns result with `dtc="P0000"`, all MVP PIDs null
   - `read_freeze_frame()` maps DTC P0000 with no PID data to `{supported: True, available: False, value: {}}`
   - Mock profile `no_faults` returns `{supported: True, available: False, value: {}}` when `0201` response has DTC 0000
 
-- [ ] T014 [US2] Verify that `read_freeze_frame()` never raises exceptions for any no-data case — add tests in `desktop-agent/tests/test_freeze_frame.py` for:
+- [x] T014 [US2] Verify that `read_freeze_frame()` never raises exceptions for any no-data case — add tests in `desktop-agent/tests/test_freeze_frame.py` for:
   - Adapter returning `None` from `_send_pid()` (NO DATA / empty / error)
   - `parse_freeze_frame()` returning `None` (invalid response)
   - DTC P0000 with no PID pairs
@@ -140,9 +140,9 @@
 
 **Independent Test**: Request freeze frame from a vehicle or mock profile that returns NO DATA or an unsupported PID response, and verify the result contains `supported: false, available: false` without any exception.
 
-- [ ] T015 [US3] Add `"0201"` to `UNSUPPORTED_COMMANDS` in `desktop-agent/src/obd/mock_profiles/unsupported_vin.py` — this makes the mock adapter return empty bytes for the freeze frame command, simulating an ECU that does not support Mode 02.
+- [x] T015 [US3] Add `"0201"` to `UNSUPPORTED_COMMANDS` in `desktop-agent/src/obd/mock_profiles/unsupported_vin.py` — this makes the mock adapter return empty bytes for the freeze frame command, simulating an ECU that does not support Mode 02.
 
-- [ ] T016 [US3] Write tests for the unsupported freeze frame case in `desktop-agent/tests/test_freeze_frame.py` — test that:
+- [x] T016 [US3] Write tests for the unsupported freeze frame case in `desktop-agent/tests/test_freeze_frame.py` — test that:
   - `unsupported_vin` profile returns `{supported: False, available: False, value: {}}` for freeze frame
   - Mock adapter with `0201` in `UNSUPPORTED_COMMANDS` returns `{supported: False, available: False, value: {}}`
   - Mock adapter with no `0201` in `PID_RESPONSES` (falls through to empty bytes) returns `{supported: False, available: False, value: {}}`
@@ -151,7 +151,7 @@
   - Invalid hex response produces `{supported: False, available: False, value: {}}`
   All results must be dicts, never exceptions.
 
-- [ ] T017 [US3] Add placeholder `PID_RESPONSES["0201"]` entries to `desktop-agent/src/obd/mock_profiles/toyota_real_sample.py` and `desktop-agent/src/obd/mock_profiles/toyota_real_faults.py` — use SAE J1979 standard example data as placeholders. Add a TODO comment noting that these will be replaced with real Toyota 0201 data when the vehicle probe is completed. The `toyota_real_faults` profile should have a valid freeze frame response; `toyota_real_sample` may use a DTC-0000 response or `UNSUPPORTED_COMMANDS` depending on expected Toyota behavior (placeholder for now).
+- [x] T017 [US3] Add placeholder `PID_RESPONSES["0201"]` entries to `desktop-agent/src/obd/mock_profiles/toyota_real_sample.py` and `desktop-agent/src/obd/mock_profiles/toyota_real_faults.py` — use SAE J1979 standard example data as placeholders. Add a TODO comment noting that these will be replaced with real Toyota 0201 data when the vehicle probe is completed. The `toyota_real_faults` profile should have a valid freeze frame response; `toyota_real_sample` may use a DTC-0000 response or `UNSUPPORTED_COMMANDS` depending on expected Toyota behavior (placeholder for now).
 
 **Checkpoint**: Unsupported freeze frame is handled gracefully. All three user stories (US1, US2, US3) are complete and independently testable.
 
@@ -161,9 +161,9 @@
 
 **Purpose**: Regression testing, Toyota probe documentation, and final validation.
 
-- [ ] T018 Verify no existing tests regress — run `pytest` across the entire `desktop-agent/tests/` directory. All pre-existing tests for vehicle health, DTC, VIN, readiness monitors, and clear codes must pass without modification.
+- [x] T018 Verify no existing tests regress — run `pytest` across the entire `desktop-agent/tests/` directory. All pre-existing tests for vehicle health, DTC, VIN, readiness monitors, and clear codes must pass without modification.
 
-- [ ] T019 Add a TODO entry in `specs/017-freeze-frame-data/research.md` for the Toyota 0201 real vehicle probe — document that this is a required pre-closure activity. When the Toyota vehicle is available:
+- [x] T019 Add a TODO entry in `specs/017-freeze-frame-data/research.md` for the Toyota 0201 real vehicle probe — document that this is a required pre-closure activity. When the Toyota vehicle is available:
   1. Send command `0201`
   2. Capture raw adapter response
   3. Capture cleaned response after `compact_raw_response()`
@@ -172,7 +172,7 @@
   6. Add captured response as a regression test in `desktop-agent/tests/test_toyota_regression.py`
   7. Update `toyota_real_sample.py` and `toyota_real_faults.py` with real data
 
-- [ ] T020 [P] Run quickstart.md validation — follow the quickstart guide to verify the complete implementation flow:
+- [x] T020 [P] Run quickstart.md validation — follow the quickstart guide to verify the complete implementation flow:
   1. Known OBD-II examples are in test constants
   2. Parser tests pass
   3. Parser implementation passes all tests

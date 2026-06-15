@@ -10,6 +10,7 @@ from src.obd.commands.elm_parser import (
     parse_clear_result,
     parse_pid_bytes,
     parse_supported_pids,
+    _decode_dtc_byte_pair,
     UNSUPPORTED,
     PARSE_ERROR,
     INCOMPLETE_DATA,
@@ -287,3 +288,58 @@ class TestEdgeCases:
         result = parse_vin(cleaned)
         assert result["supported"] is True
         assert len(result["value"]) == 17
+
+
+# ---------------------------------------------------------------------------
+# _decode_dtc_byte_pair (shared helper for DTC decoding)
+# ---------------------------------------------------------------------------
+
+class TestDecodeDtcBytePair:
+    """Tests for the shared DTC byte-pair decoding helper.
+
+    This helper is used by both parse_dtcs() (Mode 03) and
+    parse_freeze_frame() (Mode 02) to decode 2-byte DTC codes.
+    """
+
+    def test_powertrain_code_p0101(self):
+        """P0101: first_byte=0x01, second_byte=0x01"""
+        assert _decode_dtc_byte_pair(0x01, 0x01) == "P0101"
+
+    def test_powertrain_code_p0301(self):
+        """P0301: first_byte=0x03, second_byte=0x01"""
+        assert _decode_dtc_byte_pair(0x03, 0x01) == "P0301"
+
+    def test_powertrain_code_p0133(self):
+        """P0133: first_byte=0x01, second_byte=0x33"""
+        assert _decode_dtc_byte_pair(0x01, 0x33) == "P0133"
+
+    def test_body_code_b0100(self):
+        """B0100: first_byte=0x81 (type=2=B, digit1=0, digit2=1), second_byte=0x00"""
+        assert _decode_dtc_byte_pair(0x81, 0x00) == "B0100"
+
+    def test_chassis_code_c0000(self):
+        """C0000: first_byte=0x40 (type=1=C), second_byte=0x00"""
+        assert _decode_dtc_byte_pair(0x40, 0x00) == "C0000"
+
+    def test_network_code_u0100(self):
+        """U0100: first_byte=0xC1 (type=3=U), second_byte=0x00"""
+        assert _decode_dtc_byte_pair(0xC1, 0x00) == "U0100"
+
+    def test_zero_bytes_returns_p0000(self):
+        """Zero bytes (00 00) should decode to P0000, not be skipped.
+
+        Skipping zero codes is the caller's responsibility (parse_dtcs
+        does skip, but freeze frame may need to report P0000).
+        """
+        assert _decode_dtc_byte_pair(0x00, 0x00) == "P0000"
+
+    def test_all_type_prefixes(self):
+        """Verify all four DTC type prefixes decode correctly."""
+        # P (powertrain) = 0x00 high nibble >> 6
+        assert _decode_dtc_byte_pair(0x00, 0x01) == "P0001"
+        # C (chassis) = 0x40 >> 6 = 1
+        assert _decode_dtc_byte_pair(0x40, 0x01) == "C0001"
+        # B (body) = 0x80 >> 6 = 2
+        assert _decode_dtc_byte_pair(0x80, 0x01) == "B0001"
+        # U (network) = 0xC0 >> 6 = 3
+        assert _decode_dtc_byte_pair(0xC0, 0x01) == "U0001"

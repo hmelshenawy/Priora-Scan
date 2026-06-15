@@ -27,5 +27,6 @@ from src.obd.commands.readiness import (
     parse_readiness_monitors,
     read_readiness_monitors,
 )
+from src.obd.commands.freeze_frame import parse_freeze_frame, read_freeze_frame
 from src.obd.commands.supported_pids import _parse_bitmap, read_supported_pids
 from src.obd.commands.vehicle_health import read_vehicle_health

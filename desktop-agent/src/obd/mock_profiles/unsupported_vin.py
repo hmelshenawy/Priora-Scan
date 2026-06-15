@@ -57,5 +57,5 @@ CLEAR_DTC_RESPONSE = bytes.fromhex("44")
 FAULT_METADATA = {}
 
 # Commands that return empty bytes (unsupported)
-UNSUPPORTED_COMMANDS = set()
+UNSUPPORTED_COMMANDS = {"0201"}
 

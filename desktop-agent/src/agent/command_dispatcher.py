@@ -1,7 +1,7 @@
 from src.agent.scan_executor import execute_scan
 from src.api_client import ApiClient
 from src.models.scan_job import ScanJob
-from src.obd.elm327 import Elm327Adapter
+from src.obd.usb_elm327 import Elm327Adapter
 
 
 def poll_scan_queue(api_client: ApiClient, adapter: Elm327Adapter) -> None:

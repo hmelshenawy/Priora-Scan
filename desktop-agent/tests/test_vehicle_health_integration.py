@@ -16,6 +16,7 @@ from src.obd.commands.vehicle_data import (
     read_battery_voltage,
     read_engine_load,
     read_fuel_level,
+    read_freeze_frame,
 )
 from src.obd.commands.vin import read_vin, VIN_UNSUPPORTED
 
@@ -229,6 +230,70 @@ class TestHealthPidResultShape:
         assert fuel["supported"] is False
         assert fuel["available"] is False
         assert fuel["value"] is None
+
+
+class TestFreezeFrameIntegration:
+    """Integration tests for freezeFrame in VEHICLE_DATA_READ payload."""
+
+    def test_default_profile_freeze_frame_available(self):
+        """Default profile returns freeze frame with decoded values."""
+        adapter = MockObdAdapter(profile_name="default")
+        result = read_freeze_frame(adapter)
+        assert result["supported"] is True
+        assert result["available"] is True
+        assert result["value"]["dtc"] == "P0103"
+        assert result["value"]["rpm"] == 2450.0
+        assert result["value"]["speed"] == 72
+
+    def test_with_faults_profile_freeze_frame_available(self):
+        """With-faults profile returns freeze frame with decoded values."""
+        adapter = MockObdAdapter(profile_name="with_faults")
+        result = read_freeze_frame(adapter)
+        assert result["supported"] is True
+        assert result["available"] is True
+        assert result["value"]["dtc"] == "P0301"
+
+    def test_no_faults_profile_freeze_frame_unavailable(self):
+        """No-faults profile returns supported but unavailable."""
+        adapter = MockObdAdapter(profile_name="no_faults")
+        result = read_freeze_frame(adapter)
+        assert result["supported"] is True
+        assert result["available"] is False
+        assert result["value"] == {}
+
+    def test_unsupported_vin_profile_freeze_frame_unsupported(self):
+        """Unsupported VIN profile returns unsupported for freeze frame."""
+        adapter = MockObdAdapter(profile_name="unsupported_vin")
+        result = read_freeze_frame(adapter)
+        assert result["supported"] is False
+        assert result["available"] is False
+        assert result["value"] == {}
+
+    def test_toyota_real_sample_freeze_frame(self):
+        """Toyota real sample profile returns freeze frame (placeholder)."""
+        adapter = MockObdAdapter(profile_name="toyota_real_sample")
+        result = read_freeze_frame(adapter)
+        # Toyota sample has DTC P0000 (no faults) → supported but unavailable
+        assert result["supported"] is True
+        assert result["available"] is False
+
+    def test_toyota_real_faults_freeze_frame(self):
+        """Toyota real faults profile returns freeze frame (placeholder)."""
+        adapter = MockObdAdapter(profile_name="toyota_real_faults")
+        result = read_freeze_frame(adapter)
+        assert result["supported"] is True
+        assert result["available"] is True
+        assert result["value"]["dtc"] == "P0301"
+
+    def test_freeze_frame_no_exception_any_profile(self):
+        """Freeze frame read never raises exceptions for any profile."""
+        for profile_name in ["default", "with_faults", "no_faults", "unsupported_vin",
+                              "toyota_real_sample", "toyota_real_faults"]:
+            adapter = MockObdAdapter(profile_name=profile_name)
+            result = read_freeze_frame(adapter)
+            assert isinstance(result, dict)
+            assert "supported" in result
+            assert "available" in result
 
 
 if __name__ == "__main__":
