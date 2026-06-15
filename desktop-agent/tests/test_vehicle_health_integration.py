@@ -296,5 +296,300 @@ class TestFreezeFrameIntegration:
             assert "available" in result
 
 
+# ===========================================================================
+# Extended PID Integration Tests (Feature 018B)
+# ===========================================================================
+
+
+class TestExtendedPidsInVehicleHealth:
+    """All 7 extended PIDs are returned with correct values via
+    read_vehicle_health() using the extended_pid_validation profile.
+    No top-level metadata fields (supportedExtendedPids,
+    unsupportedExtendedPids, extendedPidsDiscoveryFailed) should exist."""
+
+    def setup_method(self):
+        self.adapter = MockObdAdapter(profile_name="extended_pid_validation")
+        self.health = read_vehicle_health(self.adapter)
+
+    def test_stft_bank1_supported(self):
+        result = self.health["stftBank1"]
+        assert result["supported"] is True
+        assert result["available"] is True
+        assert result["value"] == 0.0
+        assert result["unit"] == "%"
+        assert result["pid"] == "06"
+
+    def test_ltft_bank1_supported(self):
+        result = self.health["ltftBank1"]
+        assert result["supported"] is True
+        assert result["available"] is True
+        assert result["value"] == 0.0
+        assert result["unit"] == "%"
+        assert result["pid"] == "07"
+
+    def test_stft_bank2_supported(self):
+        result = self.health["stftBank2"]
+        assert result["supported"] is True
+        assert result["available"] is True
+        assert result["value"] == -0.78
+        assert result["unit"] == "%"
+        assert result["pid"] == "08"
+
+    def test_ltft_bank2_supported(self):
+        result = self.health["ltftBank2"]
+        assert result["supported"] is True
+        assert result["available"] is True
+        assert result["value"] == 10.16
+        assert result["unit"] == "%"
+        assert result["pid"] == "09"
+
+    def test_map_supported(self):
+        result = self.health["map"]
+        assert result["supported"] is True
+        assert result["available"] is True
+        assert result["value"] == 42.0
+        assert result["unit"] == "kPa"
+        assert result["pid"] == "0B"
+
+    def test_maf_supported(self):
+        result = self.health["maf"]
+        assert result["supported"] is True
+        assert result["available"] is True
+        assert result["value"] == 1.0
+        assert result["unit"] == "g/s"
+        assert result["pid"] == "10"
+
+    def test_throttle_position_supported(self):
+        result = self.health["throttlePosition"]
+        assert result["supported"] is True
+        assert result["available"] is True
+        assert result["value"] == 1.96
+        assert result["unit"] == "%"
+        assert result["pid"] == "11"
+
+    def test_no_top_level_metadata_fields(self):
+        """No extendedPidsDiscoveryFailed, supportedExtendedPids,
+        or unsupportedExtendedPids in the result."""
+        assert "extendedPidsDiscoveryFailed" not in self.health
+        assert "supportedExtendedPids" not in self.health
+        assert "unsupportedExtendedPids" not in self.health
+
+
+class TestExtendedPidsUnsupported:
+    """PIDs in bitmap but without response data are supported-but-unavailable.
+    PIDs not in bitmap are unsupported. Uses toyota_real_sample profile
+    which has PIDs 06,07,10,11 in bitmap but no response data, and
+    PIDs 08,09,0B not in bitmap."""
+
+    def setup_method(self):
+        self.adapter = MockObdAdapter(profile_name="toyota_real_sample")
+        self.health = read_vehicle_health(self.adapter)
+
+    def test_bitmap_pids_without_data_are_supported_unavailable(self):
+        """PIDs 06, 07, 10, 11 are in bitmap but have no response data.
+        They should be supported=True, available=False."""
+        for field in ["stftBank1", "ltftBank1", "maf", "throttlePosition"]:
+            result = self.health[field]
+            assert result["supported"] is True, (
+                f"{field} should be supported (in bitmap)"
+            )
+            assert result["available"] is False, (
+                f"{field} should be unavailable (no data)"
+            )
+            assert result["value"] is None, (
+                f"{field} value should be None"
+            )
+
+    def test_pids_not_in_bitmap_are_unsupported(self):
+        """PIDs 08, 09, 0B are NOT in bitmap → unsupported."""
+        for field in ["stftBank2", "ltftBank2", "map"]:
+            result = self.health[field]
+            assert result["supported"] is False, (
+                f"{field} should be unsupported (not in bitmap)"
+            )
+            assert result["available"] is False
+            assert result["value"] is None
+
+    def test_no_top_level_metadata_fields(self):
+        """No supportedExtendedPids, unsupportedExtendedPids, or
+        extendedPidsDiscoveryFailed in the result."""
+        assert "supportedExtendedPids" not in self.health
+        assert "unsupportedExtendedPids" not in self.health
+        assert "extendedPidsDiscoveryFailed" not in self.health
+
+
+class TestExtendedPidsDiscoveryFailure:
+    """When PID discovery fails (no Mode 01 PIDs), standard health PIDs
+    fall back to attempting all configured PIDs, but extended PIDs are
+    NOT blindly queried. Each extended PID is marked as unavailable
+    with reason PID_DISCOVERY_FAILED.
+
+    Uses a custom adapter that returns empty for 0100 (discovery fails)
+    but provides standard health PID responses via fallback.
+    """
+
+    def setup_method(self):
+        class DiscoveryFailAdapter:
+            protocol = "MOCK"
+            adapter_type = "MOCK"
+
+            _RAW = {
+                # Standard health PIDs with known values (same as toyota profile)
+                "0104": bytes.fromhex("410476"),
+                "0105": bytes.fromhex("41057E"),
+                "010C": bytes.fromhex("410C0E10"),
+                "010D": bytes.fromhex("410D00"),
+                "0142": bytes.fromhex("41423469"),
+            }
+
+            def send(self, cmd: str) -> bytes:
+                raw = self._RAW.get(cmd, b"")
+                if not raw:
+                    return b""
+                return raw.hex().upper().encode("ascii")
+
+        self.adapter = DiscoveryFailAdapter()
+        self.health = read_vehicle_health(self.adapter)
+
+    def test_standard_health_pids_still_work_via_fallback(self):
+        """Standard health PIDs still work because of fallback behavior."""
+        assert self.health["rpm"]["value"] == 900.0
+        assert self.health["rpm"]["supported"] is True
+        assert self.health["coolantTemperature"]["value"] == 86.0
+        assert self.health["calculatedEngineLoad"]["value"] == 46.3
+        assert self.health["batteryVoltage"]["value"] == 13.417
+
+    def test_all_extended_pids_marked_discovery_failed(self):
+        """All extended PIDs have reason PID_DISCOVERY_FAILED."""
+        for field in ["stftBank1", "ltftBank1", "stftBank2", "ltftBank2",
+                       "map", "maf", "throttlePosition"]:
+            result = self.health[field]
+            assert result["supported"] is False, f"{field} should be unsupported"
+            assert result["available"] is False, f"{field} should be unavailable"
+            assert result["value"] is None, f"{field} value should be None"
+            assert result["reason"] == "PID_DISCOVERY_FAILED", (
+                f"{field} should have PID_DISCOVERY_FAILED reason"
+            )
+
+    def test_no_top_level_discovery_metadata(self):
+        """No extendedPidsDiscoveryFailed, supportedExtendedPids,
+        or unsupportedExtendedPids in the result."""
+        assert "extendedPidsDiscoveryFailed" not in self.health
+        assert "supportedExtendedPids" not in self.health
+        assert "unsupportedExtendedPids" not in self.health
+
+
+class TestExtendedPidsNoData:
+    """A supported PID (in bitmap) that returns NO DATA is classified
+    as supported-but-unavailable with a reason field.
+
+    Uses a custom adapter with the extended_pid_validation bitmap but
+    PID 06 returns no data, testing the unavailable-reason classification.
+    """
+
+    def test_supported_pid_no_data(self):
+        """PID 06 is in the bitmap but returns NO DATA →
+        supported: true, available: false, reason: NO_DATA."""
+
+        class NoDataExtendedAdapter:
+            protocol = "MOCK"
+            adapter_type = "MOCK"
+
+            _RAW = {
+                # Bitmap: all extended PIDs supported (same as extended_pid_validation)
+                "0100": bytes.fromhex("41009FB98001"),
+                "0120": bytes.fromhex("412000000001"),
+                "0140": bytes.fromhex("414040000000"),
+                # Standard health PIDs
+                "0104": bytes.fromhex("410476"),
+                "0105": bytes.fromhex("41057E"),
+                "010C": bytes.fromhex("410C0E10"),
+                "010D": bytes.fromhex("410D00"),
+                "0142": bytes.fromhex("41423469"),
+                # PID 06 NOT in dict → returns b"" → NO DATA
+                "0107": bytes.fromhex("410780"),
+                "0108": bytes.fromhex("41087F"),
+                "0109": bytes.fromhex("41098D"),
+                "010B": bytes.fromhex("410B2A"),
+                "0110": bytes.fromhex("41100064"),
+                "0111": bytes.fromhex("411105"),
+            }
+
+            def send(self, cmd: str) -> bytes:
+                raw = self._RAW.get(cmd, b"")
+                if not raw:
+                    return b""
+                return raw.hex().upper().encode("ascii")
+
+        adapter = NoDataExtendedAdapter()
+        health = read_vehicle_health(adapter)
+
+        # PID 06 (STFT Bank 1) — in bitmap but no response
+        stft_result = health["stftBank1"]
+        assert stft_result["supported"] is True
+        assert stft_result["available"] is False
+        assert stft_result["value"] is None
+        assert stft_result["reason"] == "NO_DATA"
+
+        # PID 07 (LTFT Bank 1) — works fine
+        assert health["ltftBank1"]["supported"] is True
+        assert health["ltftBank1"]["available"] is True
+        assert health["ltftBank1"]["value"] == 0.0
+
+
+class TestStandardHealthRegression:
+    """Standard health PIDs still work correctly after extended PID integration.
+    Uses the toyota_real_sample profile which has known values for all
+    standard health PIDs but only partial extended PID support in bitmap."""
+
+    def setup_method(self):
+        self.adapter = MockObdAdapter(profile_name="toyota_real_sample")
+        self.health = read_vehicle_health(self.adapter)
+
+    def test_rpm_still_works(self):
+        assert self.health["rpm"]["supported"] is True
+        assert self.health["rpm"]["available"] is True
+        assert self.health["rpm"]["value"] == 900.0
+
+    def test_coolant_still_works(self):
+        assert self.health["coolantTemperature"]["supported"] is True
+        assert self.health["coolantTemperature"]["available"] is True
+        assert self.health["coolantTemperature"]["value"] == 86.0
+
+    def test_engine_load_still_works(self):
+        assert self.health["calculatedEngineLoad"]["supported"] is True
+        assert self.health["calculatedEngineLoad"]["available"] is True
+        assert self.health["calculatedEngineLoad"]["value"] == 46.3
+
+    def test_battery_voltage_still_works(self):
+        assert self.health["batteryVoltage"]["supported"] is True
+        assert self.health["batteryVoltage"]["available"] is True
+        assert self.health["batteryVoltage"]["value"] == 13.417
+
+    def test_speed_still_works(self):
+        assert self.health["vehicleSpeed"]["supported"] is True
+        assert self.health["vehicleSpeed"]["available"] is True
+        assert self.health["vehicleSpeed"]["value"] == 0.0
+
+    def test_extended_pids_in_toyota_profile(self):
+        """Toyota profile has PIDs 06,07,10,11 in bitmap but no response
+        data — they should be supported-but-unavailable. PIDs 08,09,0B
+        are not in bitmap — they should be unsupported."""
+        # In bitmap but no data
+        for field in ["stftBank1", "ltftBank1", "maf", "throttlePosition"]:
+            assert self.health[field]["supported"] is True, (
+                f"{field} should be supported (in bitmap)"
+            )
+            assert self.health[field]["available"] is False, (
+                f"{field} should be unavailable (no data)"
+            )
+
+        # Not in bitmap
+        for field in ["stftBank2", "ltftBank2", "map"]:
+            assert self.health[field]["supported"] is False, (
+                f"{field} should be unsupported (not in bitmap)"
+            )
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

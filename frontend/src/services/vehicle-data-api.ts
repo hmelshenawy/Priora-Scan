@@ -26,6 +26,23 @@ export interface ReadinessMonitor {
 }
 
 /**
+ * Extended PID data point — a single extended PID result from vehicle health.
+ *
+ * Used for fuel trim, airflow, and throttle position PIDs (Feature 018B).
+ * Includes `available` and `pid` fields that standard VehicleDataPoint lacks,
+ * plus an optional `reason` field for discovery failure classification.
+ */
+export interface ExtendedPidDataPoint {
+  pid: string;
+  value: number | null;
+  unit: string;
+  supported: boolean;
+  available: boolean;
+  rawResponse?: string | null;
+  reason?: string;
+}
+
+/**
  * Full vehicle data shape returned by the API.
  */
 export interface VehicleDataJson {
@@ -56,6 +73,15 @@ export interface VehicleDataJson {
       rawResponse?: string;
     };
   };
+  // Extended PID fields (Feature 018B) — all optional for backward compatibility.
+  // Discovery state is represented inside each PID result via the `reason` field.
+  stftBank1?: ExtendedPidDataPoint;
+  ltftBank1?: ExtendedPidDataPoint;
+  stftBank2?: ExtendedPidDataPoint;
+  ltftBank2?: ExtendedPidDataPoint;
+  map?: ExtendedPidDataPoint;
+  maf?: ExtendedPidDataPoint;
+  throttlePosition?: ExtendedPidDataPoint;
 }
 
 /**

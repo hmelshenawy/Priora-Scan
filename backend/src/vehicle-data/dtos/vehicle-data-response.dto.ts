@@ -16,6 +16,23 @@ export interface VehicleDataPoint {
 }
 
 /**
+ * ExtendedPidDataPoint — a single extended PID result from vehicle health.
+ *
+ * Used for fuel trim, airflow, and throttle position PIDs (Feature 018B).
+ * Includes `available` and `pid` fields that standard VehicleDataPoint lacks,
+ * plus an optional `reason` field for discovery failure classification.
+ */
+export interface ExtendedPidDataPoint {
+  pid: string;
+  value: number | null;
+  unit: string;
+  supported: boolean;
+  available: boolean;
+  rawResponse?: string | null;
+  reason?: string;
+}
+
+/**
  * Readiness monitor status for a single monitor.
  * `complete` is null when the monitor is not supported by the vehicle.
  */
@@ -55,6 +72,15 @@ export interface VehicleDataJson {
       rawResponse?: string;
     };
   };
+  // Extended PID fields (Feature 018B) — all optional for backward compatibility.
+  // Discovery state is represented inside each PID result via the `reason` field.
+  stftBank1?: ExtendedPidDataPoint;
+  ltftBank1?: ExtendedPidDataPoint;
+  stftBank2?: ExtendedPidDataPoint;
+  ltftBank2?: ExtendedPidDataPoint;
+  map?: ExtendedPidDataPoint;
+  maf?: ExtendedPidDataPoint;
+  throttlePosition?: ExtendedPidDataPoint;
 }
 
 /**
@@ -103,6 +129,10 @@ export class VehicleDataReadResponseDto {
  * Validate that an unknown value has the basic shape of VehicleDataJson.
  * Used when the agent pushes a VEHICLE_DATA_READ event — validates
  * the payload before persisting to the database.
+ *
+ * Extended PID fields (Feature 018B) are accepted but NOT required.
+ * Pre-018B payloads without extended fields still pass validation.
+ * When present, each extended PID field must have the ExtendedPidDataPoint shape.
  */
 export function isValidVehicleDataJson(data: unknown): data is VehicleDataJson {
   if (!data || typeof data !== 'object') return false;
@@ -129,5 +159,32 @@ export function isValidVehicleDataJson(data: unknown): data is VehicleDataJson {
       return false;
     }
   }
+
+  // Validate optional extended PID fields if present (Feature 018B).
+  // Each must have at least `pid`, `supported`, and `available` properties.
+  const extendedPidFields = [
+    'stftBank1',
+    'ltftBank1',
+    'stftBank2',
+    'ltftBank2',
+    'map',
+    'maf',
+    'throttlePosition',
+  ];
+  for (const field of extendedPidFields) {
+    if (field in d) {
+      const point = d[field];
+      if (
+        !point ||
+        typeof point !== 'object' ||
+        !('pid' in (point as object)) ||
+        !('supported' in (point as object)) ||
+        !('available' in (point as object))
+      ) {
+        return false;
+      }
+    }
+  }
+
   return true;
 }

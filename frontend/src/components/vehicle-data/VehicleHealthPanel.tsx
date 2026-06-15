@@ -9,9 +9,10 @@ import {
   Activity,
   AlertCircle,
   RotateCw,
+  Wind,
 } from 'lucide-react';
 import { useVehicleData, useReadVehicleData } from '../../services/vehicle-data-api';
-import type { VehicleDataJson } from '../../services/vehicle-data-api';
+import type { VehicleDataJson, ExtendedPidDataPoint } from '../../services/vehicle-data-api';
 import type { Vehicle } from '../../hooks/use-vehicles';
 import { VehicleDataPointRow } from './VehicleDataPointRow';
 import { SupportedPidList } from './SupportedPidList';
@@ -156,6 +157,9 @@ export function VehicleHealthPanel({
             data={vehicleData.mileage}
             icon={<Gauge className="h-4 w-4 text-purple-500" />}
           />
+
+          {/* Fuel & Air Data — extended PIDs (Feature 018B) */}
+          <FuelAndAirDataCard vehicleData={vehicleData} />
 
           {/* Readiness Monitors — special rendering */}
           {vehicleData.readinessMonitors && (
@@ -372,6 +376,215 @@ function ReadinessMonitorsRow({ data }: ReadinessMonitorsRowProps) {
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Fuel & Air Data — Extended PID section (Feature 018B)
+// ---------------------------------------------------------------------------
+
+/**
+ * getFuelTrimHint — classifies fuel trim values into deterministic categories.
+ *
+ * Rules:
+ *   -10% to +10% → "Normal"
+ *   Above +10%    → "Lean Tendency"
+ *   Below -10%    → "Rich Tendency"
+ *   null/undefined → null (no badge shown)
+ *
+ * No diagnosis, no repair recommendations, no AI language.
+ */
+function getFuelTrimHint(value: number | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  if (value > 10) return 'Lean Tendency';
+  if (value < -10) return 'Rich Tendency';
+  return 'Normal';
+}
+
+/**
+ * Badge color classes for each fuel trim hint.
+ */
+const TRIM_HINT_BADGE: Record<string, string> = {
+  Normal: 'bg-emerald-100 text-emerald-700',
+  'Lean Tendency': 'bg-amber-100 text-amber-700',
+  'Rich Tendency': 'bg-red-100 text-red-700',
+};
+
+/**
+ * ExtendedPidRow — renders a single extended PID data point.
+ *
+ * State handling:
+ * 1. Discovery failure (supported=false, reason="PID_DISCOVERY_FAILED") → "Not Available"
+ * 2. Unsupported (supported=false) → "Not Supported"
+ * 3. Supported + Unavailable (supported=true, available=false) → "No Data"
+ * 4. Supported + Available → show value + unit, optional fuel trim hint badge
+ */
+function ExtendedPidRow({
+  label,
+  data,
+  icon,
+  showTrimHint,
+}: {
+  label: string;
+  data: ExtendedPidDataPoint;
+  icon?: React.ReactNode;
+  showTrimHint?: boolean;
+}) {
+  // Discovery failure — PID discovery did not succeed for this vehicle
+  if (!data.supported && data.reason === 'PID_DISCOVERY_FAILED') {
+    return (
+      <div className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2.5">
+        <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
+          {icon}
+          {label}
+        </span>
+        <span className="text-xs italic text-slate-400">Not Available</span>
+      </div>
+    );
+  }
+
+  // Unsupported PID — not in the vehicle's supported PID bitmap
+  if (!data.supported) {
+    return (
+      <div className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2.5">
+        <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
+          {icon}
+          {label}
+        </span>
+        <span className="text-xs italic text-slate-400">Not Supported</span>
+      </div>
+    );
+  }
+
+  // Supported but no data available
+  if (!data.available) {
+    return (
+      <div className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2.5">
+        <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
+          {icon}
+          {label}
+        </span>
+        <span className="text-xs italic text-slate-400">No Data</span>
+      </div>
+    );
+  }
+
+  // Supported and available — show value with unit
+  const formattedValue =
+    data.value !== null && data.value !== undefined
+      ? `${Number.isInteger(data.value) ? data.value : data.value.toFixed(1)} ${data.unit}`
+      : '—';
+
+  const trimHint = showTrimHint ? getFuelTrimHint(data.value) : null;
+
+  return (
+    <div className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2.5">
+      <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
+        {icon}
+        {label}
+      </span>
+      <span className="flex items-center gap-2">
+        <span className="text-sm font-semibold text-slate-900">{formattedValue}</span>
+        {trimHint && (
+          <span
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${TRIM_HINT_BADGE[trimHint] ?? 'bg-slate-100 text-slate-600'}`}
+          >
+            {trimHint}
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * FuelAndAirDataCard — renders the "Fuel & Air Data" section.
+ *
+ * Displays STFT Bank 1, LTFT Bank 1, STFT Bank 2, LTFT Bank 2,
+ * MAP, MAF, and Throttle Position with fuel trim hints.
+ *
+ * Only renders when at least one extended PID field exists in the data.
+ * For pre-018B sessions with no extended fields, the section is hidden entirely.
+ */
+function FuelAndAirDataCard({ vehicleData }: { vehicleData: VehicleDataJson }) {
+  const EXTENDED_PID_FIELDS = [
+    'stftBank1',
+    'ltftBank1',
+    'stftBank2',
+    'ltftBank2',
+    'map',
+    'maf',
+    'throttlePosition',
+  ] as const;
+
+  // Don't render section at all for pre-018B data
+  const hasAnyExtendedField = EXTENDED_PID_FIELDS.some(
+    (field) => vehicleData[field] !== undefined,
+  );
+  if (!hasAnyExtendedField) return null;
+
+  return (
+    <div className="rounded-md bg-slate-50 px-3 py-2.5">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+        <Wind className="h-4 w-4 text-teal-500" />
+        Fuel &amp; Air Data
+      </h3>
+      <div className="mt-2 space-y-1.5">
+        {vehicleData.stftBank1 && (
+          <ExtendedPidRow
+            label="STFT Bank 1"
+            data={vehicleData.stftBank1}
+            icon={<Fuel className="h-4 w-4 text-green-500" />}
+            showTrimHint
+          />
+        )}
+        {vehicleData.ltftBank1 && (
+          <ExtendedPidRow
+            label="LTFT Bank 1"
+            data={vehicleData.ltftBank1}
+            icon={<Fuel className="h-4 w-4 text-green-600" />}
+            showTrimHint
+          />
+        )}
+        {vehicleData.stftBank2 && (
+          <ExtendedPidRow
+            label="STFT Bank 2"
+            data={vehicleData.stftBank2}
+            icon={<Fuel className="h-4 w-4 text-green-500" />}
+            showTrimHint
+          />
+        )}
+        {vehicleData.ltftBank2 && (
+          <ExtendedPidRow
+            label="LTFT Bank 2"
+            data={vehicleData.ltftBank2}
+            icon={<Fuel className="h-4 w-4 text-green-600" />}
+            showTrimHint
+          />
+        )}
+        {vehicleData.map && (
+          <ExtendedPidRow
+            label="MAP"
+            data={vehicleData.map}
+            icon={<Gauge className="h-4 w-4 text-sky-500" />}
+          />
+        )}
+        {vehicleData.maf && (
+          <ExtendedPidRow
+            label="MAF"
+            data={vehicleData.maf}
+            icon={<Wind className="h-4 w-4 text-cyan-500" />}
+          />
+        )}
+        {vehicleData.throttlePosition && (
+          <ExtendedPidRow
+            label="Throttle Position"
+            data={vehicleData.throttlePosition}
+            icon={<Gauge className="h-4 w-4 text-orange-500" />}
+          />
+        )}
       </div>
     </div>
   );

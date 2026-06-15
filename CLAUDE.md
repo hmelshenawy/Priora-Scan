@@ -4,6 +4,12 @@ shell commands, and other important information, read the current plan:
 
 `specs/018-extended-live-data-pids/plan.md`
 
+Feature 018B (Full Pipeline) artifacts:
+- Spec: `specs/018-extended-live-data-pids/spec-018b.md`
+- Data model: `specs/018-extended-live-data-pids/data-model.md`
+- API contract: `specs/018-extended-live-data-pids/contracts/vehicle-data-api-contract.md`
+- Quickstart: `specs/018-extended-live-data-pids/quickstart.md`
+
 # PrioraScan AI Agent Instructions
 
 ## Mandatory Reading Order

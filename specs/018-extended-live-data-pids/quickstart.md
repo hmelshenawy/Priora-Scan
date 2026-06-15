@@ -1,16 +1,18 @@
-# Quickstart: Extended PID Validation
+# Quickstart: Extended Live Data PIDs
 
 **Feature**: 018-extended-live-data-pids | **Date**: 2026-06-15
 
 ## Prerequisites
 
 - Desktop agent codebase at `desktop-agent/`
+- Backend codebase at `backend/`
+- Frontend codebase at `frontend/`
 - Python 3.11+ with pytest
-- Mock adapter profiles available for testing
+- Node.js 18+ with npm
 
-## Running Validation
+## Feature 018A: Validation Only
 
-### With Mock Adapter (Development/Testing)
+### Running Validation
 
 ```python
 from src.obd.mock_adapter import MockObdAdapter
@@ -32,43 +34,7 @@ for pid_hex, pid_result in result["pids"].items():
           f"available={pid_result['available']}, value={pid_result['value']}")
 ```
 
-### With Real ELM327 Adapter
-
-```python
-from src.obd.usb_elm327 import Elm327Adapter
-from src.obd.commands.pid_validation import read_extended_pid_validation
-
-adapter = Elm327Adapter()
-if adapter.connect():
-    try:
-        result = read_extended_pid_validation(adapter)
-        print(result["report"])
-        print(result["support_matrix"])
-    except RuntimeError as e:
-        if "Supported PID discovery failed" in str(e):
-            print("Discovery failed — cannot validate PIDs")
-        else:
-            raise
-    adapter.close()
-```
-
-### Discovery Failure Handling
-
-Discovery failure raises `RuntimeError` (consistent with the agent's convention for infrastructure failures):
-
-```python
-from src.obd.commands.pid_validation import read_extended_pid_validation
-
-try:
-    result = read_extended_pid_validation(adapter)
-except RuntimeError as e:
-    if "Supported PID discovery failed" in str(e):
-        print("Extended PID validation aborted. Supported PID discovery failed.")
-    else:
-        raise
-```
-
-## Running Tests
+### Running 018A Tests
 
 ```bash
 cd desktop-agent
@@ -78,70 +44,102 @@ python -m pytest tests/test_extended_pids.py tests/test_pid_validation.py -v
 
 # Run full regression suite (must pass)
 python -m pytest tests/ -v
-
-# Run specific decoder tests
-python -m pytest tests/test_extended_pids.py::TestFuelTrimDecoding -v
-python -m pytest tests/test_extended_pids.py::TestMafDecoding -v
-python -m pytest tests/test_extended_pids.py::TestThrottleDecoding -v
-
-# Run validation integration tests
-python -m pytest tests/test_pid_validation.py -v
 ```
 
-## Expected Output
+## Feature 018B: Full Pipeline
 
-### Support Matrix (Extended PID Validation Profile)
+### Agent Integration
 
+Extended PIDs are now integrated into `read_vehicle_health()`. No separate call is needed:
+
+```python
+from src.obd.mock_adapter import MockObdAdapter
+from src.obd.commands.vehicle_health import read_vehicle_health
+
+# Standard vehicle health read now includes extended PIDs
+adapter = MockObdAdapter(profile_name="extended_pid_validation")
+health = read_vehicle_health(adapter)
+
+# Extended PID fields are in the result dict:
+print(health["stftBank1"])   # {"pid": "06", "value": 0.0, "unit": "%", "supported": true, ...}
+print(health["ltftBank1"])   # {"pid": "07", "value": -3.12, "unit": "%", "supported": true, ...}
+print(health["map"])         # {"pid": "0B", "value": 42, "unit": "kPa", "supported": true, ...}
+print(health["maf"])         # {"pid": "10", "value": 1.0, "unit": "g/s", "supported": true, ...}
+print(health["throttlePosition"])  # {"pid": "11", "value": 1.96, "unit": "%", "supported": true, ...}
+
+# Unsupported PIDs show "Not Supported" state:
+print(health["stftBank2"])  # {"pid": "08", "value": null, "unit": "%", "supported": false, ...}
+
+# Discovery failure is represented inside each PID result:
+# Each PID result has reason: "PID_DISCOVERY_FAILED" when discovery fails
+# No top-level metadata fields (extendedPidsDiscoveryFailed, supportedExtendedPids, unsupportedExtendedPids)
 ```
-PID | Name              | Supported | Available | Value
-06  | STFT Bank 1       | YES       | YES       | 0.0 %
-07  | LTFT Bank 1       | YES       | YES       | 0.0 %
-08  | STFT Bank 2       | YES       | YES       | -0.78 %
-09  | LTFT Bank 2       | YES       | YES       | 10.16 %
-0B  | MAP               | YES       | YES       | 42 kPa
-10  | MAF               | YES       | YES       | 1.00 g/s
-11  | Throttle Position | YES       | YES       | 1.96 %
+
+### Discovery Failure Handling
+
+```python
+# When PID discovery fails, extended PIDs are marked unavailable
+# but standard health PIDs still use fallback behavior
+health = read_vehicle_health(adapter)
+
+# Check for discovery failure by examining PID results:
+for field in ["stftBank1", "ltftBank1", "stftBank2", "ltftBank2", "map", "maf", "throttlePosition"]:
+    pid_data = health.get(field, {})
+    if pid_data.get("reason") == "PID_DISCOVERY_FAILED":
+        print(f"  {field}: discovery failed — Not Available")
 ```
 
-### Detailed Report
+### Fuel Trim Hint Logic (Frontend)
 
+```typescript
+function getFuelTrimHint(value: number | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  if (value < -10) return "Rich Tendency";
+  if (value > 10) return "Lean Tendency";
+  return "Normal";
+}
 ```
-===== EXTENDED PID VALIDATION =====
 
-PID 06 STFT Bank 1
-Supported: YES
-Available: YES
-Raw Response: 410680
-Value: 0.0 %
+### Frontend: Fuel & Air Data Section
 
-PID 07 LTFT Bank 1
-Supported: YES
-Available: YES
-Raw Response: 410780
-Value: 0.0 %
+```tsx
+// In VehicleHealthPanel.tsx, the extended PID data renders as:
+// - Supported + Available: "STFT Bank 1: 2.3 %" with fuel trim hint badge
+// - Supported + Unavailable: "STFT Bank 1: No Data"
+// - Unsupported: "STFT Bank 1: Not Supported"
+// - Missing field (pre-018B data): "STFT Bank 1: Not Supported"
+// - Discovery failed: "STFT Bank 1: Not Available"
+```
 
-PID 08 STFT Bank 2
-Supported: YES
-Available: YES
-Raw Response: 41067F
-Value: -0.78 %
+### Running 018B Tests
 
-...
+```bash
+# Agent integration tests
+cd desktop-agent
+python -m pytest tests/test_vehicle_health_integration.py -v -k "extended"
 
-===== END VALIDATION =====
+# Full regression suite (must pass — includes 018A tests)
+python -m pytest tests/ -v
+
+# Backend DTO tests
+cd ../backend
+npm run test -- --testPathPattern="vehicle-data-response"
+
+# Frontend component tests
+cd ../frontend
+npm run test -- --testPathPattern="VehicleHealthPanel"
 ```
 
 ## Key Files
 
-| File | Purpose | Status |
+| File | Purpose | Feature |
 |---|---|---|
-| `src/obd/commands/extended_pids.py` | PID reader functions + CONFIGURED_EXTENDED_PIDS | NEW |
-| `src/obd/commands/pid_validation.py` | Validation orchestrator + report generator | NEW |
-| `src/obd/commands/health_pids.py` | Existing helpers (_send_pid, _parse_bytes, result factories) | UNCHANGED |
-| `src/obd/commands/supported_pids.py` | Existing PID discovery (read_supported_pids) | UNCHANGED |
-| `src/obd/commands/vehicle_data.py` | Re-export facade | UNCHANGED — no re-exports added |
-| `src/obd/mock_profiles/extended_pid_validation_profile.py` | Dedicated validation profile with all PIDs | NEW |
-| `src/obd/mock_profiles/toyota_real_sample.py` | Frozen reference profile | UNCHANGED |
-| `src/obd/mock_profiles/profile_registry.py` | Profile registry — add new profile entry | MODIFIED (additive) |
-| `tests/test_extended_pids.py` | Decoder unit tests | NEW |
-| `tests/test_pid_validation.py` | Validation integration tests | NEW |
+| `desktop-agent/src/obd/commands/extended_pids.py` | PID reader functions + CONFIGURED_EXTENDED_PIDS | 018A (frozen) |
+| `desktop-agent/src/obd/commands/pid_validation.py` | Validation orchestrator + report generator | 018A (frozen) |
+| `desktop-agent/src/obd/commands/vehicle_health.py` | Production health polling (MODIFIED for 018B) | 018B |
+| `desktop-agent/src/agent/scan_executor.py` | Agent event emission (REVIEW for 018B) | 018B |
+| `desktop-agent/src/obd/mock_profiles/extended_pid_validation_profile.py` | Validation mock profile | 018A (frozen) |
+| `desktop-agent/src/obd/mock_profiles/toyota_real_sample.py` | Frozen reference profile | UNCHANGED |
+| `backend/src/vehicle-data/dtos/vehicle-data-response.dto.ts` | Backend DTO types (MODIFIED for 018B) | 018B |
+| `frontend/src/services/vehicle-data-api.ts` | Frontend API types (MODIFIED for 018B) | 018B |
+| `frontend/src/components/vehicle-data/VehicleHealthPanel.tsx` | Health panel UI (MODIFIED for 018B) | 018B |

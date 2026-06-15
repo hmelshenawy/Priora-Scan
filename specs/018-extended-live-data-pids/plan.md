@@ -1,51 +1,53 @@
-# Implementation Plan: Real Vehicle Extended PID Validation
+# Implementation Plan: Extended Live Data PIDs — Full Pipeline
 
-**Branch**: `018-extended-live-data-pids` | **Date**: 2026-06-15 | **Spec**: [spec.md](./spec.md)
+**Branch**: `018-extended-live-data-pids` | **Date**: 2026-06-15 | **Spec**: [spec-018b.md](./spec-018b.md)
 
 ## Summary
 
-Add desktop-agent-only validation of 7 extended OBD-II Mode 01 PIDs (STFT/LTFT Banks 1&2, MAP, MAF, Throttle Position) to confirm real-vehicle support before building the full pipeline in Feature 018B. The validation reuses existing `_send_pid`, `_parse_bytes`, and three-state result factories from `health_pids.py`, adds new reader functions for each extended PID, orchestrates them through `read_extended_pid_validation()`, and produces a console report with support matrix. No backend, frontend, database, or API changes. No modifications to existing files except the mock profile registry. No re-exports through `vehicle_data.py`.
+Promote the 7 extended PIDs validated in Feature 018A into the production vehicle health pipeline. The desktop agent's `vehicle_health.py` orchestrator will be extended to query extended PIDs alongside existing health PIDs, with a discovery-failure guard that prevents blind querying. Discovery state lives inside each PID result's `reason` field — no top-level metadata fields. Backend DTOs and frontend types will be extended with optional PID fields only. A new "Fuel & Air Data" section will be added to the VehicleHealthPanel with lightweight fuel trim hints. No new database tables, no new API endpoints, no changes to `vehicle_data.py` re-exports, no modifications to 018A validation modules.
 
 ## Technical Context
 
-**Language/Version**: Python 3.11+ (desktop-agent subsystem)
+**Language/Version**: Python 3.11+ (desktop-agent), TypeScript (frontend), NestJS/Prisma (backend)
 
-**Primary Dependencies**: pytest (testing), existing `src.obd.commands` modules
+**Primary Dependencies**: Existing `src.obd.commands` modules, `@tanstack/react-query`, `shadcn/ui`
 
-**Storage**: N/A (validation-only, no persistence)
+**Storage**: Existing `DiagnosticSession.vehicleDataJson` JSONB column — no schema changes
 
-**Testing**: pytest with MockObdAdapter profiles
+**Testing**: pytest (agent), Jest (backend/frontend)
 
-**Target Platform**: Desktop (Windows/macOS/Linux) — ELM327 OBD adapter host
+**Target Platform**: Desktop (Windows/macOS/Linux) + Web browser (Next.js)
 
-**Project Type**: Desktop agent module (sub-package of PrioraScan)
+**Project Type**: Full-stack feature — desktop agent module + backend DTO extension + frontend UI component
 
-**Performance Goals**: Single OBD query per PID; no streaming or real-time requirements
-
-**Constraints**: Must not modify existing health/readiness/freeze-frame/DTC/VIN behavior. Must abort on discovery failure (no fallback). No changes to `vehicle_data.py`, `toyota_real_sample.py`, or any other existing file except the profile registry.
-
-**Scale/Scope**: 7 required PIDs + 2 optional; 7 reader functions; 1 orchestration function; 1 new mock profile; 2 new test files; 2 new source files; 1 registry update
+**Constraints**:
+- No modifications to `extended_pids.py`, `pid_validation.py`, `extended_pid_validation_profile.py`, or `toyota_real_sample.py` (018A modules)
+- No `vehicle_data.py` re-export changes required
+- No new database tables or schema migrations
+- No new API endpoints
+- No changes to `/obd/scans/:id/results`
+- Integration point is `vehicle_health.py` only
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- [x] **Documentation First**: Spec references no PRD/SAD entities — this is a validation-only feature with no new entities, APIs, or UI screens. No SAD update needed.
+- [x] **Documentation First**: Spec references PRD health data requirements and SAD vehicle health workflow. No new entities introduced — extended PIDs are added to existing structures.
 - [x] **Design Before Implementation**: This plan is the design document. Implementation proceeds after plan approval.
-- [x] **Layered Architecture**: N/A — desktop agent is a standalone Python package, not a layered web service. The agent's internal pattern (adapter → reader → orchestrator) mirrors the layered separation.
-- [x] **Modular Development**: Feature is contained entirely within two new files (`extended_pids.py`, `pid_validation.py`) plus one new mock profile. No cross-module boundary violations.
-- [x] **Code Quality**: New files will follow existing patterns (single-responsibility, small functions, no duplication). Reuse of `_send_pid`, `_parse_bytes`, and result factories avoids duplication.
-- [x] **Multi-Tenant First**: N/A — desktop agent is single-tenant per vehicle connection.
-- [x] **API First**: N/A — no backend API changes.
-- [x] **Scan Source Agnostic**: Validation works with any adapter (mock, USB ELM327, WiFi ELM327) via `BaseAdapter`.
-- [x] **AI Assists, Never Decides**: N/A — no AI features.
-- [x] **Standalone First**: N/A — no PrioraFlow integration.
-- [x] **Auditability**: N/A — no persistent data.
-- [x] **Security By Default**: N/A — no authentication/authorization concerns at agent level.
-- [x] **Progressive Hardware Integration**: Validation uses existing adapter abstraction; works with any OBD source.
+- [x] **Layered Architecture**: Agent reads data → backend persists in JSONB → API exposes via DTO → frontend renders. No business logic in frontend beyond display rules (fuel trim hints).
+- [x] **Modular Development**: Feature touches one agent module (`vehicle_health.py`), backend DTOs, frontend component. Cross-module changes are explicitly documented.
+- [x] **Code Quality**: Each file modification is small and focused. Fuel trim hint logic is a pure function.
+- [x] **Multi-Tenant First**: N/A — vehicle data is scoped to diagnostic sessions which are already tenant-scoped.
+- [x] **API First**: No new endpoints. Existing `GET /api/v1/diagnostic-sessions/:sessionId/vehicle-data` is extended with new fields.
+- [x] **Scan Source Agnostic**: Extended PID data is part of the standard vehicle health read. Works with any adapter via `BaseAdapter`.
+- [x] **AI Assists, Never Decides**: Fuel trim hints are deterministic rules, not AI. No diagnosis, no repair recommendations.
+- [x] **Standalone First**: N/A — no PrioraFlow dependency.
+- [x] **Auditability**: Vehicle data is persisted in DiagnosticSession with audit records.
+- [x] **Security By Default**: Existing auth/tenant guards apply to the existing endpoint. No new endpoints.
+- [x] **Progressive Hardware Integration**: Extended PIDs work with any OBD adapter (USB, WiFi, mock).
 - [x] **Git & Change Safety**: Feature branch `018-extended-live-data-pids`.
-- [x] **Simplicity Over Complexity**: Validation-only scope. No persistence, no API, no UI. No re-exports. No modifications to existing source files.
-- [x] **Backend-Centric Business Logic**: N/A — no business logic changes.
+- [x] **Simplicity Over Complexity**: Feature adds 7 data points to an existing pipeline. No new infrastructure.
+- [x] **Backend-Centric Business Logic**: Fuel trim hint rules are display-level (frontend). Data flow and persistence are backend-driven.
 
 **Gate Result**: PASS — no violations.
 
@@ -55,13 +57,15 @@ Add desktop-agent-only validation of 7 extended OBD-II Mode 01 PIDs (STFT/LTFT B
 
 ```text
 specs/018-extended-live-data-pids/
-├── plan.md              # This file
-├── spec.md              # Feature specification
-├── research.md          # Phase 0 output
-├── data-model.md        # Phase 1 output (N/A for this feature)
-├── quickstart.md        # Phase 1 output
-└── checklists/
-    └── requirements.md  # Spec quality checklist
+├── spec.md                  # Feature 018A specification (validation-only)
+├── spec-018b.md             # Feature 018B specification (full pipeline)
+├── plan.md                  # This file (018A + 018B)
+├── research.md              # Phase 0 research (018A)
+├── quickstart.md            # Quick reference (018A)
+├── checklists/
+│   ├── requirements.md       # 018A checklist
+│   └── requirements-018b.md # 018B checklist
+└── tasks.md                 # Tasks (018A, to be updated for 018B)
 ```
 
 ### Source Code (repository root)
@@ -69,26 +73,33 @@ specs/018-extended-live-data-pids/
 ```text
 desktop-agent/
 ├── src/obd/commands/
-│   ├── extended_pids.py          # NEW — reader functions for 7+2 extended PIDs
-│   ├── pid_validation.py         # NEW — read_extended_pid_validation() orchestrator + report
-│   ├── health_pids.py            # EXISTING — reuse helpers, do NOT modify
-│   ├── vehicle_health.py         # EXISTING — do NOT modify
-│   ├── vehicle_data.py           # EXISTING — do NOT modify (no re-exports)
-│   ├── supported_pids.py         # EXISTING — reuse read_supported_pids() as-is
-│   └── ...                       # EXISTING — all other files unchanged
+│   ├── vehicle_health.py              # MODIFY — add extended PID integration
+│   ├── extended_pids.py               # EXISTING — DO NOT MODIFY (018A)
+│   ├── pid_validation.py              # EXISTING — DO NOT MODIFY (018A)
+│   ├── health_pids.py                 # EXISTING — DO NOT MODIFY
+│   ├── vehicle_data.py                # EXISTING — DO NOT MODIFY
+│   └── supported_pids.py             # EXISTING — DO NOT MODIFY
 ├── src/obd/mock_profiles/
-│   ├── extended_pid_validation_profile.py  # NEW — deterministic test profile
-│   ├── toyota_real_sample.py      # EXISTING — do NOT modify (frozen reference)
-│   ├── profile_registry.py        # EXISTING — add new profile registration
-│   └── ...                        # EXISTING — all other profiles unchanged
-└── tests/
-    ├── test_extended_pids.py              # NEW — unit tests for extended PID decoders
-    ├── test_pid_validation.py             # NEW — integration tests for validation + report
-    ├── test_vehicle_health_integration.py  # EXISTING — must pass unchanged
-    └── test_toyota_regression.py          # EXISTING — must pass unchanged
+│   ├── extended_pid_validation_profile.py  # EXISTING — DO NOT MODIFY (018A)
+│   ├── toyota_real_sample.py              # EXISTING — DO NOT MODIFY
+│   └── profile_registry.py               # EXISTING — may need new test profile
+└── src/agent/
+    └── scan_executor.py              # MODIFY — add extended PID fields to vehicle_data payload
+
+backend/
+├── src/vehicle-data/dtos/
+│   └── vehicle-data-response.dto.ts  # MODIFY — add extended PID fields to VehicleDataJson
+└── src/vehicle-data/services/
+    └── vehicle-data.service.ts        # REVIEW — may need isValidVehicleDataJson update
+
+frontend/
+├── src/services/
+│   └── vehicle-data-api.ts           # MODIFY — add extended PID fields to VehicleDataJson type
+└── src/components/vehicle-data/
+    └── VehicleHealthPanel.tsx         # MODIFY — add Fuel & Air Data section + fuel trim hints
 ```
 
-**Structure Decision**: Two new source modules (`extended_pids.py`, `pid_validation.py`) plus one new mock profile (`extended_pid_validation_profile.py`). No modifications to existing command modules or `vehicle_data.py`. The only existing file modified is `profile_registry.py` to register the new profile. `toyota_real_sample.py` remains frozen as a reference profile.
+**Structure Decision**: The integration point for extended PIDs in the agent is `vehicle_health.py`, not `vehicle_data.py`. The `scan_executor.py` already calls `read_vehicle_health()` and enriches it — the extended PID fields will be added to the enrichment step. No `vehicle_data.py` re-export changes are required.
 
 ## Phase 0: Research
 
@@ -96,308 +107,244 @@ desktop-agent/
 
 | # | Unknown | Resolution |
 |---|---------|------------|
-| R1 | Which PIDs already exist in `health_pids.py` vs need new readers? | PIDs 06, 07, 10, 11 are NOT in `CONFIGURED_HEALTH_PIDS` — they exist only in the backend PID seed. All 7 PIDs need new Python reader functions. |
-| R2 | Can `_send_pid` and `_parse_bytes` be reused as-is? | Yes — they are module-level functions in `health_pids.py` that can be imported. No extraction needed. |
-| R3 | Does the three-state result model cover all validation states? | Yes — matches FR-002 exactly. No new result types needed. |
-| R4 | How does `read_vehicle_health` handle discovery failure? | It falls back to attempting all `CONFIGURED_HEALTH_PIDS`. FR-016 requires the **opposite** — abort on failure. The validation function must implement its own abort logic. |
-| R5 | Mock profile strategy — modify existing or create new? | Create a new dedicated profile (`extended_pid_validation_profile.py`). The `toyota_real_sample.py` profile is a frozen reference representing real captured data and must not be modified. |
-| R6 | What response prefix does each extended PID use? | Mode 01 responses prefix with `41` + PID hex: PID 06 → `4106`, PID 07 → `4107`, PID 0B → `410B`, PID 10 → `4110`, PID 11 → `4111`. Same pattern as existing readers. |
-| R7 | Can the validation function be standalone? | Yes. Called directly with an adapter, not wired into the command queue. Produces console output only. |
-| R8 | What exception convention does the agent use? | The agent uses **no custom exception classes**. It uses `RuntimeError` for infrastructure failures (adapter not connected, VIN read failed) and **result-dicts** for domain-level failures (unsupported PIDs, no data). Discovery failure is an infrastructure failure, so `RuntimeError` is the appropriate choice — consistent with `vin.py` line 100 which raises `RuntimeError("VIN read failed: adapter stopped")`. No new exception type needed. |
+| R1 | How does `read_vehicle_health()` handle discovery failure and how should extended PIDs differ? | `read_vehicle_health()` falls back to attempting all `CONFIGURED_HEALTH_PIDS` when discovery fails. For extended PIDs, FR-019 mandates that discovery failure MUST NOT blindly query extended PIDs — instead, each extended PID is represented as unavailable with reason `PID_DISCOVERY_FAILED`. The standard health PIDs keep their existing fallback behavior. |
+| R2 | How does `scan_executor.py` wire the data to the backend? | `execute_vehicle_data_read()` calls `read_vehicle_health()` and enriches the result dict with `fuelSystemStatus`, `readinessMonitors`, `freezeFrame`, `supportedPids`, `mileage`, and `vin`. The extended PID fields will be added to this enrichment step by reading from the `vehicle_health` result dict. |
+| R3 | What is the current `VehicleDataJson` interface shape and how do new fields get added? | `VehicleDataJson` is a TypeScript interface in both backend (`vehicle-data-response.dto.ts`) and frontend (`vehicle-data-api.ts`). It has required fields (`batteryVoltage`, `vin`, `readinessMonitors`, `fuelSystemStatus`, `calculatedEngineLoad`, `fuelLevel`, `mileage`, `supportedPids`, `freezeFrame`). New extended PID fields will be added as **optional** fields for backward compatibility. |
+| R4 | How does the `VehicleHealthPanel` currently render data? | It renders specific fields from `VehicleDataJson`: batteryVoltage, vin, fuelSystemStatus, calculatedEngineLoad, fuelLevel, mileage, readinessMonitors, freezeFrame, supportedPids. A new "Fuel & Air Data" section will be added as a separate card. |
+| R5 | Can `vehicle_health.py` be extended without breaking existing tests? | Yes. The function returns a dict. Adding new keys to the dict is backward-compatible. The existing `result_map` maps PIDs to field names. Extended PIDs will need a similar mapping. The function can be extended to also read extended PIDs and add them to the result. |
+| R6 | How should discovery failure be handled for extended PIDs specifically? | When `read_supported_pids()` fails or returns empty Mode 01 PIDs, `read_vehicle_health()` currently falls back to all health PIDs. For extended PIDs, the agent will NOT fall back. Instead, all extended PIDs will be marked as `supported: false, available: false` with a `reason: "PID_DISCOVERY_FAILED"` field. Standard health PIDs keep their fallback behavior unchanged. |
 
 ### Research Output
 
-See [research.md](./research.md) for detailed findings.
+See detailed findings in [research.md](./research.md) (018A research covers reader functions, decode formulas, and result models). Additional 018B-specific research is covered in R1–R6 above.
 
 ## Phase 1: Design & Contracts
 
 ### Data Model
 
-N/A — No database entities, no persistence. The validation result is an in-memory dict returned by `read_extended_pid_validation()`.
+No new database entities. Extended PID data is stored in the existing `DiagnosticSession.vehicleDataJson` JSONB column.
+
+The `VehicleDataJson` interface is extended with **optional** fields:
+
+```typescript
+interface VehicleDataJson {
+  // ... existing fields (unchanged) ...
+  batteryVoltage: VehicleDataPoint;
+  vin: VehicleDataPoint;
+  readinessMonitors: { supported: boolean; value: Record<string, ReadinessMonitor> };
+  fuelSystemStatus: VehicleDataPoint;
+  calculatedEngineLoad: VehicleDataPoint;
+  fuelLevel: VehicleDataPoint;
+  mileage: VehicleDataPoint;
+  supportedPids: { '01': string[]; '09': string[] };
+  freezeFrame?: { supported: boolean; available: boolean; value?: { ... } };
+
+  // NEW — Extended PID fields (optional for backward compatibility)
+  stftBank1?: VehicleDataPoint;     // PID 06 - Short Term Fuel Trim Bank 1
+  ltftBank1?: VehicleDataPoint;     // PID 07 - Long Term Fuel Trim Bank 1
+  stftBank2?: VehicleDataPoint;     // PID 08 - Short Term Fuel Trim Bank 2
+  ltftBank2?: VehicleDataPoint;     // PID 09 - Long Term Fuel Trim Bank 2
+  map?: VehicleDataPoint;           // PID 0B - Intake Manifold Absolute Pressure
+  maf?: VehicleDataPoint;           // PID 10 - Mass Air Flow
+  throttlePosition?: VehicleDataPoint; // PID 11 - Throttle Position
+
+  // Discovery state lives inside each PID result's `reason` field.
+  // No top-level metadata fields (extendedPidsDiscoveryFailed, supportedExtendedPids, unsupportedExtendedPids).
+}
+```
 
 ### Contracts
 
-N/A — No API endpoints, no backend contracts. The only contract is the Python function signature:
+**No new API endpoints.** The existing `GET /api/v1/diagnostic-sessions/:sessionId/vehicle-data` endpoint returns the extended `VehicleDataJson` with the new optional fields.
 
-```python
-def read_extended_pid_validation(adapter: BaseAdapter) -> dict:
-    """
-    Validate extended PIDs on a connected vehicle.
-
-    Returns:
-        dict with keys:
-          - "pids": dict mapping PID hex codes to three-state results
-          - "report": str, the formatted console report
-          - "support_matrix": str, the tabular PID|Name|Supported|Available|Value summary
-
-    Raises:
-        RuntimeError: if supported PID discovery fails (FR-016)
-    """
-```
-
-The function raises `RuntimeError` on discovery failure — consistent with the agent's existing convention for infrastructure failures (see `vin.py:100`, `usb_elm327.py:39`, `wifi_elm327.py:179`). No custom exception class is introduced.
+The desktop agent `execute_vehicle_data_read()` function already emits a `VEHICLE_DATA_READ` event with the full vehicle health dict. The extended PID fields will be added to this dict before emission.
 
 ### Key Design Decisions
 
-1. **New modules, not modification of existing modules**: `extended_pids.py` and `pid_validation.py` are new files. `health_pids.py`, `vehicle_health.py`, and `vehicle_data.py` remain unchanged. This ensures zero regression risk and complete isolation.
+1. **Integration point is `vehicle_health.py`**, not `vehicle_data.py`. The `read_vehicle_health()` function will be extended to also read extended PIDs and add them to its result dict. No `vehicle_data.py` re-export changes are required.
 
-2. **No re-exports through vehicle_data.py**: Feature 018A is an internal validation utility. Nothing in production should consume `read_extended_pid_validation()` yet. The implementation stays isolated in `extended_pids.py` and `pid_validation.py`. No import paths change. No existing consumers are affected.
+2. **Discovery failure guard for extended PIDs**. When `read_supported_pids()` returns empty Mode 01 PIDs, `read_vehicle_health()` falls back to all health PIDs (existing behavior). Extended PIDs, however, are NOT blindly queried. Instead, each extended PID is returned as `{ pid, supported: false, available: false, value: null, unit: "...", rawResponse: null, reason: "PID_DISCOVERY_FAILED" }`. The health scan completes without crashing. No top-level metadata fields are added — discovery state lives inside each PID result's `reason` field.
 
-3. **Reuse helpers via import**: `_send_pid`, `_parse_bytes`, `_health_pid_result`, `_unsupported_pid_result`, `_unavailable_pid_result` are imported from `health_pids.py`. No extraction into a shared module — they're already public functions.
+3. **No top-level metadata fields**. The design does not include `extendedPidsDiscoveryFailed`, `supportedExtendedPids`, or `unsupportedExtendedPids`. Each PID result already contains `supported`, `available`, and `reason` fields, which is sufficient for the frontend to determine state. Adding separate top-level metadata would duplicate information and increase API complexity.
 
-4. **Discovery failure raises RuntimeError (FR-016)**: The validation function checks `read_supported_pids()` return value. If Mode 01 PIDs list is empty, it raises `RuntimeError("Extended PID validation aborted. Supported PID discovery failed.")`. This follows the agent's existing convention for infrastructure failures and avoids introducing a custom exception class. This differs from `read_vehicle_health` which falls back — the validation feature must not guess.
+4. **Extended PID fields in scan_executor.py**. After `read_vehicle_health()` returns, the result dict will contain extended PID entries (e.g., `"stftBank1": {...}, "ltftBank1": {...}, ...`). These are already part of the dict that gets emitted via `emit_session_event()`. No code changes to `scan_executor.py` are expected unless a real issue is discovered.
 
-5. **Separate reader functions per PID**: Each extended PID gets its own reader function following the exact same pattern as `read_rpm`, `read_engine_load`, etc. This is consistent with the existing codebase and makes each PID independently testable.
+4. **Optional fields in TypeScript**. The new `VehicleDataJson` fields are optional (`?`) to maintain backward compatibility with pre-018B data. The frontend handles missing fields by showing "Not Supported" state.
 
-6. **CONFIGURED_EXTENDED_PIDS dict**: Mirrors `CONFIGURED_HEALTH_PIDS` but maps the 7 (or 9) extended PID hex codes to their reader functions. This dict drives the validation loop.
+5. **Fuel & Air Data as a new section**. A separate card/section inside `VehicleHealthPanel`, not mixed into the existing health data grid. This preserves the existing layout and makes the new data visually distinct. The section renders only when at least one extended PID field exists in `VehicleDataJson`. For pre-018B sessions with no extended PID fields, the section is not rendered at all — do not show "Not Supported" for data that was never collected.
 
-7. **PID-to-display-name mapping**: A separate dict maps PID codes to human-readable names for the validation report (e.g., `"06": "STFT Bank 1"`).
+6. **Fuel trim hints are deterministic**. A pure function `getFuelTrimHint(value: number | null): string | null` returns `"Normal"`, `"Lean Tendency"`, `"Rich Tendency"`, or `null`. No AI, no diagnosis, no repair recommendations.
 
-8. **Report generation is separate from validation**: `read_extended_pid_validation()` returns both the structured result and the formatted report string. The report can be printed or captured.
+7. **No modifications to 018A modules**. The `extended_pids.py` and `pid_validation.py` modules are imported, not modified. The `CONFIGURED_EXTENDED_PIDS` dict and reader functions are reused as-is.
 
-9. **Dedicated validation profile, not modification of toyota_real_sample**: The `toyota_real_sample.py` profile is a frozen reference representing real captured vehicle data. It has been used for VIN, health, readiness, freeze frame, and DTC validation. It must not be modified. A new `extended_pid_validation_profile.py` provides deterministic responses for all 7 required PIDs plus 2 optional ones, specifically for Feature 018A testing.
+8. **Discovery failure reason field**. Extended PID results that fail due to discovery failure include a `reason: "PID_DISCOVERY_FAILED"` field. This is consistent with the 018A `reason` field pattern (`"NO_DATA"`, `"PREFIX_MISMATCH"`, `"INVALID_RESPONSE"`).
 
 ## Implementation Phases
 
-### Phase 1: Extended PID Readers (`extended_pids.py`)
+### Phase 1: Agent Integration — Extended PID Polling
 
-**Files**: `desktop-agent/src/obd/commands/extended_pids.py` (NEW)
+**Files**: `desktop-agent/src/obd/commands/vehicle_health.py` (MODIFY)
 
-Create the extended PID reader module with:
+Extend `read_vehicle_health()` to also read extended PIDs:
 
-1. **Reader functions** — one per PID, each following the established pattern:
-   - `read_stft_bank1(adapter)` → PID 06, formula `(A - 128) * 100 / 128`, unit `%`, prefix `4106`
-   - `read_ltft_bank1(adapter)` → PID 07, formula `(A - 128) * 100 / 128`, unit `%`, prefix `4107`
-   - `read_stft_bank2(adapter)` → PID 08, formula `(A - 128) * 100 / 128`, unit `%`, prefix `4108`
-   - `read_ltft_bank2(adapter)` → PID 09, formula `(A - 128) * 100 / 128`, unit `%`, prefix `4109`
-   - `read_map(adapter)` → PID 0B, formula `A`, unit `kPa`, prefix `410B`
-   - `read_maf(adapter)` → PID 10, formula `(A * 256 + B) / 100`, unit `g/s`, prefix `4110`
-   - `read_throttle_position(adapter)` → PID 11, formula `A * 100 / 255`, unit `%`, prefix `4111`
+1. Import `CONFIGURED_EXTENDED_PIDS`, `EXTENDED_PID_NAMES`, `EXTENDED_PID_UNITS` from `extended_pids.py`.
+2. After reading standard health PIDs, read extended PIDs:
+   - If `discovery_ok` (supported_mode01 is non-empty): iterate `CONFIGURED_EXTENDED_PIDS`, read supported PIDs, mark unsupported PIDs. For supported PIDs where the reader returns `supported: False`, add `reason: "NO_DATA"` / `"PREFIX_MISMATCH"` / `"INVALID_RESPONSE"` (reuse `_classify_unavailable_reason` logic from `pid_validation.py` or inline the classification).
+   - If `not discovery_ok`: set all extended PIDs to `{ pid, supported: false, available: false, value: null, unit: "...", reason: "PID_DISCOVERY_FAILED" }`.
+3. Add an `extendedPidsDiscoveryFailed` boolean to the result dict (true if discovery failed).
+4. Map extended PIDs to their field names (`stftBank1`, `ltftBank1`, `stftBank2`, `ltftBank2`, `map`, `maf`, `throttlePosition`) and add to the result dict. No top-level metadata fields (`supportedExtendedPids`, `unsupportedExtendedPids`, `extendedPidsDiscoveryFailed`) — discovery state lives inside each PID result's `reason` field.
 
-   Optional PIDs:
-   - `read_intake_air_temp(adapter)` → PID 0F, formula `A - 40`, unit `°C`, prefix `410F`
-   - `read_barometric_pressure(adapter)` → PID 33, formula `A`, unit `kPa`, prefix `4133`
+**No existing behavior changes.** Standard health PIDs keep their fallback behavior. The extended PID logic is additive.
 
-2. **CONFIGURED_EXTENDED_PIDS** dict mapping PID hex codes to reader functions.
+### Phase 2: Agent — Scan Executor Verification
 
-3. **EXTENDED_PID_NAMES** dict mapping PID hex codes to display names.
+**Files**: `desktop-agent/src/agent/scan_executor.py` (READ-ONLY, no changes expected)
 
-4. **EXTENDED_PID_UNITS** dict mapping PID hex codes to units.
+Verify that `execute_vehicle_data_read()` passes through `read_vehicle_health()` results unchanged. The extended PID fields flow through automatically because they're part of the dict that gets emitted via `emit_session_event()`. No code changes expected. No documentation comments required. Modify only if a real issue is discovered.
 
-5. All readers import `_send_pid`, `_parse_bytes`, `_health_pid_result`, `_unavailable_pid_result`, `_unsupported_pid_result` from `health_pids.py`.
-
-**No existing files modified in this phase.**
-
-### Phase 2: Validation Orchestrator (`pid_validation.py`)
-
-**Files**: `desktop-agent/src/obd/commands/pid_validation.py` (NEW)
-
-Create the validation orchestration module with:
-
-1. **read_extended_pid_validation(adapter)** function:
-   - Call `read_supported_pids(adapter)` to get supported PIDs
-   - If no Mode 01 PIDs discovered, raise `RuntimeError("Extended PID validation aborted. Supported PID discovery failed.")`
-   - Classify extended PIDs into `supported` and `unsupported` based on bitmap
-   - Read supported PIDs via `CONFIGURED_EXTENDED_PIDS` reader functions
-   - If a reader returns `supported: False` for a PID that was in the bitmap, override to `unavailable`
-   - Mark unsupported PIDs via `_unsupported_pid_result`
-   - Build result dict mapping PID hex codes to three-state results
-   - Generate formatted console report
-   - Generate support matrix table
-   - Return `{"pids": results, "report": report_str, "support_matrix": matrix_str}`
-
-2. **format_validation_report(results, pid_names, pid_units)** function — generates the detailed report:
-   ```
-   ===== EXTENDED PID VALIDATION =====
-
-   PID 06 STFT Bank 1
-   Supported: YES
-   Available: YES
-   Raw Response: 410680
-   Value: 0.0 %
-
-   ...
-
-   ===== END VALIDATION =====
-   ```
-
-3. **format_support_matrix(results, pid_names, pid_units)** function — generates the tabular summary:
-   ```
-   PID | Name | Supported | Available | Value
-   06 | STFT B1 | YES | YES | 0.0 %
-   07 | LTFT B1 | YES | YES | 8.6 %
-   ...
-   ```
-
-**No existing files modified in this phase.**
-
-### Phase 3: Validation Mock Profile
+### Phase 3: Backend — DTO Extension
 
 **Files**:
-- `desktop-agent/src/obd/mock_profiles/extended_pid_validation_profile.py` (NEW)
-- `desktop-agent/src/obd/mock_profiles/profile_registry.py` (MODIFY — add new profile registration)
-- `desktop-agent/src/obd/mock_profiles/__init__.py` (NO CHANGE — `ProfileRegistry` auto-discovers via the registry)
+- `backend/src/vehicle-data/dtos/vehicle-data-response.dto.ts` (MODIFY)
+- `backend/src/vehicle-data/services/vehicle-data.service.ts` (REVIEW)
 
-Create a dedicated validation profile with deterministic responses for all required and optional PIDs:
+1. Add optional extended PID fields to the `VehicleDataJson` interface: `stftBank1?`, `ltftBank1?`, `stftBank2?`, `ltftBank2?`, `map?`, `maf?`, `throttlePosition?`. No top-level metadata fields (`extendedPidsDiscoveryFailed`, `supportedExtendedPids`, `unsupportedExtendedPids`).
+2. Update `isValidVehicleDataJson()` to accept but not require the new optional fields. Extended PID results may contain an optional `reason` field — this must be accepted.
+3. Verify the backend's `processVehicleDataRead()` correctly persists the new fields to `vehicleDataJson` (since it's JSONB, this should work without schema changes).
 
-1. **Profile identity**: `PROFILE_NAME = "extended_pid_validation"`, `PROFILE_DESCRIPTION = "Extended PID validation — deterministic responses for all target PIDs"`
+### Phase 4: Frontend — Type Extension
 
-2. **PID bitmap** (`0100` response): Include all 7 required PIDs (06, 07, 08, 09, 0B, 10, 11) and 2 optional PIDs (0F, 33) as supported. This differs from `toyota_real_sample` which only supports a subset.
+**Files**: `frontend/src/services/vehicle-data-api.ts` (MODIFY)
 
-3. **PID responses** with known decode outputs:
-   - PID 06 (STFT B1): `410680` → 0.0% (center point)
-   - PID 07 (LTFT B1): `410680` → 0.0% (same as STFT at center)
-   - PID 08 (STFT B2): `41067F` → ~-0.78% (negative trim)
-   - PID 09 (LTFT B2): `41078D` → ~10.16% (positive trim)
-   - PID 0B (MAP): `410B2A` → 42 kPa
-   - PID 10 (MAF): `41100064` → 1.00 g/s
-   - PID 11 (Throttle): `411105` → ~1.96%
-   - PID 0F (IAT, optional): `410F5A` → 50°C
-   - PID 33 (Baro, optional): `413366` → 102 kPa
+1. Add optional extended PID fields to the frontend `VehicleDataJson` interface matching the backend DTOs. No top-level metadata fields.
+2. Ensure the `useVehicleData()` hook returns the extended fields as part of the response.
 
-4. **Bitmap chain** (`0120`, `0140`): Include appropriate continuation bits and PID support for PIDs in the 21-40 and 41-60 ranges if needed for PID 33 (0x21).
+### Phase 5: Frontend — Fuel & Air Data Section
 
-5. **VIN_RESPONSE**: Valid VIN for completeness.
-6. **DTC_RESPONSES**: No fault codes.
-7. **CLEAR_DTC_RESPONSE**: Standard clear response.
-8. **FAULT_METADATA**: Empty.
+**Files**: `frontend/src/components/vehicle-data/VehicleHealthPanel.tsx` (MODIFY)
 
-9. **UNSUPPORTED_COMMANDS**: No extended PIDs are unsupported in this profile (all are in the bitmap).
+1. Add a new `FuelAndAirDataCard` sub-component (can be inline or a separate file).
+2. Render STFT Bank 1, LTFT Bank 1, STFT Bank 2, LTFT Bank 2, MAP, MAF, Throttle Position.
+3. Handle three states per field: supported+available (show value+unit), supported+unavailable (show "No Data"), unsupported (show "Not Supported").
+4. Handle missing fields gracefully (pre-018B data).
+5. Add fuel trim hint logic:
+   - `getFuelTrimHint(value: number | null): string | null`
+   - -10% to +10% → "Normal"
+   - Above +10% → "Lean Tendency"
+   - Below -10% → "Rich Tendency"
+   - null/undefined → no hint
+6. Render hints as subtle badges next to fuel trim values. No diagnosis, no AI language, no repair recommendations.
+7. Handle discovery failure PIDs: when a PID result has `supported: false, available: false, reason: "PID_DISCOVERY_FAILED"`, show "Not Available".
+8. For pre-018B sessions where no extended PID fields exist, do not render the Fuel & Air Data section at all. Do not show "Not Supported" for data that was never collected.
 
-Register the new profile in `profile_registry.py` by adding a lazy-load lambda for `"extended_pid_validation"`.
-
-**`toyota_real_sample.py` remains completely unchanged.**
-
-### Phase 4: Unit & Integration Tests
+### Phase 6: Tests
 
 **Files**:
-- `desktop-agent/tests/test_extended_pids.py` (NEW)
-- `desktop-agent/tests/test_pid_validation.py` (NEW)
+- `desktop-agent/tests/test_vehicle_health_integration.py` (MODIFY — add extended PID assertions)
+- `desktop-agent/tests/test_extended_pids.py` (EXISTING — 018A tests, must pass unchanged)
+- `desktop-agent/tests/test_pid_validation.py` (EXISTING — 018A tests, must pass unchanged)
+- `backend/src/vehicle-data/dtos/__tests__/vehicle-data-response.dto.spec.ts` (NEW or MODIFY — test DTO validation)
+- `frontend/src/components/vehicle-data/__tests__/VehicleHealthPanel.test.tsx` (NEW or MODIFY — test rendering)
+- `frontend/src/services/__tests__/vehicle-data-api.test.ts` (MODIFY — test type handling)
 
-#### `test_extended_pids.py` — Decoder Unit Tests
+#### Agent Tests
 
-Test each extended PID reader against known hex inputs:
+1. **Extended PID polling with all supported PIDs**: Run `read_vehicle_health()` with the `extended_pid_validation` profile. Verify all 7 extended PID fields appear in the result with correct values.
+2. **Extended PID polling with partial support**: Run with a profile that only supports some extended PIDs. Verify unsupported PIDs have `supported: false` and no OBD command is sent.
+3. **Discovery failure guard**: Run with a mock that returns empty Mode 01 PIDs. Verify standard health PIDs still attempt their fallback. Verify all extended PIDs have `supported: false, available: false, reason: "PID_DISCOVERY_FAILED"`. No top-level metadata fields (`extendedPidsDiscoveryFailed`, `supportedExtendedPids`, `unsupportedExtendedPids`) in the result.
+4. **Toyota regression still passes**: Existing `test_vehicle_health_integration.py` and `test_toyota_regression.py` pass unchanged.
 
-1. **Fuel Trim Tests (PIDs 06, 07, 08, 09)**:
-   - `41067F` → STFT ≈ -0.78% (within ±0.5%)
-   - `410680` → STFT = 0%
-   - `4106FF` → STFT ≈ 99.22%
-   - Same pattern for PIDs 07, 08, 09
+#### Backend Tests
 
-2. **MAF Tests (PID 10)**:
-   - `41100064` → 1.00 g/s
-   - Multi-byte decoding verification
+1. **VehicleDataJson with extended fields**: Verify `isValidVehicleDataJson()` accepts payloads with extended PID fields. Each field should have the `VehicleDataPoint` shape with `supported`, `available`, and optional `reason`.
+2. **VehicleDataJson without extended fields**: Verify `isValidVehicleDataJson()` still accepts payloads without extended PID fields (backward compatibility).
+3. **API response includes extended fields**: Verify the vehicle data API returns extended PID fields when present in the JSONB.
+4. **Discovery failure in PID results**: Verify `isValidVehicleDataJson()` accepts payloads where extended PID fields have `supported: false, available: false, reason: "PID_DISCOVERY_FAILED"`. No top-level metadata fields are required.
 
-3. **Throttle Position Tests (PID 11)**:
-   - `411105` → ≈ 1.96%
-   - `411100` → 0%
-   - `4111FF` → 100%
+#### Frontend Tests
 
-4. **MAP Tests (PID 0B)**:
-   - `410B2A` → 42 kPa
-   - `410B00` → 0 kPa
+1. **Fuel & Air Data renders with supported values**: Given all extended PIDs supported and available, the section displays all 7 values with units.
+2. **Unsupported PIDs show "Not Supported"**: Given some PIDs unsupported, the section displays "Not Supported" for those PIDs.
+3. **Unavailable PIDs show "No Data"**: Given some PIDs supported but unavailable, the section displays "No Data".
+4. **Missing fields handled safely**: Given pre-018B data without extended PID fields, the Fuel & Air Data section is not rendered at all (not shown with "Not Supported" for data that was never collected).
+5. **Discovery failure shows "Not Available"**: Given extended PID fields with `supported: false, available: false, reason: "PID_DISCOVERY_FAILED"`, the section displays "Not Available" for each discovery-failed PID. No top-level `extendedPidsDiscoveryFailed` flag is used.
+6. **Fuel trim hints render correctly**: Given fuel trim values at -15%, 0%, +15%, verify "Rich Tendency", "Normal", "Lean Tendency" badges appear.
 
-5. **Error Handling Tests**:
-   - Unsupported PID (adapter returns empty) → `supported: False`
-   - NO DATA response (adapter returns error marker) → `supported: False` from reader, then overridden to `unavailable` by orchestrator
-   - Wrong prefix → `available: False`
-   - Insufficient bytes → `available: False`
+### Phase 7: Polish & Regression Verification
 
-#### `test_pid_validation.py` — Integration Tests
+**Files**: None (verification only)
 
-1. **Full validation on extended_pid_validation profile** — all supported PIDs decoded correctly.
-
-2. **Discovery failure abort** — mock adapter returns empty for `0100`, validation raises `RuntimeError`.
-
-3. **Partial support** — custom mock with only some PIDs in bitmap, verify unsupported PIDs are skipped.
-
-4. **Supported but unavailable** — PID in bitmap returns NO DATA → `supported: True, available: False`.
-
-5. **Report format verification** — output contains header, per-PID sections with raw responses, footer.
-
-6. **Support matrix format verification** — output contains `PID | Name | Supported | Available | Value` table.
-
-7. **Raw response in report** — each successfully queried PID shows its raw hex response.
-
-8. **Toyota regression still passes** — `test_vehicle_health_integration.py` passes unchanged.
-
-9. **Bank 2 unsupported scenario** — mock profile with Bank 1 only (like Toyota real sample), verify Bank 2 PIDs are `supported: False`.
-
-### Phase 5: Smoke Test
-
-**Files**: None (manual verification)
-
-Run the full test suite:
-
-```bash
-cd desktop-agent
-python -m pytest tests/ -v
-```
-
-Verify:
-- All new tests pass
-- All existing tests pass (especially `test_vehicle_health_integration.py` and `test_toyota_regression.py`)
-- No import errors
-- `read_extended_pid_validation()` works with `MockObdAdapter(profile_name="extended_pid_validation")`
-- No modifications to `vehicle_data.py`, `health_pids.py`, `vehicle_health.py`, or `toyota_real_sample.py`
+1. Run full desktop-agent test suite: `cd desktop-agent && python -m pytest tests/ -v`
+2. Run full backend test suite: `cd backend && npm run test`
+3. Run full frontend type check: `cd frontend && npm run type-check`
+4. Verify no modifications to 018A modules: `extended_pids.py`, `pid_validation.py`, `extended_pid_validation_profile.py`, `toyota_real_sample.py`
+5. Verify `read_vehicle_health()` works with `MockObdAdapter(profile_name="extended_pid_validation")` and returns extended PID fields.
+6. Verify Toyota regression tests pass unchanged.
 
 ## Dependencies
 
 | Dependency | Type | Notes |
 |---|---|---|
-| `health_pids._send_pid` | Import reuse | Used by all new readers to send OBD commands |
-| `health_pids._parse_bytes` | Import reuse | Used by all new readers to parse hex responses |
-| `health_pids._health_pid_result` | Import reuse | Three-state result factory — supported+available |
+| `extended_pids.CONFIGURED_EXTENDED_PIDS` | Import reuse | Dict of PID hex codes to reader functions from 018A |
+| `extended_pids.EXTENDED_PID_NAMES` | Import reuse | Dict of PID hex codes to display names |
+| `extended_pids.EXTENDED_PID_UNITS` | Import reuse | Dict of PID hex codes to units |
+| `extended_pids.read_stft_bank1` etc. | Import reuse | 7 reader functions from 018A |
 | `health_pids._unsupported_pid_result` | Import reuse | Three-state result factory — unsupported |
 | `health_pids._unavailable_pid_result` | Import reuse | Three-state result factory — supported but unavailable |
-| `supported_pids.read_supported_pids` | Import reuse | PID bitmap discovery — aborts on failure per FR-016 |
-| `mock_adapter.MockObdAdapter` | Test dependency | For mock-based testing |
-| `mock_profiles.extended_pid_validation_profile` | Test dependency | New dedicated profile with all extended PID responses |
-| `mock_profiles.profile_registry` | Runtime dependency | Register new profile (minimal change — add one lambda) |
+| `supported_pids.read_supported_pids` | Import reuse | PID bitmap discovery |
+| `vehicle_health.read_vehicle_health` | Modify | Extend to include extended PID polling |
+| `vehicle_data.py` | No changes | NOT a re-export target for extended PIDs |
+| Backend `VehicleDataJson` DTO | Modify | Add optional extended PID fields (7 fields only, no metadata fields) |
+| Frontend `vehicle-data-api.ts` | Modify | Add optional extended PID fields (7 fields only, no metadata fields) |
+| Frontend `VehicleHealthPanel.tsx` | Modify | Add Fuel & Air Data section |
 
 ## Test Strategy
 
 | Test Type | File | Coverage |
 |---|---|---|
-| Unit — Decoder | `test_extended_pids.py` | Each PID reader with known hex inputs (FR-014) |
-| Unit — Error paths | `test_extended_pids.py` | Unsupported, NO DATA, malformed, wrong prefix |
-| Integration — Orchestrator | `test_pid_validation.py` | Full validation flow, discovery abort, partial support |
-| Integration — Report | `test_pid_validation.py` | Report format, support matrix format, raw responses |
-| Integration — Bank 2 | `test_pid_validation.py` | Bank 2 unsupported scenario |
-| Regression — Existing | `test_vehicle_health_integration.py` | Must pass unchanged (FR-013) |
-| Regression — Toyota | `test_toyota_regression.py` | Must pass unchanged (FR-013) |
+| Agent — Extended PID polling | `test_vehicle_health_integration.py` (modify) | All 7 PIDs with supported/unsupported/NO DATA scenarios |
+| Agent — Discovery failure | `test_vehicle_health_integration.py` (modify) | Extended PIDs marked unavailable with reason when discovery fails |
+| Agent — Toyota regression | `test_toyota_regression.py` (existing) | Must pass unchanged |
+| Agent — 018A validation | `test_extended_pids.py`, `test_pid_validation.py` (existing) | Must pass unchanged |
+| Backend — DTO validation | `vehicle-data-response.dto.spec.ts` (new/modify) | VehicleDataJson with/without extended fields |
+| Backend — API response | Integration test | Extended fields present in API response |
+| Frontend — Type safety | `vehicle-data-api.test.ts` (modify) | Type handling for optional extended fields |
+| Frontend — Rendering | `VehicleHealthPanel.test.tsx` (new/modify) | Fuel & Air Data section, state handling, fuel trim hints |
+| Frontend — Backward compat | `VehicleHealthPanel.test.tsx` (new/modify) | Pre-018B data without extended fields |
 
 ## Risk Assessment
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| Discovery failure abort breaks backward compatibility | Low | Medium | Validation is a **separate** function from `read_vehicle_health`. The fallback behavior in `read_vehicle_health` is unchanged. FR-016 only applies to `read_extended_pid_validation`. |
-| Extended PID reader pattern divergence from health_pids | Low | Low | Follow exact same pattern: `_send_pid` → prefix check → `_parse_bytes` → formula → `_health_pid_result`. Copy the pattern, not the code. |
-| Accidental modification of real Toyota mock profile | Low | High | Use dedicated `extended_pid_validation_profile.py` for testing. Preserve `toyota_real_sample.py` completely unchanged. The Toyota profile is a frozen reference for real-vehicle regression. |
-| Profile registry registration breaks existing profiles | Low | Medium | Additive change only — one new lambda in `_PROFILES` dict. No existing entries modified. Run full regression suite to verify. |
-| Introducing RuntimeError for discovery failure breaks convention | Low | Low | `RuntimeError` is the agent's existing convention for infrastructure failures (used in `vin.py:100`, `usb_elm327.py:39`, `wifi_elm327.py:179`). No custom exception class introduced. |
-| Validation profile values unrealistic | Low | Low | Values are chosen for deterministic decode verification (known hex → known output), not for real-vehicle accuracy. The profile serves testing, not simulation. |
+| Extending `read_vehicle_health()` breaks existing health PID behavior | Low | High | Additive-only changes. Standard health PIDs keep their fallback behavior. Extended PIDs have separate logic. Comprehensive regression tests. |
+| Discovery failure guard introduces inconsistency | Low | Medium | Standard health PIDs fall back to all configured PIDs. Extended PIDs are NOT blindly queried. Each PID result contains `reason: "PID_DISCOVERY_FAILED"` to document the state. |
+| Backend `isValidVehicleDataJson()` rejects new fields | Low | Medium | New fields are optional. Update validation to accept but not require them. Test with and without extended fields. |
+| Frontend crashes on pre-018B data | Low | High | All extended PID fields are optional in TypeScript types. Fuel & Air Data section only renders when at least one extended PID field exists. Pre-018B sessions don't show the section at all. |
+| Fuel trim hints are interpreted as diagnosis | Medium | Low | Hints are labeled as "Normal" / "Lean Tendency" / "Rich Tendency" — explicitly NOT diagnostic. No repair recommendations. No AI language. |
+| 018A modules are accidentally modified | Low | High | `extended_pids.py` and `pid_validation.py` are imported, not modified. Regression tests verify they pass unchanged. |
+| Missing metadata fields cause confusion | Low | Low | Discovery state lives inside each PID result's `reason` field. No separate `extendedPidsDiscoveryFailed`, `supportedExtendedPids`, or `unsupportedExtendedPids` fields are needed — each PID result is self-contained. |
 
 ## Rollout Sequence
 
-1. **Phase 1** — Create `extended_pids.py` with reader functions and dicts (no existing files modified)
-2. **Phase 2** — Create `pid_validation.py` with orchestrator and report functions (no existing files modified)
-3. **Phase 3** — Create `extended_pid_validation_profile.py` + register in `profile_registry.py` (only existing file change: one new lambda in registry)
-4. **Phase 4** — Create test files (`test_extended_pids.py`, `test_pid_validation.py`) and verify all pass
-5. **Phase 5** — Full regression suite + manual smoke test
+1. **Phase 1** — Agent integration: Extend `vehicle_health.py` to read extended PIDs with discovery failure guard
+2. **Phase 2** — Agent verification: Ensure scan_executor passes extended fields through
+3. **Phase 3** — Backend DTO: Add optional extended PID fields to VehicleDataJson
+4. **Phase 4** — Frontend types: Add optional extended PID fields to vehicle-data-api.ts
+5. **Phase 5** — Frontend UI: Add Fuel & Air Data section to VehicleHealthPanel with hints
+6. **Phase 6** — Tests: Agent integration tests, backend DTO tests, frontend rendering tests
+7. **Phase 7** — Polish: Full regression suite verification
 
-Phases 1-2 make zero changes to existing source files. Phase 3 is a single additive line in the profile registry. Phase 4 adds new test files only. `toyota_real_sample.py`, `vehicle_data.py`, `health_pids.py`, and `vehicle_health.py` are never modified.
+Phases 1–2 are agent-only (no backend/frontend changes). Phases 3–4 are backend/frontend type changes. Phase 5 is UI. Phase 6 is test coverage. Phase 7 is regression verification.
 
 ## Toyota Real-Vehicle Validation Procedure
 
 After all tests pass, run the validation on a real vehicle:
 
 1. Connect ELM327 adapter to the vehicle (USB or WiFi)
-2. Start the desktop agent with the real adapter (not mock)
-3. Call `read_extended_pid_validation(adapter)` from a Python REPL or test script
-4. Capture the console output
-5. Verify the support matrix shows expected PID support for the vehicle
-6. Compare raw responses with a known OBD-II scan tool if available
-7. Record the support matrix for Feature 018B planning
-
-The support matrix output will directly inform which PIDs to include in the full pipeline implementation.
+2. Start the desktop agent and trigger a vehicle health read from the UI
+3. Verify the Fuel & Air Data section appears in VehicleHealthPanel
+4. Verify each extended PID shows the correct value, "No Data", or "Not Supported"
+5. Verify fuel trim hints appear correctly for values outside -10% to +10%
+6. Verify the vehicle data API response includes extended PID fields
+7. Compare values with a known OBD-II scan tool if available
+8. Record the support matrix for Feature 018B planning documentation

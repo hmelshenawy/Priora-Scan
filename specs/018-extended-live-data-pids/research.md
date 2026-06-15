@@ -98,3 +98,60 @@ The new profile (`extended_pid_validation_profile`) includes:
 **Alternatives considered**:
 - Custom `DiscoveryError` class — rejected because it would be the only custom exception in the entire codebase, breaking consistency.
 - Result-dict with `discovery_failed` flag — rejected because it's too easy to silently ignore. An exception forces handling.
+
+---
+
+## 018B Pipeline Research
+
+### R9: Integration point for extended PIDs
+
+**Decision**: Extended PIDs integrate through `vehicle_health.py` only. No `vehicle_data.py` re-export changes.
+
+**Rationale**: `vehicle_health.py:read_vehicle_health()` is the orchestrator that calls health PID readers and builds the result dict. `vehicle_data.py` is a pure re-export facade — adding re-exports there would violate its purpose. The `scan_executor.py:execute_vehicle_data_read()` function calls `read_vehicle_health()` and enriches the result dict with additional data (fuelSystemStatus, readinessMonitors, freezeFrame, supportedPids, mileage, vin). Since extended PID fields will be added to the `vehicle_health` dict directly, they flow through to `emit_session_event()` automatically.
+
+### R10: Discovery failure behavior for extended PIDs
+
+**Decision**: When `read_supported_pids()` fails or returns empty Mode 01 PIDs, standard health PIDs fall back to attempting all `CONFIGURED_HEALTH_PIDS` (existing behavior preserved), but extended PIDs MUST NOT be blindly queried. Each extended PID is represented as unavailable with `reason: "PID_DISCOVERY_FAILED"`.
+
+**Rationale**: FR-019 explicitly mandates this difference. Standard health PIDs have fallback behavior for backward compatibility. Extended PIDs are new additions where blindly querying could send commands the vehicle doesn't support, potentially causing timeouts or error responses. The safe behavior is to mark them as unavailable rather than risk ECU communication issues.
+
+**Implementation**: In `vehicle_health.py`, after the standard health PID section, add an extended PID section that:
+1. Checks `discovery_ok` (same flag used for standard health PIDs)
+2. If `discovery_ok`: iterate `CONFIGURED_EXTENDED_PIDS`, read supported PIDs, mark unsupported PIDs
+3. If `not discovery_ok`: set all extended PIDs to `{pid, supported: false, available: false, value: null, unit: "...", reason: "PID_DISCOVERY_FAILED"}`
+4. Map extended PIDs to their field names and add to the result dict
+
+No top-level metadata fields (`extendedPidsDiscoveryFailed`, `supportedExtendedPids`, `unsupportedExtendedPids`). Discovery state lives inside each PID result's `reason` field.
+
+### R11: Backend VehicleDataJson extension
+
+**Decision**: Add optional fields to the `VehicleDataJson` interface. Update `isValidVehicleDataJson()` to accept but not require them.
+
+**Rationale**: The `vehicleDataJson` column is JSONB — no schema migration needed. The `isValidVehicleDataJson()` function currently checks for required top-level keys (`batteryVoltage`, `vin`, etc.). Adding optional fields means:
+1. Pre-018B payloads without extended fields still pass validation
+2. 018B payloads with extended fields also pass validation
+3. The function should NOT require the new optional fields
+
+**Implementation**: Add `stftBank1?`, `ltftBank1?`, `stftBank2?`, `ltftBank2?`, `map?`, `maf?`, `throttlePosition?`, `extendedPidsDiscoveryFailed?`, `supportedExtendedPids?`, `unsupportedExtendedPids?` as optional fields. Do NOT add them to the `requiredPoints` array in `isValidVehicleDataJson()`.
+
+### R12: Frontend VehicleHealthPanel integration
+
+**Decision**: Add a new "Fuel & Air Data" section as a separate card within VehicleHealthPanel. Use existing `VehicleDataPointRow` component for rendering extended PID data points, with fuel trim hints added as subtle badges.
+
+**Rationale**: The existing `VehicleDataPointRow` component already handles `VehicleDataPoint` objects with `supported`, `value`, and `unit` fields. Extended PID data points follow the same shape. The fuel trim hints need a new pure function (`getFuelTrimHint`) but no new UI primitives.
+
+**Implementation approach**:
+1. Add a `FuelAndAirDataCard` sub-component (can be inline in the same file)
+2. Check if any extended PID field exists in `vehicleData` before rendering the section
+3. Render each extended PID as a `VehicleDataPointRow` with appropriate icon
+4. Add fuel trim hint badges next to STFT/LTFT values using `getFuelTrimHint()`
+5. Handle `extendedPidsDiscoveryFailed` flag: show "Not Available" for discovery-failed PIDs
+6. Handle missing fields (pre-018B data): show "Not Supported"
+
+### R13: scan_executor.py data flow
+
+**Decision**: No structural changes needed to `scan_executor.py`. Extended PID fields flow through automatically because `read_vehicle_health()` adds them to the result dict.
+
+**Rationale**: `execute_vehicle_data_read()` calls `read_vehicle_health(adapter)` and then enriches the result dict with additional data. The enrichment only adds fields that are NOT part of `read_vehicle_health()`. Since extended PID fields are added inside `read_vehicle_health()`, they're already in the dict when `emit_session_event()` is called. No changes to the executor are needed for the data payload.
+
+**Verification needed**: Confirm that the enrichment step doesn't overwrite or conflict with the extended PID fields. Current enrichment adds: `fuelSystemStatus`, `readinessMonitors`, `freezeFrame`, `supportedPids`, `mileage`, `vin`. None of these conflict with the extended PID field names.
