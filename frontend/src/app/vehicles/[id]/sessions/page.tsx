@@ -39,7 +39,10 @@ export default function VehicleSessionsPage({ params }: VehicleSessionsPageProps
         title: title.trim() || undefined,
         description: description.trim() || undefined,
       });
-      router.push(`/diagnostic-sessions/${session.id}`);
+      if (!session?.id) {
+        throw new Error('Session was created but no session ID was returned.');
+      }
+      router.replace(`/diagnostic-sessions/${session.id}`);
     } catch {
       // Error state is handled by the mutation object.
     }
