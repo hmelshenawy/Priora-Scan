@@ -8,9 +8,9 @@ import {
 } from '../../../hooks/use-diagnostic-sessions';
 import { useVehicle } from '../../../hooks/use-vehicles';
 import { useSessionFaultCodes } from '../../../hooks/useObdScan';
-import { ControlUnitOverview } from '../../../components/obd/ControlUnitOverview';
 import { LiveDataCard } from '../../../components/live-data/LiveDataCard';
 import { VehicleHealthPanel } from '../../../components/vehicle-data/VehicleHealthPanel';
+import ControlUnitsPanel from '../../../components/vehicle-data/ControlUnitsPanel';
 import { Breadcrumbs } from '../../../components/layout/Breadcrumbs';
 import { ErrorState } from '../../../components/ui/ErrorState';
 import { LoadingState } from '../../../components/ui/LoadingState';
@@ -18,6 +18,7 @@ import { SessionHeader } from '../../../components/diagnostic-session/SessionHea
 import { SessionLifecyclePanel } from '../../../components/diagnostic-session/SessionLifecyclePanel';
 import { SessionNotesForm } from '../../../components/diagnostic-session/SessionNotesForm';
 import { AuditTrail } from '../../../components/diagnostic-session/AuditTrail';
+import { useVehicleData } from '../../../services/vehicle-data-api';
 
 interface DiagnosticSessionDetailPageProps {
   params: {
@@ -33,6 +34,7 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
   const session = sessionQuery.data;
   const vehicleQuery = useVehicle(session?.vehicleId ?? '');
   const faultCodesQuery = useSessionFaultCodes(session?.id ?? null);
+  const vehicleDataQuery = useVehicleData(session?.id ?? null);
 
   useEffect(() => {
     if (sessionQuery.data) {
@@ -162,28 +164,33 @@ export default function DiagnosticSessionDetailPage({ params }: DiagnosticSessio
         id="control-units"
         className="scroll-mt-32 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
       >
-        {faultCodesQuery.isLoading && (
+        {vehicleDataQuery.isLoading && (
           <LoadingState
-            title="Loading fault results"
-            message="Fetching fault codes before building the control unit overview."
+            title="Loading control units"
+            message="Fetching control unit discovery data."
           />
         )}
 
-        {faultCodesQuery.isError && (
+        {vehicleDataQuery.isError && (
           <ErrorState
-            title="Fault results unavailable"
-            message="Unable to load fault codes for this diagnostic session."
+            title="Control unit discovery unavailable"
+            message="Unable to load control unit discovery data for this diagnostic session."
           />
         )}
 
-        {faultCodesQuery.data && (
-          <ControlUnitOverview
-            faultCodes={faultCodesQuery.data.data}
-            sessionId={session.id}
-            vehicleId={session.vehicleId}
-            showNavigation={false}
-            isSessionOpen={session.status !== 'CLOSED'}
-          />
+        {vehicleDataQuery.data && (
+          vehicleDataQuery.data.vehicleData?.controlUnitDiscovery ? (
+            <ControlUnitsPanel
+              controlUnitDiscovery={vehicleDataQuery.data.vehicleData.controlUnitDiscovery}
+            />
+          ) : (
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Control Units</h2>
+              <p className="mt-3 text-sm text-slate-500">
+                No control unit discovery data yet.
+              </p>
+            </div>
+          )
         )}
       </section>
 

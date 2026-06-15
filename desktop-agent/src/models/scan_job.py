@@ -14,6 +14,7 @@ class ScanJob:
         self.vin = vin
         self.vehicle_id = vehicle_id
         self.diagnostic_session_id = diagnostic_session_id
+        self.session_id = diagnostic_session_id
 
     @classmethod
     def from_api(cls, data: dict) -> "ScanJob":
@@ -23,5 +24,5 @@ class ScanJob:
             created_at=data.get("createdAt"),
             vin=data.get("vin"),
             vehicle_id=data.get("vehicleId"),
-            diagnostic_session_id=data.get("diagnosticSessionId"),
+            diagnostic_session_id=data.get("diagnosticSessionId") or data.get("sessionId"),
         )

@@ -1,6 +1,6 @@
 /// <reference types="@testing-library/jest-dom" />
 import { useVehicleData, useReadVehicleData } from '../../../services/vehicle-data-api';
-import type { VehicleDataJson, ExtendedPidDataPoint } from '../../../services/vehicle-data-api';
+import type { VehicleDataJson, ExtendedPidDataPoint, ControlUnitDiscovery } from '../../../services/vehicle-data-api';
 
 jest.mock('../../../services/vehicle-data-api', () => ({
   useVehicleData: jest.fn(),
@@ -175,6 +175,18 @@ describe('TestMissingExtendedPidsFields', () => {
     renderWithProviders(<VehicleHealthPanel sessionId="session-1" />);
 
     expect(screen.queryByText('Fuel & Air Data')).not.toBeInTheDocument();
+  });
+
+  it('labels PID 31 as distance since DTC clear, not mileage', () => {
+    const data = makeBaseVehicleData({
+      mileage: { value: 5639, unit: 'km', supported: true },
+    });
+    setupMocks(data);
+    renderWithProviders(<VehicleHealthPanel sessionId="session-1" />);
+
+    expect(screen.getByText('Distance Since DTC Clear')).toBeInTheDocument();
+    expect(screen.getByText('5639 km')).toBeInTheDocument();
+    expect(screen.queryByText('Mileage')).not.toBeInTheDocument();
   });
 
   it('does not crash when VehicleDataJson has no extended PID fields', () => {
@@ -398,5 +410,98 @@ describe('TestFuelTrimHints', () => {
     expect(screen.queryByText(/repair/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/recommend/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/ai /i)).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T017: Control Unit Discovery rendering in VehicleHealthPanel
+// ---------------------------------------------------------------------------
+
+describe('ControlUnitDiscovery integration', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  /** Build a minimal ControlUnitDiscovery for testing. */
+  function makeDiscovery(overrides: Partial<ControlUnitDiscovery> = {}): ControlUnitDiscovery {
+    return {
+      version: 1,
+      strategy: 'GENERIC_OBD_CAN',
+      scanMode: 'FUNCTIONAL_THEN_PHYSICAL',
+      probeSequence: ['22F190'],
+      startedAt: '2026-06-15T12:00:00.000Z',
+      completedAt: '2026-06-15T12:00:03.000Z',
+      summary: {
+        totalProbes: 9,
+        respondersFound: 1,
+        functionalResponders: 1,
+        physicalResponders: 1,
+      },
+      probes: [],
+      responders: [],
+      ...overrides,
+    };
+  }
+
+  it('renders ControlUnitsPanel when controlUnitDiscovery exists in vehicle data', () => {
+    const data = makeBaseVehicleData({
+      controlUnitDiscovery: makeDiscovery({
+        responders: [
+          {
+            responseId: '7E8',
+            discoveredBy: [{ method: 'FUNCTIONAL', requestId: '7DF', probe: '22F190' }],
+            firstSeenBy: 'FUNCTIONAL',
+            confirmedByPhysical: true,
+            confidence: 'HIGH',
+            ecuName: null,
+            ecuType: null,
+            protocol: 'UDS_ON_CAN_11BIT',
+            capabilities: { respondedToF190: true, positiveF190: false, negativeF190: true },
+          },
+        ],
+        summary: { totalProbes: 9, respondersFound: 1, functionalResponders: 1, physicalResponders: 1 },
+      }),
+    });
+    setupMocks(data);
+    renderWithProviders(<VehicleHealthPanel sessionId="session-1" />);
+
+    // The Control Units heading should appear
+    expect(screen.getByText('Control Units')).toBeInTheDocument();
+    // The responder should be visible
+    expect(screen.getByText('7E8')).toBeInTheDocument();
+    // Confidence badge should be visible
+    expect(screen.getByText('HIGH')).toBeInTheDocument();
+  });
+
+  it('does not render ControlUnitsPanel when controlUnitDiscovery is absent', () => {
+    const data = makeBaseVehicleData();
+    // No controlUnitDiscovery field
+    setupMocks(data);
+    renderWithProviders(<VehicleHealthPanel sessionId="session-1" />);
+
+    expect(screen.queryByText('Control Units')).not.toBeInTheDocument();
+  });
+
+  it('does not render ControlUnitsPanel when controlUnitDiscovery is undefined', () => {
+    const data = makeBaseVehicleData({ controlUnitDiscovery: undefined });
+    setupMocks(data);
+    renderWithProviders(<VehicleHealthPanel sessionId="session-1" />);
+
+    expect(screen.queryByText('Control Units')).not.toBeInTheDocument();
+  });
+
+  it('renders ControlUnitsPanel alongside existing vehicle health data', () => {
+    const data = makeBaseVehicleData({
+      stftBank1: makeExtendedPid({ pid: '06', value: 2.3, unit: '%' }),
+      controlUnitDiscovery: makeDiscovery({
+        summary: { totalProbes: 9, respondersFound: 1, functionalResponders: 1, physicalResponders: 1 },
+      }),
+    });
+    setupMocks(data);
+    renderWithProviders(<VehicleHealthPanel sessionId="session-1" />);
+
+    // Both the Fuel & Air Data section and Control Units section should appear
+    expect(screen.getByText('Fuel & Air Data')).toBeInTheDocument();
+    expect(screen.getByText('Control Units')).toBeInTheDocument();
   });
 });

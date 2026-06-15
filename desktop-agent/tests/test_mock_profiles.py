@@ -27,13 +27,14 @@ class TestProfileRegistry:
         registry = ProfileRegistry()
         profiles = registry.list_profiles()
         assert sorted(profiles) == [
-            "default",
-            "extended_pid_validation",
-            "no_faults",
-            "toyota_real_faults",
-            "toyota_real_sample",
-            "unsupported_vin",
-            "with_faults",
+    "control_unit_discovery",
+    "default",
+    "extended_pid_validation",
+    "no_faults",
+    "toyota_real_faults",
+    "toyota_real_sample",
+    "unsupported_vin",
+    "with_faults",   
         ]
 
     def test_get_profile_existing_name(self):

@@ -17,6 +17,7 @@ import type { Vehicle } from '../../hooks/use-vehicles';
 import { VehicleDataPointRow } from './VehicleDataPointRow';
 import { SupportedPidList } from './SupportedPidList';
 import { LoadingState } from '../ui/LoadingState';
+import ControlUnitsPanel from './ControlUnitsPanel';
 
 interface VehicleHealthPanelProps {
   sessionId: string;
@@ -153,7 +154,7 @@ export function VehicleHealthPanel({
             icon={<Fuel className="h-4 w-4 text-emerald-500" />}
           />
           <VehicleDataPointRow
-            label="Mileage"
+            label="Distance Since DTC Clear"
             data={vehicleData.mileage}
             icon={<Gauge className="h-4 w-4 text-purple-500" />}
           />
@@ -168,6 +169,11 @@ export function VehicleHealthPanel({
 
           {vehicleData.freezeFrame && (
             <FreezeFrameCard freezeFrame={vehicleData.freezeFrame} />
+          )}
+
+          {/* Control Unit Discovery (Feature 019) */}
+          {vehicleData.controlUnitDiscovery && (
+            <ControlUnitsPanel controlUnitDiscovery={vehicleData.controlUnitDiscovery} />
           )}
 
           {/* Re-read button when data already exists */}

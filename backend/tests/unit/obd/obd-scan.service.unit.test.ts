@@ -57,6 +57,12 @@ describe('ObdScanService', () => {
         create: jest.fn(),
         findFirst: jest.fn(),
       } as any,
+      diagnosticSession: {
+        create: jest.fn(),
+      } as any,
+      diagnosticSessionAuditRecord: {
+        create: jest.fn(),
+      } as any,
       vehicleAuditRecord: {
         create: jest.fn(),
       } as any,
@@ -117,6 +123,61 @@ describe('ObdScanService', () => {
           data: expect.objectContaining({
             action: 'SCAN_STARTED',
             status: ScanJobStatus.PENDING,
+          }),
+        }),
+      );
+    });
+
+    it('should create and link a DiagnosticSession when scanning a known vehicle', async () => {
+      (agentRepository.findById as jest.Mock).mockResolvedValue({
+        id: 'agent-1',
+        status: AgentStatus.ONLINE,
+      });
+      (prisma.vehicle.findFirst as jest.Mock).mockResolvedValue({
+        id: 'vehicle-1',
+        make: 'Toyota',
+        model: 'Camry',
+      });
+      (prisma.diagnosticSession.create as jest.Mock).mockResolvedValue({
+        id: 'session-1',
+      });
+      (prisma.scanJob.create as jest.Mock).mockResolvedValue({
+        id: 'scan-1',
+        status: ScanJobStatus.PENDING,
+        vehicleId: 'vehicle-1',
+        diagnosticSessionId: 'session-1',
+        vin: null,
+        adapterType: null,
+        adapterProtocol: null,
+        errorMessage: null,
+        startedAt: null,
+        completedAt: null,
+        createdAt: new Date(),
+      });
+
+      const result = await service.createScan(
+        { vehicleId: 'vehicle-1' },
+        'org-1',
+        'user-1',
+        'agent-1',
+      );
+
+      expect(result.diagnosticSessionId).toBe('session-1');
+      expect(prisma.diagnosticSession.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            organizationId: 'org-1',
+            vehicleId: 'vehicle-1',
+            status: 'OPEN',
+            createdBy: 'user-1',
+          }),
+        }),
+      );
+      expect(prisma.scanJob.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            vehicleId: 'vehicle-1',
+            diagnosticSessionId: 'session-1',
           }),
         }),
       );

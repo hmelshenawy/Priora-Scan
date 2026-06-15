@@ -38,6 +38,7 @@ class MockObdAdapter:
         self._profile = self._registry.get_profile(name)
         self._dtcs_cleared = False
         self._dtcs_logged = False
+        self._active_header = None
         logger.info("Using mock OBD adapter with profile: %s", name)
 
     @property
@@ -70,6 +71,12 @@ class MockObdAdapter:
         raw = self._get_raw_response(command)
         if not raw:
             return b""
+        if command.startswith("ATSH") or (
+            command == "22F190"
+            and self._active_header
+            and getattr(self._profile, "DISCOVERY_RESPONSES", {})
+        ):
+            return raw
         # Convert raw bytes to ASCII hex string for parser compatibility.
         # Profiles store bytes.fromhex("410476") = b'\x41\x04\x76', but
         # parser functions expect b"410476" (ASCII hex string).
@@ -77,6 +84,20 @@ class MockObdAdapter:
 
     def _get_raw_response(self, command: str) -> bytes:
         """Look up the raw bytes for a command from the active profile."""
+        # Control Unit Discovery — ATSH selects a CAN request header, then
+        # the discovery probe command (22F190) receives the header-specific
+        # mock UDS response from the active profile.
+        if command.startswith("ATSH"):
+            self._active_header = command[4:].upper()
+            return b"OK"
+
+        discovery_responses = getattr(self._profile, "DISCOVERY_RESPONSES", {})
+        if self._active_header and command == "22F190" and discovery_responses:
+            response = discovery_responses.get(f"{self._active_header}_{command}")
+            if response is None or response == "NO DATA":
+                return b""
+            return str(response).encode("ascii")
+
         # Mode 04 — Clear DTCs (always handled by adapter)
         if command == "04":
             logger.info("Mock clear DTC")

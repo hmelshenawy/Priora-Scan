@@ -50,12 +50,56 @@ export class ObdScanService {
     }
 
     const scanJob = await this.prisma.$transaction(async (tx) => {
+      let diagnosticSessionId: string | null = null;
+
+      if (dto.vehicleId) {
+        const vehicle = await tx.vehicle.findFirst({
+          where: { id: dto.vehicleId, organizationId },
+        });
+        if (!vehicle) {
+          throw new NotFoundException({
+            code: 'VEHICLE_NOT_FOUND',
+            message: 'Vehicle not found.',
+          });
+        }
+
+        const number = this.buildSessionNumber();
+        const title = `OBD Scan — ${vehicle.make} ${vehicle.model}`;
+        const session = await tx.diagnosticSession.create({
+          data: {
+            organizationId,
+            vehicleId: dto.vehicleId,
+            number,
+            status: 'OPEN',
+            title,
+            createdBy: userId,
+          },
+        });
+
+        await tx.diagnosticSessionAuditRecord.create({
+          data: {
+            organizationId,
+            userId,
+            sessionId: session.id,
+            action: 'SESSION_CREATED',
+            status: 'OPEN',
+            metadata: {
+              title,
+              source: 'OBD_SCAN',
+            },
+          },
+        });
+
+        diagnosticSessionId = session.id;
+      }
+
       const job = await tx.scanJob.create({
         data: {
           organizationId,
           userId,
           agentId,
           vehicleId: dto.vehicleId ?? null,
+          diagnosticSessionId,
           status: ScanJobStatus.PENDING,
         },
       });

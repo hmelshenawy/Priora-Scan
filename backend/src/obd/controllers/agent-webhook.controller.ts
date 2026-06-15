@@ -86,6 +86,15 @@ export class AgentWebhookController {
       return [];
     }
 
+    let diagnosticSessionId = job.diagnosticSessionId;
+    if (!diagnosticSessionId && job.vehicleId) {
+      diagnosticSessionId = await this.scanService.createSessionFromScan(
+        job.id,
+        job.organizationId,
+        job.userId,
+      );
+    }
+
     if (pendingJob) {
       await this.prisma.$transaction(async (tx) => {
         await tx.scanJob.updateMany({
@@ -112,7 +121,8 @@ export class AgentWebhookController {
         createdAt: job.createdAt,
         vin: job.vin,
         vehicleId: job.vehicleId,
-        diagnosticSessionId: job.diagnosticSessionId,
+        diagnosticSessionId,
+        sessionId: diagnosticSessionId,
         scanJobId: job.id,
         commands: [
           ...(job.vin || job.vehicleId
@@ -146,7 +156,9 @@ export class AgentWebhookController {
     if (
       body.event === ScanEventType.VEHICLE_DATA_READ ||
       body.event === ScanEventType.DTC_CLEARED ||
-      body.event === ScanEventType.DTC_CLEAR_FAILED
+      body.event === ScanEventType.DTC_CLEAR_FAILED ||
+      body.event === ScanEventType.CONTROL_UNIT_DISCOVERY_READ ||
+      (body.event === ScanEventType.ERROR && body.sessionId)
     ) {
       return this.handleFeature009Event(id, agent.organizationId, body);
     }
@@ -262,7 +274,8 @@ export class AgentWebhookController {
   }
 
   /**
-   * Handle Feature 009 agent events (VEHICLE_DATA_READ, DTC_CLEARED, DTC_CLEAR_FAILED).
+   * Handle Feature 009 agent events (VEHICLE_DATA_READ, DTC_CLEARED,
+   * DTC_CLEAR_FAILED, session-level ERROR).
    * These events use sessionId instead of scanJobId.
    */
   private async handleFeature009Event(
@@ -320,6 +333,38 @@ export class AgentWebhookController {
 
         // Delegate to DtcClearService for audit + pending flag clear
         await this.dtcClearService.processClearResult(sessionId, organizationId, false, reason);
+
+        return { status: 'OK' };
+      }
+
+      case ScanEventType.ERROR: {
+        const reason =
+          (body.payload.message as string) ??
+          (body.payload.reason as string) ??
+          'Unknown failure';
+
+        await this.vehicleDataService.processVehicleDataReadFailure(
+          sessionId,
+          organizationId,
+          reason,
+        );
+
+        return { status: 'OK' };
+      }
+
+      case ScanEventType.CONTROL_UNIT_DISCOVERY_READ: {
+        const controlUnitDiscovery = body.payload.controlUnitDiscovery as Record<string, unknown>;
+        if (!controlUnitDiscovery) {
+          return { status: 'OK', warning: 'No controlUnitDiscovery in payload' };
+        }
+
+        // Delegate to VehicleDataService for persistence + audit
+        // Error isolation: processControlUnitDiscovery catches and logs errors internally
+        await this.vehicleDataService.processControlUnitDiscovery(
+          sessionId,
+          organizationId,
+          controlUnitDiscovery,
+        );
 
         return { status: 'OK' };
       }

@@ -2,13 +2,13 @@
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
 
-`specs/018-extended-live-data-pids/plan.md`
+`specs/019-control-unit-discovery/plan.md`
 
-Feature 018B (Full Pipeline) artifacts:
-- Spec: `specs/018-extended-live-data-pids/spec-018b.md`
-- Data model: `specs/018-extended-live-data-pids/data-model.md`
-- API contract: `specs/018-extended-live-data-pids/contracts/vehicle-data-api-contract.md`
-- Quickstart: `specs/018-extended-live-data-pids/quickstart.md`
+Feature 019 (Control Unit Discovery Foundation) artifacts:
+- Spec: `specs/019-control-unit-discovery/spec.md`
+- Data model: `specs/019-control-unit-discovery/data-model.md`
+- API contract: `specs/019-control-unit-discovery/contracts/vehicle-data-api-contract.md`
+- Quickstart: `specs/019-control-unit-discovery/quickstart.md`
 
 # PrioraScan AI Agent Instructions
 

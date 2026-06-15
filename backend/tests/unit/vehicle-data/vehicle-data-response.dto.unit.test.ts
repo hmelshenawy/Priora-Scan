@@ -2,6 +2,7 @@ import {
   isValidVehicleDataJson,
   VehicleDataJson,
   ExtendedPidDataPoint,
+  ControlUnitDiscovery,
 } from '../../../src/vehicle-data/dtos/vehicle-data-response.dto';
 
 /**
@@ -288,6 +289,338 @@ describe('VehicleDataJson — Extended PID Validation', () => {
       };
 
       expect(isValidVehicleDataJson(payload)).toBe(true);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Feature 019: Control Unit Discovery validation
+  // -----------------------------------------------------------------------
+  describe('TestControlUnitDiscovery', () => {
+    function makeDiscovery(overrides: Partial<ControlUnitDiscovery> = {}): ControlUnitDiscovery {
+      return {
+        version: 1,
+        strategy: 'GENERIC_OBD_CAN',
+        scanMode: 'FUNCTIONAL_THEN_PHYSICAL',
+        probeSequence: ['22F190'],
+        startedAt: '2026-06-15T12:00:00.000Z',
+        completedAt: '2026-06-15T12:00:03.000Z',
+        summary: {
+          totalProbes: 9,
+          respondersFound: 1,
+          functionalResponders: 1,
+          physicalResponders: 1,
+        },
+        probes: [
+          {
+            method: 'FUNCTIONAL',
+            requestId: '7DF',
+            probe: '22F190',
+            responseId: '7E8',
+            status: 'DISCOVERED',
+            responseType: 'NEGATIVE',
+            negativeResponseCode: '11',
+            negativeResponseMeaning: 'SERVICE_NOT_SUPPORTED',
+            rawHeader: '7E8',
+            rawPayload: '037F2211',
+            rawResponse: '7E8037F2211',
+            errorCode: null,
+          },
+          {
+            method: 'PHYSICAL',
+            requestId: '7E0',
+            probe: '22F190',
+            responseId: '7E8',
+            status: 'DISCOVERED',
+            responseType: 'NEGATIVE',
+            negativeResponseCode: '11',
+            negativeResponseMeaning: 'SERVICE_NOT_SUPPORTED',
+            rawHeader: '7E8',
+            rawPayload: '037F2211',
+            rawResponse: '7E8037F2211',
+            errorCode: null,
+          },
+          {
+            method: 'PHYSICAL',
+            requestId: '7E1',
+            probe: '22F190',
+            responseId: null,
+            status: 'NOT_FOUND',
+            responseType: 'NO_RESPONSE',
+            negativeResponseCode: null,
+            negativeResponseMeaning: null,
+            rawHeader: null,
+            rawPayload: null,
+            rawResponse: 'NO DATA',
+            errorCode: null,
+          },
+        ],
+        responders: [
+          {
+            responseId: '7E8',
+            discoveredBy: [
+              { method: 'FUNCTIONAL', requestId: '7DF', probe: '22F190' },
+              { method: 'PHYSICAL', requestId: '7E0', probe: '22F190' },
+            ],
+            firstSeenBy: 'FUNCTIONAL',
+            confirmedByPhysical: true,
+            confidence: 'HIGH',
+            ecuName: null,
+            ecuType: null,
+            protocol: 'UDS_ON_CAN_11BIT',
+            capabilities: {
+              respondedToF190: true,
+              positiveF190: false,
+              negativeF190: true,
+            },
+          },
+        ],
+        ...overrides,
+      };
+    }
+
+    it('accepts valid controlUnitDiscovery in VehicleDataJson', () => {
+      const payload = makeBasePayload();
+      payload.controlUnitDiscovery = makeDiscovery();
+
+      expect(isValidVehicleDataJson(payload)).toBe(true);
+    });
+
+    it('accepts payload without controlUnitDiscovery (backward compatible)', () => {
+      const payload = makeBasePayload();
+      // No controlUnitDiscovery field
+
+      expect(isValidVehicleDataJson(payload)).toBe(true);
+    });
+
+    it('accepts controlUnitDiscovery with null value (backward compatible)', () => {
+      const payload = makeBasePayload() as any;
+      payload.controlUnitDiscovery = null;
+
+      // null should still pass since we only validate when the field is present and non-null
+      expect(isValidVehicleDataJson(payload)).toBe(true);
+    });
+
+    it('rejects controlUnitDiscovery with wrong version', () => {
+      const payload = makeBasePayload();
+      payload.controlUnitDiscovery = makeDiscovery({ version: 2 as any });
+
+      expect(isValidVehicleDataJson(payload)).toBe(false);
+    });
+
+    it('rejects controlUnitDiscovery with missing scanMode', () => {
+      const payload = makeBasePayload();
+      const discovery = makeDiscovery();
+      delete (discovery as any).scanMode;
+      payload.controlUnitDiscovery = discovery;
+
+      expect(isValidVehicleDataJson(payload)).toBe(false);
+    });
+
+    it('rejects controlUnitDiscovery with missing strategy', () => {
+      const payload = makeBasePayload();
+      const discovery = makeDiscovery();
+      delete (discovery as any).strategy;
+      payload.controlUnitDiscovery = discovery;
+
+      expect(isValidVehicleDataJson(payload)).toBe(false);
+    });
+
+    it('rejects controlUnitDiscovery with missing probes array', () => {
+      const payload = makeBasePayload();
+      const discovery = makeDiscovery();
+      delete (discovery as any).probes;
+      payload.controlUnitDiscovery = discovery;
+
+      expect(isValidVehicleDataJson(payload)).toBe(false);
+    });
+
+    it('rejects controlUnitDiscovery with missing responders array', () => {
+      const payload = makeBasePayload();
+      const discovery = makeDiscovery();
+      delete (discovery as any).responders;
+      payload.controlUnitDiscovery = discovery;
+
+      expect(isValidVehicleDataJson(payload)).toBe(false);
+    });
+
+    it('rejects controlUnitDiscovery with malformed summary', () => {
+      const payload = makeBasePayload();
+      payload.controlUnitDiscovery = makeDiscovery({
+        summary: { totalProbes: 'not-a-number' } as any,
+      });
+
+      expect(isValidVehicleDataJson(payload)).toBe(false);
+    });
+
+    it('accepts probe with ERROR status and known errorCode', () => {
+      const payload = makeBasePayload();
+      payload.controlUnitDiscovery = makeDiscovery({
+        probes: [
+          {
+            method: 'PHYSICAL',
+            requestId: '7E1',
+            probe: '22F190',
+            responseId: null,
+            status: 'ERROR',
+            responseType: 'ERROR',
+            negativeResponseCode: null,
+            negativeResponseMeaning: null,
+            rawHeader: null,
+            rawPayload: null,
+            rawResponse: '',
+            errorCode: 'TIMEOUT',
+          },
+        ],
+      });
+
+      expect(isValidVehicleDataJson(payload)).toBe(true);
+    });
+
+    it('accepts probe with ERROR status and COMMUNICATION_ERROR errorCode', () => {
+      const payload = makeBasePayload();
+      payload.controlUnitDiscovery = makeDiscovery({
+        probes: [
+          {
+            method: 'PHYSICAL',
+            requestId: '7E1',
+            probe: '22F190',
+            responseId: null,
+            status: 'ERROR',
+            responseType: 'ERROR',
+            negativeResponseCode: null,
+            negativeResponseMeaning: null,
+            rawHeader: null,
+            rawPayload: null,
+            rawResponse: '',
+            errorCode: 'COMMUNICATION_ERROR',
+          },
+        ],
+      });
+
+      expect(isValidVehicleDataJson(payload)).toBe(true);
+    });
+
+    it('accepts probe with ERROR status and ADAPTER_DISCONNECT errorCode', () => {
+      const payload = makeBasePayload();
+      payload.controlUnitDiscovery = makeDiscovery({
+        probes: [
+          {
+            method: 'PHYSICAL',
+            requestId: '7E1',
+            probe: '22F190',
+            responseId: null,
+            status: 'ERROR',
+            responseType: 'ERROR',
+            negativeResponseCode: null,
+            negativeResponseMeaning: null,
+            rawHeader: null,
+            rawPayload: null,
+            rawResponse: '',
+            errorCode: 'ADAPTER_DISCONNECT',
+          },
+        ],
+      });
+
+      expect(isValidVehicleDataJson(payload)).toBe(true);
+    });
+
+    it('rejects probe with non-null errorCode on DISCOVERED status', () => {
+      const payload = makeBasePayload();
+      payload.controlUnitDiscovery = makeDiscovery({
+        probes: [
+          {
+            method: 'FUNCTIONAL',
+            requestId: '7DF',
+            probe: '22F190',
+            responseId: '7E8',
+            status: 'DISCOVERED',
+            responseType: 'NEGATIVE',
+            negativeResponseCode: '11',
+            negativeResponseMeaning: 'SERVICE_NOT_SUPPORTED',
+            rawHeader: '7E8',
+            rawPayload: '037F2211',
+            rawResponse: '7E8037F2211',
+            errorCode: 'TIMEOUT', // Should be null for non-ERROR
+          },
+        ],
+      });
+
+      expect(isValidVehicleDataJson(payload)).toBe(false);
+    });
+
+    it('accepts probe with null errorCode on NOT_FOUND status', () => {
+      const payload = makeBasePayload();
+      payload.controlUnitDiscovery = makeDiscovery({
+        probes: [
+          {
+            method: 'PHYSICAL',
+            requestId: '7E1',
+            probe: '22F190',
+            responseId: null,
+            status: 'NOT_FOUND',
+            responseType: 'NO_RESPONSE',
+            negativeResponseCode: null,
+            negativeResponseMeaning: null,
+            rawHeader: null,
+            rawPayload: null,
+            rawResponse: 'NO DATA',
+            errorCode: null,
+          },
+        ],
+      });
+
+      expect(isValidVehicleDataJson(payload)).toBe(true);
+    });
+
+    it('rejects controlUnitDiscovery with invalid probe status', () => {
+      const payload = makeBasePayload();
+      payload.controlUnitDiscovery = makeDiscovery({
+        probes: [
+          {
+            method: 'PHYSICAL',
+            requestId: '7E1',
+            probe: '22F190',
+            responseId: null,
+            status: 'INVALID_STATUS',
+            responseType: 'NO_RESPONSE',
+            negativeResponseCode: null,
+            negativeResponseMeaning: null,
+            rawHeader: null,
+            rawPayload: null,
+            rawResponse: 'NO DATA',
+            errorCode: null,
+          } as any,
+        ],
+      });
+
+      expect(isValidVehicleDataJson(payload)).toBe(false);
+    });
+
+    it('accepts controlUnitDiscovery with zero responders', () => {
+      const payload = makeBasePayload();
+      payload.controlUnitDiscovery = makeDiscovery({
+        summary: { totalProbes: 9, respondersFound: 0, functionalResponders: 0, physicalResponders: 0 },
+        probes: [],
+        responders: [],
+      });
+
+      expect(isValidVehicleDataJson(payload)).toBe(true);
+    });
+
+    it('accepts all valid scanMode values', () => {
+      const modes: string[] = [
+        'FUNCTIONAL_ONLY',
+        'PHYSICAL_ONLY',
+        'FUNCTIONAL_THEN_PHYSICAL',
+        'ADVANCED_RANGE',
+        'TOYOTA_PROFILE',
+        'MERCEDES_PROFILE',
+      ];
+      for (const mode of modes) {
+        const payload = makeBasePayload();
+        payload.controlUnitDiscovery = makeDiscovery({ scanMode: mode as any });
+        expect(isValidVehicleDataJson(payload)).toBe(true);
+      }
     });
   });
 });
