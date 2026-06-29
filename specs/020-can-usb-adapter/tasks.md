@@ -189,7 +189,7 @@
 **Goal**: Deterministic, hardware-free `MockDriver` plus handcrafted fixtures so all downstream work is testable without a USB-CAN adapter.
 **Independent Test**: `MockDriver` replays a supplied frame list in order; when exhausted, raises `CanReceiveTimeout`; reports status and capabilities — all with no hardware and no external file.
 
-- [ ] T015 [US2] Implement `MockDriver` in `can_usb_adapter/src/prioracan/drivers/mock.py`
+- [X] T015 [US2] Implement `MockDriver` in `can_usb_adapter/src/prioracan/drivers/mock.py`
 
 **Goal**: Deterministic hardware-free driver implementing `CanDriver`.
 **Files to modify**: `can_usb_adapter/src/prioracan/drivers/mock.py`; `can_usb_adapter/src/prioracan/drivers/__init__.py`.
@@ -198,7 +198,7 @@
 **Tests to add**: `can_usb_adapter/tests/test_mock_driver.py` — ordered deterministic replay; exhaustion → `CanReceiveTimeout`; connect/disconnect idempotency; status transitions DISCONNECTED→CONNECTED→LISTENING; capabilities equal `MOCK_CAPABILITIES`; `iter_frames` stops on `stop_event`; **two `MockDriver` instances run simultaneously without interference**.
 **Acceptance criteria**: Deterministic in-order replay; immediate timeout when empty; correct status/capabilities; passes `assert_conforms`; no transmit; multi-instance independent.
 
-- [ ] T016 [US2] Add handcrafted deterministic frame fixtures in `can_usb_adapter/tests/fixtures/frames.py`
+- [X] T016 [US2] Add handcrafted deterministic frame fixtures in `can_usb_adapter/tests/fixtures/frames.py`
 
 **Goal**: Shared deterministic test frames so no unit test depends on an external file or the Yaris trace.
 **Files to modify**: `can_usb_adapter/tests/fixtures/frames.py`; `can_usb_adapter/tests/fixtures/__init__.py`; `can_usb_adapter/tests/conftest.py`.
@@ -216,7 +216,7 @@
 **Goal**: Minimal logging — required JSONL + minimal ASC — behind a shared `FrameLogger` interface, independent of the driver layer.
 **Independent Test**: Receive frames via `MockDriver`, write through `JsonlLogger`, read back one valid JSON object per frame with hex-serialized payload and all required fields; `AscLogger` conforms to the interface with documented limitations.
 
-- [ ] T017 [US3] Implement `FrameLogger` interface in `can_usb_adapter/src/prioracan/logging/base.py`
+- [X] T017 [US3] Implement `FrameLogger` interface in `can_usb_adapter/src/prioracan/logging/base.py`
 
 **Goal**: Logger abstraction shared by all formats.
 **Files to modify**: `can_usb_adapter/src/prioracan/logging/base.py`; `can_usb_adapter/src/prioracan/logging/__init__.py`.
@@ -225,7 +225,7 @@
 **Tests to add**: `can_usb_adapter/tests/test_frame_logger.py` — a minimal conforming logger passes a structural conformance check; a logger missing any of the three methods fails; the interface declares no transmit/driver-coupled methods.
 **Acceptance criteria**: Exactly `open`/`write_frame`/`close`; Protocol; no driver-layer dependency.
 
-- [ ] T018 [US3] Implement `JsonlLogger` in `can_usb_adapter/src/prioracan/logging/jsonl.py`
+- [X] T018 [US3] Implement `JsonlLogger` in `can_usb_adapter/src/prioracan/logging/jsonl.py`
 
 **Goal**: One valid JSON object per frame with all required fields and `data_hex` payload.
 **Files to modify**: `can_usb_adapter/src/prioracan/logging/jsonl.py`; `can_usb_adapter/src/prioracan/logging/__init__.py`; `can_usb_adapter/src/prioracan/__init__.py` (re-export `JsonlLogger`).
@@ -234,7 +234,7 @@
 **Tests to add**: `can_usb_adapter/tests/test_jsonl_logger.py` — write N frames (tmp_path), read lines, assert count == N; each line `json.loads`-parseable; fields and `data_hex` serialization correct; `bitrate` omitted when None; simulated IO failure → `CanLoggingError`; `close` safe after error.
 **Acceptance criteria**: Exactly one valid parseable record per frame; required fields present; payload as `data_hex`; `CanLoggingError` on failure; no python-can import.
 
-- [ ] T019 [US3] Implement minimal `AscLogger` in `can_usb_adapter/src/prioracan/logging/asc.py`
+- [X] T019 [US3] Implement minimal `AscLogger` in `can_usb_adapter/src/prioracan/logging/asc.py`
 
 **Goal**: Safe minimal ASC writer behind `FrameLogger`, with documented limitations; NOT using python-can's `ASCWriter`.
 **Files to modify**: `can_usb_adapter/src/prioracan/logging/asc.py`; `can_usb_adapter/src/prioracan/logging/__init__.py`; `can_usb_adapter/src/prioracan/__init__.py` (re-export `AscLogger`).
@@ -252,7 +252,7 @@
 **Goal**: Thin `ConnectionService` that connects a driver, receives one frame, forwards to loggers, exposes status, and disconnects — no streaming, no state machine.
 **Independent Test**: With `MockDriver` + `JsonlLogger`, `receive_once()` returns the next frame and writes one JSONL record; `get_status()` reflects the driver; `disconnect()` is idempotent.
 
-- [ ] T020 [US1] [US3] Implement `ConnectionService` in `can_usb_adapter/src/prioracan/services/connection.py`
+- [X] T020 [US1] [US3] Implement `ConnectionService` in `can_usb_adapter/src/prioracan/services/connection.py`
 
 **Goal**: Thin orchestrator composing one driver and optional loggers.
 **Files to modify**: `can_usb_adapter/src/prioracan/services/connection.py`; `can_usb_adapter/src/prioracan/services/__init__.py`; `can_usb_adapter/src/prioracan/__init__.py` (re-export `ConnectionService`).

@@ -47,4 +47,23 @@ frame = CanFrame(
 print(frame.arbitration_id_hex, frame.data_hex)
 ```
 
-Future milestones add concrete GS_USB and mock drivers behind the `CanDriver` abstraction. Milestone 1 defines the stable domain objects and driver contract only.
+## Mock Driver and JSONL Logging
+
+```python
+from prioracan import ConnectionService, JsonlLogger, MockDriver
+from prioracan.frame import CanFrame, Direction
+
+frames = [
+    CanFrame(1.0, 0, Direction.RX, 0x100, False, False, False, 1, b"\x11"),
+]
+driver = MockDriver(frames)
+logger = JsonlLogger("capture.jsonl")
+service = ConnectionService(driver, [logger])
+service.connect()
+frame = service.receive_once()
+service.disconnect()
+```
+
+## ASC Logging
+
+`AscLogger` writes a minimal Vector ASC subset with a header and one line per frame. Full ASC fidelity, including bus events, detailed error-frame formatting, CAN FD, comments, and richer metadata, is deferred to a future logging feature.
