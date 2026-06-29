@@ -18,6 +18,7 @@ from typing import Optional
 
 from src.api_client import ApiClient
 from src.live_data.generator import MockLiveDataGenerator
+from src.obd.adapter_lock import adapter_command_lock
 from src.obd.commands.elm_parser import compact_raw_response, is_adapter_error_response
 
 
@@ -216,6 +217,10 @@ class LiveDataPoller:
         return self._adapter is not None and adapter_type not in (None, "MOCK")
 
     def _read_adapter_readings(self) -> list[dict]:
+        with adapter_command_lock(self._adapter):
+            return self._read_adapter_readings_locked()
+
+    def _read_adapter_readings_locked(self) -> list[dict]:
         readings: list[dict] = []
         assert self._generator is not None
 

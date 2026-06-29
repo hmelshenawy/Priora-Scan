@@ -8,6 +8,7 @@ import logging
 import time
 
 from src.obd.adapter import BaseAdapter
+from src.obd.adapter_lock import adapter_command_lock
 from src.obd.connection.wifi import WifiConnection
 from src.config import OBD_WIFI_HOST, OBD_WIFI_PORT, OBD_WIFI_TIMEOUT_SECONDS
 
@@ -175,10 +176,11 @@ class WifiElm327Adapter(BaseAdapter):
         Raises:
             RuntimeError: If not connected.
         """
-        if not self.is_connected():
-            raise RuntimeError("WiFi ELM327 adapter not connected")
+        with adapter_command_lock(self):
+            if not self.is_connected():
+                raise RuntimeError("WiFi ELM327 adapter not connected")
 
-        return self._send_and_read(command + "\r")
+            return self._send_and_read(command + "\r")
 
     def _send_and_read(self, command: str, timeout: float | None = None) -> bytes:
         """Low-level send command + CR and read response."""

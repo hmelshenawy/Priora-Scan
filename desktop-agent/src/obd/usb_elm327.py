@@ -1,4 +1,5 @@
 from src.obd.adapter import BaseAdapter
+from src.obd.adapter_lock import adapter_command_lock
 
 
 class Elm327Adapter(BaseAdapter):
@@ -35,10 +36,11 @@ class Elm327Adapter(BaseAdapter):
             return False
 
     def send(self, command: str) -> bytes:
-        if not self.is_connected():
-            raise RuntimeError("Adapter not connected")
-        self._connection.write(command.encode() + b"\r")
-        return self._connection.read()
+        with adapter_command_lock(self):
+            if not self.is_connected():
+                raise RuntimeError("Adapter not connected")
+            self._connection.write(command.encode() + b"\r")
+            return self._connection.read()
 
     def close(self):
         if self._connection:

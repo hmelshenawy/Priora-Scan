@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence
 
 from src.obd.adapter import BaseAdapter
+from src.obd.adapter_lock import adapter_command_lock
 from src.obd.commands.uds_response_parser import (
     NEGATIVE_RESPONSE_CODES,
     classify_response,
@@ -51,6 +52,13 @@ MAX_PROBES_PER_PROBE: int = 9
 
 # Per-probe timeout in seconds
 PROBE_TIMEOUT_SECONDS: float = 2.0
+
+DISCOVERY_CLEANUP_COMMANDS: List[str] = ["ATH0", "ATSH7DF"]
+
+
+def _debug(message: str) -> None:
+    logger.info("[CONTROL_DISCOVERY_DEBUG] %s", message)
+    print(f"[CONTROL_DISCOVERY_DEBUG] {message}")
 
 
 # ---------------------------------------------------------------------------
@@ -158,8 +166,10 @@ def _execute_probe(
     try:
         # Set header and send probe
         header_cmd = f"ATSH{request_id}"
+        _debug(f"TX {header_cmd}")
         adapter.send(header_cmd)
 
+        _debug(f"TX {probe}")
         raw_response = adapter.send(probe)
 
         # adapter.send may return bytes or str depending on adapter type
@@ -169,6 +179,8 @@ def _execute_probe(
             raw_response = str(raw_response).strip()
         else:
             raw_response = "NO DATA"
+
+        _debug(f"RX {raw_response}")
 
         # Classify the response
         result = classify_response(raw_response, request_id)
@@ -403,29 +415,33 @@ def read_control_units(
     # Build request ID list: functional first, then physical
     request_ids = [FUNCTIONAL_REQUEST_ID] + PHYSICAL_REQUEST_IDS
 
-    # Execute discovery with per-probe isolation
-    try:
-        probes = strategy.discover(adapter, request_ids, probe_sequence)
-    except Exception as exc:
-        # Unrecoverable failure — return partial result with error probe
-        logger.error("Discovery strategy failed: %s", exc)
-        completed_at = datetime.now(timezone.utc).isoformat()
-        return {
-            "version": 1,
-            "strategy": "GENERIC_OBD_CAN",
-            "scanMode": "FUNCTIONAL_THEN_PHYSICAL",
-            "probeSequence": probe_sequence,
-            "startedAt": started_at,
-            "completedAt": completed_at,
-            "summary": {
-                "totalProbes": 0,
-                "respondersFound": 0,
-                "functionalResponders": 0,
-                "physicalResponders": 0,
-            },
-            "probes": [],
-            "responders": [],
-        }
+    with adapter_command_lock(adapter):
+        protocol_before = _read_current_protocol(adapter, "before discovery")
+        # Execute discovery with per-probe isolation
+        try:
+            probes = strategy.discover(adapter, request_ids, probe_sequence)
+        except Exception as exc:
+            # Unrecoverable failure — return partial result with error probe
+            logger.error("Discovery strategy failed: %s", exc)
+            completed_at = datetime.now(timezone.utc).isoformat()
+            return {
+                "version": 1,
+                "strategy": "GENERIC_OBD_CAN",
+                "scanMode": "FUNCTIONAL_THEN_PHYSICAL",
+                "probeSequence": probe_sequence,
+                "startedAt": started_at,
+                "completedAt": completed_at,
+                "summary": {
+                    "totalProbes": 0,
+                    "respondersFound": 0,
+                    "functionalResponders": 0,
+                    "physicalResponders": 0,
+                },
+                "probes": [],
+                "responders": [],
+            }
+        finally:
+            _restore_elm_state(adapter, protocol_before)
 
     # Build responders from discovered probes
     responders = build_responders(probes)
@@ -461,3 +477,66 @@ def read_control_units(
         "probes": probes,
         "responders": responders,
     }
+
+
+def _read_current_protocol(adapter: BaseAdapter, label: str) -> Optional[str]:
+    """Read and log the current ELM protocol without aborting discovery."""
+    if getattr(adapter, "adapter_type", None) not in {"ELM327_WIFI", "ELM327_USB"}:
+        return None
+
+    try:
+        _debug(f"TX ATDPN ({label})")
+        response = adapter.send("ATDPN")
+        text = _adapter_response_text(response)
+        protocol = _normalize_protocol_number(text)
+        _debug(f"RX ATDPN ({label}) raw={text!r} protocol={protocol or 'UNKNOWN'}")
+        return protocol
+    except Exception as exc:  # noqa: BLE001 - diagnostics must not abort discovery
+        logger.warning("Control unit discovery protocol read failed %s: %s", label, exc)
+        _debug(f"RX ATDPN ({label}) error={exc!r}")
+        return None
+
+
+def _adapter_response_text(response: Any) -> str:
+    if isinstance(response, bytes):
+        return response.decode("utf-8", errors="replace").strip().replace(">", "")
+    if response is None:
+        return ""
+    return str(response).strip().replace(">", "")
+
+
+def _normalize_protocol_number(raw_protocol: str) -> Optional[str]:
+    """Normalize ATDPN response to an ATSP protocol number.
+
+    ATDPN commonly returns values like ``6`` or ``A6``. ``A`` means the
+    adapter auto-selected protocol 6. For cleanup we avoid ``ATSP0`` and
+    restore the concrete protocol with ``ATSP6``.
+    """
+    protocol = raw_protocol.strip().upper().replace("\r", "").replace("\n", "")
+    if not protocol:
+        return None
+    if protocol.startswith("A") and len(protocol) > 1:
+        protocol = protocol[1:]
+    if protocol in {"0", "AUTO"}:
+        return None
+    return protocol if len(protocol) == 1 and protocol in "123456789ABC" else None
+
+
+def _restore_elm_state(adapter: BaseAdapter, protocol_before: Optional[str]) -> None:
+    """Return the ELM327 to normal OBD mode after custom UDS headers."""
+    for command in DISCOVERY_CLEANUP_COMMANDS:
+        try:
+            _debug(f"cleanup {command}")
+            adapter.send(command)
+        except Exception as exc:  # noqa: BLE001 - cleanup must not abort scan
+            logger.warning("Control unit discovery cleanup failed for %s: %s", command, exc)
+
+    if protocol_before:
+        command = f"ATSP{protocol_before}"
+        try:
+            _debug(f"cleanup restore protocol {command}")
+            adapter.send(command)
+        except Exception as exc:  # noqa: BLE001 - cleanup must not abort scan
+            logger.warning("Control unit discovery protocol restore failed for %s: %s", command, exc)
+
+    _read_current_protocol(adapter, "after cleanup")

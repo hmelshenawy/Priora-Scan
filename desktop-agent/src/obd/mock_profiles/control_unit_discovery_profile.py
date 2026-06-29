@@ -80,7 +80,9 @@ POSITIVE_DISCOVERY_RESPONSES = {
 
 # Standard OBD PID responses (inherited from default profile for basic operation)
 PID_RESPONSES = {
+    "0101": bytes.fromhex("4101000007FF07FF"),
     "0100": bytes.fromhex("4100BE1FB820"),
+    "010C": bytes.fromhex("410C0E10"),
     "0120": bytes.fromhex("412081008402"),
     "0142": bytes.fromhex("414236D4"),
 }

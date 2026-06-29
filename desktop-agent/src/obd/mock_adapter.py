@@ -9,6 +9,7 @@ import logging
 import os
 
 from src.config import OBD_MOCK_PROFILE
+from src.obd.adapter_lock import adapter_command_lock
 
 logger = logging.getLogger(__name__)
 
@@ -68,19 +69,20 @@ class MockObdAdapter:
         5. PID responses — returns profile's PID_RESPONSES[command]
         6. Unknown command — returns b""
         """
-        raw = self._get_raw_response(command)
-        if not raw:
-            return b""
-        if command.startswith("ATSH") or (
-            command == "22F190"
-            and self._active_header
-            and getattr(self._profile, "DISCOVERY_RESPONSES", {})
-        ):
-            return raw
-        # Convert raw bytes to ASCII hex string for parser compatibility.
-        # Profiles store bytes.fromhex("410476") = b'\x41\x04\x76', but
-        # parser functions expect b"410476" (ASCII hex string).
-        return raw.hex().upper().encode("ascii")
+        with adapter_command_lock(self):
+            raw = self._get_raw_response(command)
+            if not raw:
+                return b""
+            if command.startswith("AT") or (
+                command == "22F190"
+                and self._active_header
+                and getattr(self._profile, "DISCOVERY_RESPONSES", {})
+            ):
+                return raw
+            # Convert raw bytes to ASCII hex string for parser compatibility.
+            # Profiles store bytes.fromhex("410476") = b'\x41\x04\x76', but
+            # parser functions expect b"410476" (ASCII hex string).
+            return raw.hex().upper().encode("ascii")
 
     def _get_raw_response(self, command: str) -> bytes:
         """Look up the raw bytes for a command from the active profile."""
@@ -89,6 +91,16 @@ class MockObdAdapter:
         # mock UDS response from the active profile.
         if command.startswith("ATSH"):
             self._active_header = command[4:].upper()
+            return b"OK"
+        if command == "ATH0":
+            return b"OK"
+        if command == "ATSP0":
+            self.protocol = "AUTO"
+            return b"OK"
+        if command == "ATDPN":
+            return str(self.protocol).encode("ascii")
+        if command.startswith("ATSP"):
+            self.protocol = command[4:].upper()
             return b"OK"
 
         discovery_responses = getattr(self._profile, "DISCOVERY_RESPONSES", {})

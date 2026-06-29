@@ -12,6 +12,7 @@ from unittest.mock import MagicMock
 from src.live_data.generator import MockLiveDataGenerator
 from src.live_data.poller import LiveDataPoller, _clamp_cadence
 from src.live_data.queue import poll_live_data_command_queue
+from src.obd.adapter_lock import adapter_command_lock
 
 
 # ---------------------------------------------------------------------------
@@ -260,6 +261,30 @@ class TestLiveDataPoller:
         assert poller._tick() is True
 
         assert client.posts[0][1]["readings"][0]["rawValue"] == ""
+
+    def test_real_adapter_tick_waits_for_scan_level_adapter_lock(self):
+        client = _RecordingClient(status_code=200)
+        adapter = _FakeRealAdapter({"010C": b"410C0E10\r\r>"})
+        poller = LiveDataPoller(client, agent_id="agent-1", adapter=adapter)
+        poller._session_id = "live-1"
+        poller._generator = MockLiveDataGenerator(pids=[_payload_pid("rpm", "01", "0C")])
+
+        tick_completed = threading.Event()
+
+        with adapter_command_lock(adapter):
+            thread = threading.Thread(
+                target=lambda: (poller._tick(), tick_completed.set()),
+                daemon=True,
+            )
+            thread.start()
+            time.sleep(0.1)
+            assert adapter.commands == []
+            assert tick_completed.is_set() is False
+
+        thread.join(timeout=1.0)
+
+        assert tick_completed.is_set() is True
+        assert adapter.commands == ["010C"]
 
 
 # ---------------------------------------------------------------------------

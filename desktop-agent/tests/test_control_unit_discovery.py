@@ -1046,3 +1046,83 @@ class TestControlUnitDiscoveryMockProfile:
         assert probes[0]["rawResponse"].startswith("7E8")
         assert not probes[0]["rawResponse"].startswith("374")
         assert responders[0]["responseId"] == "7E8"
+
+    def test_cleanup_runs_when_all_probes_return_no_data(self):
+        sent_commands: list[str] = []
+
+        class NoDataAdapter:
+            protocol = "6"
+            adapter_type = "ELM327_WIFI"
+
+            def send(self, command: str) -> bytes:
+                sent_commands.append(command)
+                if command == "ATDPN":
+                    return b"6"
+                if command.startswith("AT"):
+                    return b"OK"
+                return b""
+
+        result = read_control_units(NoDataAdapter())
+
+        assert result["summary"]["respondersFound"] == 0
+        assert "ATSP0" not in sent_commands
+        assert sent_commands[0] == "ATDPN"
+        assert sent_commands[-4:] == ["ATH0", "ATSH7DF", "ATSP6", "ATDPN"]
+
+    def test_cleanup_does_not_force_protocol_when_current_protocol_unknown(self):
+        sent_commands: list[str] = []
+
+        class UnknownProtocolAdapter:
+            protocol = "AUTO"
+            adapter_type = "ELM327_WIFI"
+
+            def send(self, command: str) -> bytes:
+                sent_commands.append(command)
+                if command == "ATDPN":
+                    return b""
+                if command.startswith("AT"):
+                    return b"OK"
+                return b""
+
+        read_control_units(UnknownProtocolAdapter())
+
+        assert "ATSP0" not in sent_commands
+        assert not any(command.startswith("ATSP") for command in sent_commands)
+        assert sent_commands[-3:] == ["ATH0", "ATSH7DF", "ATDPN"]
+
+    def test_cleanup_restores_auto_selected_protocol_as_concrete_protocol(self):
+        sent_commands: list[str] = []
+
+        class AutoSelectedProtocolAdapter:
+            protocol = "A6"
+            adapter_type = "ELM327_WIFI"
+
+            def send(self, command: str) -> bytes:
+                sent_commands.append(command)
+                if command == "ATDPN":
+                    return b"A6"
+                if command.startswith("AT"):
+                    return b"OK"
+                return b""
+
+        read_control_units(AutoSelectedProtocolAdapter())
+
+        assert "ATSP0" not in sent_commands
+        assert sent_commands[-4:] == ["ATH0", "ATSH7DF", "ATSP6", "ATDPN"]
+
+    def test_mock_header_state_is_restored_after_discovery(self):
+        adapter = MockObdAdapter(profile_name="control_unit_discovery")
+
+        read_control_units(adapter)
+
+        assert adapter._active_header == "7DF"
+        assert adapter.protocol == "MOCK"
+
+    def test_normal_obd_commands_still_work_after_discovery(self):
+        adapter = MockObdAdapter(profile_name="control_unit_discovery")
+
+        read_control_units(adapter)
+
+        assert adapter.send("0100") == b"4100BE1FB820"
+        assert adapter.send("010C") == b"410C0E10"
+        assert adapter.send("03") == b"4300"
