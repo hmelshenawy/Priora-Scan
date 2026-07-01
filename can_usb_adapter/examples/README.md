@@ -96,6 +96,37 @@ This path requires candleLight/GS_USB-compatible hardware plus platform libusb s
 
 `examples/load_sample.py` loads `examples/fixtures/sample_yaris.jsonl` into `CanFrame` objects if the sanitized sample exists. The file is optional demo data only; tests never require it. If absent, the loader returns an empty list.
 
+## ISO-TP Mock Example
+
+Run a hardware-free Single Frame plus multi-frame exchange:
+
+```bash
+python examples/iso_tp_mock.py
+```
+
+Expected output includes:
+
+```text
+single-frame payload: 62f190
+multi-frame payload: 00010203040506070809
+```
+
+## ISO-TP GS_USB Example
+
+Validate arguments without hardware:
+
+```bash
+python examples/iso_tp_gs_usb.py --dry-run --tx-id 0x7e0 --rx-id 0x7e8 --payload 22f190
+```
+
+Run with hardware only when a configured GS_USB adapter and target ECU are connected:
+
+```bash
+python examples/iso_tp_gs_usb.py --tx-id 0x7e0 --rx-id 0x7e8 --payload 22f190
+```
+
+The script constructs `GsUsbDriver`, `CaptureSession`, and `IsoTpTransport`, sends the complete payload, and releases the adapter.
+
 ## Implementing Another Driver
 
 Implement the `CanDriver` protocol: `connect`, `disconnect`, `is_connected`, `receive`, `iter_frames`, `get_status`, and `get_capabilities`. Do not add transmit, send, write, CAN FD, ISO-TP, UDS, DBC, or live-loop APIs to the public contract.

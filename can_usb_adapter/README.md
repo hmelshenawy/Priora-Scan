@@ -15,7 +15,7 @@ pytest -q
 
 ## Read-only Safety
 
-This foundation is receive-only. It does not expose transmit, send, write, CAN FD, ISO-TP, UDS, DBC, replay, live streaming, or product integration APIs.
+The original capture foundation remains backward compatible. Feature 022 adds an additive `send_frame` path plus the first ISO-TP MVP, but does not change `prioracan.__all__`, `CanDriver`, `CanFrame`, capabilities, logging, or capture construction contracts.
 
 ## Platform and libusb Setup
 
@@ -133,6 +133,59 @@ Troubleshooting:
 ## ASC Logging
 
 `AscLogger` writes a minimal Vector ASC subset with a header and one line per frame. Full ASC fidelity, including bus events, detailed error-frame formatting, CAN FD, comments, and richer metadata, is deferred to a future logging feature.
+
+## ISO-TP MVP
+
+This is the first ISO-TP MVP, not a complete ISO-15765-2 implementation.
+
+Supported now:
+- Classic CAN normal addressing with 11-bit or 29-bit IDs.
+- Single Frame payloads from 0 to 7 bytes.
+- First Frame plus Consecutive Frame receive reassembly up to 4095 bytes.
+- CTS Flow Control emission and parsing with raw millisecond STmin values 0 to 127.
+- Multi-frame transmit after CTS, with Block Size handling and mod-16 sequence numbers.
+- Two bounded waits: wait-for-Flow-Control and wait-for-Consecutive-Frame.
+
+Deferred intentionally:
+- 32-bit escape length, CAN FD, extended/mixed addressing, concurrent transfers, strict six-timer behavior, advanced STmin encodings, and WAIT/OVERFLOW negotiation.
+- Diagnostic semantics such as UDS services, VIN, DTC, ECU discovery, DBC parsing, replay, filtering, and product integration.
+
+Byte examples:
+- Single Frame request `03 22 f1 90` declares 3 payload bytes.
+- First Frame `10 0a 00 01 02 03 04 05` declares a 10-byte payload and carries the first 6 bytes.
+- Consecutive Frame `21 06 07 08 09` carries sequence `1` and the remaining bytes.
+- CTS Flow Control `30 00 00` means continue, unlimited block, zero STmin.
+
+Transport lifecycle:
+```text
+create IsoTpTransport -> start -> send_payload/process_frame -> check_timeouts -> stop/dispose
+```
+
+Send path:
+```text
+IsoTpTransport -> CaptureSession.send_frame -> concrete driver -> adapter/bus
+```
+
+Receive integration:
+```text
+driver -> CaptureSession -> frame listener -> IsoTpTransport -> complete payload callback
+```
+
+TX state machine:
+```text
+Idle -> Single Frame complete
+Idle -> First Frame -> wait CTS -> Consecutive Frames -> complete
+Any wait -> timeout/error -> cleanup -> Idle
+```
+
+RX state machine:
+```text
+Idle -> Single Frame -> deliver
+Idle -> First Frame -> CTS -> Consecutive Frames -> deliver
+Any wait -> timeout/error -> cleanup -> Idle
+```
+
+Permanent architectural boundary: diagnostic/application protocols compose on top of `IsoTpTransport` and consume complete payloads. This layer remains transport-only.
 
 ## Optional Yaris Sample
 

@@ -6,6 +6,7 @@ node_modules/
 backend/dist/
 frontend/.next/
 frontend/out/
+build/
 
 # Logs
 *.log
@@ -13,6 +14,7 @@ logs/
 
 # Environment
 .env
+.env*
 .env.local
 .env.*.local
 

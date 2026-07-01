@@ -49,6 +49,16 @@ class GsUsbDriver:
         self._listening = True
         return frame
 
+    def send_frame(self, frame: CanFrame) -> None:
+        if not self.is_connected():
+            raise CanConnectionError("CAN connection is not open")
+        try:
+            self._adapter.send_frame(frame)
+            self._last_error = None
+        except CanAdapterError as exc:
+            self._last_error = exc
+            raise
+
     def iter_frames(
         self, stop_event: threading.Event | None = None
     ) -> Iterator[CanFrame]:

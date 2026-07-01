@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import threading
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 
 from prioracan.config import CanUsbConfig
-from prioracan.errors import CanAdapterError, CanLoggingError
+from prioracan.errors import CanAdapterError, CanConnectionError, CanLoggingError
 from prioracan.statistics import CaptureStatistics
 
 if TYPE_CHECKING:
@@ -58,6 +58,8 @@ class CaptureSession:
         self._captured_frames: list[CanFrame] = []
         self._opened_loggers: list[FrameLogger] = []
         self._failed_logger: FrameLogger | None = None
+        self._frame_listeners: list[Callable[[CanFrame], None]] = []
+        self._listener_errors: list[CanAdapterError] = []
 
     def mark_end(self, end_time: float) -> None:
         self.end_time = end_time
@@ -106,6 +108,28 @@ class CaptureSession:
         self._wait_until_stopped()
         return self._capture_stats
 
+    def send_frame(self, frame: CanFrame) -> None:
+        """Send one CAN frame through the concrete driver while running."""
+        self._ensure_usable()
+        if self._state is not CaptureState.RUNNING:
+            raise CanAdapterError("capture session is not running")
+        if not hasattr(self.driver, "send_frame"):
+            raise CanAdapterError("driver does not support send_frame")
+        try:
+            self.driver.send_frame(frame)
+        except CanAdapterError:
+            raise
+        except OSError as exc:
+            raise CanConnectionError(str(exc)) from exc
+        except Exception as exc:
+            raise CanAdapterError(str(exc)) from exc
+        self._tx += 1
+
+    def add_frame_listener(self, listener: Callable[[CanFrame], None]) -> None:
+        """Register a synchronous callback for captured CAN frames."""
+        self._ensure_usable()
+        self._frame_listeners.append(listener)
+
     def __enter__(self) -> CaptureSession:
         """Enter a context-managed capture lifecycle without auto-starting."""
         self._ensure_usable()
@@ -137,6 +161,13 @@ class CaptureSession:
                 if isinstance(exc, CanLoggingError):
                     raise
                 raise CanLoggingError(str(exc)) from exc
+        for listener in self._frame_listeners:
+            try:
+                listener(frame)
+            except CanAdapterError as exc:
+                self._listener_errors.append(exc)
+            except Exception as exc:
+                self._listener_errors.append(CanAdapterError(str(exc)))
 
     def _finish_capture(self) -> None:
         if self._state in (CaptureState.RUNNING, CaptureState.STARTING):

@@ -38,6 +38,14 @@ class PythonCanAdapter:
         except Exception as exc:
             raise _map_runtime_error(exc) from exc
 
+    def send_frame(self, message: Any) -> None:
+        if self._bus is None:
+            raise CanConnectionError("CAN bus is not open")
+        try:
+            self._bus.send(_to_message(message))
+        except Exception as exc:
+            raise _map_runtime_error(exc) from exc
+
     def close(self) -> None:
         if self._bus is None:
             return
@@ -63,6 +71,18 @@ def _map_open_error(exc: Exception) -> CanAdapterError:
     if _contains(message, "backend", "driver", "interface is not supported"):
         return CanDriverNotFoundError(str(exc))
     return CanAdapterError(str(exc))
+
+
+def _to_message(value: Any) -> Any:
+    if value.__class__.__module__.startswith("can."):
+        return value
+    return can.Message(
+        arbitration_id=value.arbitration_id,
+        data=value.data,
+        is_extended_id=value.is_extended_id,
+        is_remote_frame=value.is_remote_frame,
+        dlc=value.dlc,
+    )
 
 
 def _map_runtime_error(exc: Exception) -> CanAdapterError:

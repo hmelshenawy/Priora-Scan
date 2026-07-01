@@ -5,7 +5,7 @@ from collections.abc import Iterator, Sequence
 
 from prioracan.capabilities import MOCK_CAPABILITIES, DriverCapabilities
 from prioracan.config import CanUsbConfig
-from prioracan.errors import CanReceiveTimeout
+from prioracan.errors import CanConnectionError, CanReceiveTimeout
 from prioracan.frame import CanFrame
 from prioracan.status import DriverState, DriverStatus
 
@@ -21,6 +21,7 @@ class MockDriver:
         self._index = 0
         self._connected = False
         self._listening = False
+        self._sent_frames: list[CanFrame] = []
 
     def connect(self) -> None:
         self._connected = True
@@ -39,6 +40,15 @@ class MockDriver:
         frame = self._frames[self._index]
         self._index += 1
         return frame
+
+    def send_frame(self, frame: CanFrame) -> None:
+        if not self.is_connected():
+            raise CanConnectionError("mock driver is not connected")
+        self._sent_frames.append(frame)
+
+    @property
+    def sent_frames(self) -> list[CanFrame]:
+        return list(self._sent_frames)
 
     def iter_frames(
         self, stop_event: threading.Event | None = None

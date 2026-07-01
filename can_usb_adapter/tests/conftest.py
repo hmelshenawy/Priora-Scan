@@ -6,6 +6,23 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from tests.fixtures.frames import DETERMINISTIC_FRAMES
+from tests.fixtures.iso_tp_frames import standard_frame
+
+
+class ScriptedIsoTpPeer:
+    def __init__(self, arbitration_id: int = 0x456) -> None:
+        self.arbitration_id = arbitration_id
+        self.responses = []
+        self.observed_frames = []
+
+    def queue_payload(self, payload: bytes) -> None:
+        self.responses.append(standard_frame(self.arbitration_id, payload))
+
+    def observe(self, frame) -> None:
+        self.observed_frames.append(frame)
+
+    def frames(self):
+        return list(self.responses)
 
 
 class StubFrameLogger:
@@ -93,3 +110,8 @@ def virtual_bus_config():
     from prioracan.config import CanUsbConfig
 
     return CanUsbConfig(interface="virtual", channel=f"prioracan-{uuid.uuid4()}")
+
+
+@pytest.fixture
+def scriptable_iso_tp_peer():
+    return ScriptedIsoTpPeer
