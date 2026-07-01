@@ -23,6 +23,16 @@ backend/prisma/migrations/*/migration_lock.toml
 coverage/
 .nyc_output/
 
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+dist/
+*.egg-info/
+.coverage
+htmlcov/
+
 # IDE
 .vscode/
 .idea/

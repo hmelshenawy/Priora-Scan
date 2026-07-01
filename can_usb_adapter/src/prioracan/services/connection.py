@@ -9,6 +9,8 @@ from prioracan.status import DriverStatus
 
 
 class ConnectionService:
+    """Thin orchestrator for one driver and optional frame loggers."""
+
     def __init__(
         self, driver: CanDriver, loggers: Sequence[FrameLogger] | None = None
     ) -> None:

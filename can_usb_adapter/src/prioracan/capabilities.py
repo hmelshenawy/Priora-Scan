@@ -3,6 +3,8 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class DriverCapabilities:
+    """Immutable feature flags describing one CAN driver."""
+
     receive: bool
     transmit: bool
     can_fd: bool

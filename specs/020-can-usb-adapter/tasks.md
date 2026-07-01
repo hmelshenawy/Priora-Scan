@@ -269,7 +269,7 @@
 
 **Purpose**: Enforce hardware independence, multi-instance support, static architecture guards, and no regression in the rest of PrioraScan.
 
-- [ ] T021 Add multi-instance independence test in `can_usb_adapter/tests/test_multi_instance.py`
+- [X] T021 Add multi-instance independence test in `can_usb_adapter/tests/test_multi_instance.py`
 
 **Goal**: Prove multiple drivers coexist without interference (architecture constraint).
 **Files to modify**: `can_usb_adapter/tests/test_multi_instance.py`.
@@ -278,7 +278,7 @@
 **Tests to add**: This is the test.
 **Acceptance criteria**: Two `MockDriver`s and a `MockDriver`+`GsUsbDriver` pair operate simultaneously with zero cross-interference; disconnecting one does not affect the other.
 
-- [ ] T022 Add static architecture guard tests in `can_usb_adapter/tests/test_static_guards.py`
+- [X] T022 Add static architecture guard tests in `can_usb_adapter/tests/test_static_guards.py`
 
 **Goal**: CI-enforced grep guards for the architecture constraints.
 **Files to modify**: `can_usb_adapter/tests/test_static_guards.py`.
@@ -287,7 +287,7 @@
 **Tests to add**: This is the test.
 **Acceptance criteria**: All five guards pass on the implemented codebase.
 
-- [ ] T023 Finalize hardware-free CI run + coverage in `can_usb_adapter/pyproject.toml`
+- [X] T023 Finalize hardware-free CI run + coverage in `can_usb_adapter/pyproject.toml`
 
 **Goal**: Whole suite green with no hardware; coverage baseline met; no regression in existing PrioraScan tests.
 **Files to modify**: `can_usb_adapter/pyproject.toml` (coverage config); `can_usb_adapter/tests/` (any missing conftest glue).
@@ -296,7 +296,7 @@
 **Tests to add**: No new test; the gate is the full green suite + coverage report.
 **Acceptance criteria**: `pytest -q` exits 0 with no USB hardware and no external file; coverage ≥90% on `src/prioracan` (seam hardware branches excluded); existing PrioraScan tests still pass; no transmit/ISO-TP/UDS/DBC/replay/streaming code exists (T022 green).
 
-- [ ] T024 Add optional sanitized Yaris sample fixture in `can_usb_adapter/examples/fixtures/`
+- [X] T024 Add optional sanitized Yaris sample fixture in `can_usb_adapter/examples/fixtures/`
 
 **Goal**: Optional demo/example data only; never a test dependency; sanitized.
 **Files to modify**: `can_usb_adapter/examples/fixtures/sample_yaris.jsonl` (sanitized); `can_usb_adapter/examples/load_sample.py`.
@@ -311,7 +311,7 @@
 
 **Purpose**: README, usage examples, driver-implementation guide, and extension guide for future drivers.
 
-- [ ] T025 [P] Write examples + guides in `can_usb_adapter/examples/README.md`
+- [X] T025 [P] Write examples + guides in `can_usb_adapter/examples/README.md`
 
 **Goal**: Usage examples, driver-implementation guide, and future-driver extension guide.
 **Files to modify**: `can_usb_adapter/examples/README.md`.
@@ -320,7 +320,7 @@
 **Tests to add**: `can_usb_adapter/tests/test_docs_smoke.py` (see T027) covers importability of documented symbols.
 **Acceptance criteria**: Examples run with the mock driver and no hardware; extension guide explicitly states public contracts stay unchanged when adding a driver.
 
-- [ ] T026 [P] Finalize README + public docstrings in `can_usb_adapter/README.md`
+- [X] T026 [P] Finalize README + public docstrings in `can_usb_adapter/README.md`
 
 **Goal**: Complete README + docstrings on the public surface.
 **Files to modify**: `can_usb_adapter/README.md`; public docstrings across `src/prioracan/`.
@@ -329,7 +329,7 @@
 **Tests to add**: covered by T027 docs smoke test.
 **Acceptance criteria**: README complete; every `__all__` symbol has a docstring; read-only constraint stated.
 
-- [ ] T027 Add documentation smoke test in `can_usb_adapter/tests/test_docs_smoke.py`
+- [X] T027 Add documentation smoke test in `can_usb_adapter/tests/test_docs_smoke.py`
 
 **Goal**: Guard against doc drift — every symbol used in README/examples is importable and the mock example runs.
 **Files to modify**: `can_usb_adapter/tests/test_docs_smoke.py`.

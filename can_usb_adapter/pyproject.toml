@@ -25,7 +25,8 @@ addopts = "-q"
 
 [tool.coverage.run]
 source = ["src/prioracan"]
+omit = ["src/prioracan/drivers/adapters/python_can_adapter.py"]
 
 [tool.coverage.report]
-# Milestone 1 documents the 90% target but does not enforce it as a hard fail.
 show_missing = true
+fail_under = 90

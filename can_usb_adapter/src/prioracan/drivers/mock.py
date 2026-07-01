@@ -11,6 +11,8 @@ from prioracan.status import DriverState, DriverStatus
 
 
 class MockDriver:
+    """Deterministic hardware-free CanDriver implementation."""
+
     def __init__(
         self, frames: Sequence[CanFrame], *, config: CanUsbConfig | None = None
     ) -> None:

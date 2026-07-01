@@ -24,7 +24,7 @@ def test_current_public_api_exports() -> None:
         "CanReceiveTimeout",
         "CanLoggingError",
     ]
-    assert prioracan.__all__ == expected
+    assert list(prioracan.__all__) == expected
     for name in expected:
         assert getattr(prioracan, name)
 

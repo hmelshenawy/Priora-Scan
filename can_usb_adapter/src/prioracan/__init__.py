@@ -19,7 +19,7 @@ from prioracan.services import ConnectionService
 from prioracan.session import CaptureSession
 from prioracan.status import DriverState, DriverStatus
 
-__all__ = [
+__all__ = (
     "CanFrame",
     "CanUsbConfig",
     "DriverStatus",
@@ -41,4 +41,4 @@ __all__ = [
     "CanConnectionError",
     "CanReceiveTimeout",
     "CanLoggingError",
-]
+)

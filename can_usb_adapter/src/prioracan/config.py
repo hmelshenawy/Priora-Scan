@@ -6,6 +6,8 @@ from prioracan.errors import CanConfigurationError
 
 @dataclass(frozen=True, slots=True)
 class CanUsbConfig:
+    """Configuration for one USB-CAN receive session."""
+
     interface: str = "gs_usb"
     channel: int | str = 0
     bitrate: int = 500000

@@ -1,3 +1,3 @@
 from prioracan.services.connection import ConnectionService
 
-__all__ = ["ConnectionService"]
+__all__ = ("ConnectionService",)

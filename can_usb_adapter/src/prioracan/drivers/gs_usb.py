@@ -6,12 +6,14 @@ from collections.abc import Iterator
 from prioracan.capabilities import GS_USB_CAPABILITIES, DriverCapabilities
 from prioracan.config import CanUsbConfig
 from prioracan.drivers.adapters import PythonCanAdapter
-from prioracan.errors import CanAdapterError, CanReceiveTimeout
+from prioracan.errors import CanAdapterError, CanConnectionError, CanReceiveTimeout
 from prioracan.frame import CanFrame, Direction
 from prioracan.status import DriverState, DriverStatus
 
 
 class GsUsbDriver:
+    """Read-only GS_USB driver backed by the internal PythonCanAdapter seam."""
+
     def __init__(self, config: CanUsbConfig) -> None:
         self._config = config
         self._adapter = PythonCanAdapter()
@@ -51,7 +53,12 @@ class GsUsbDriver:
         self, stop_event: threading.Event | None = None
     ) -> Iterator[CanFrame]:
         while self.is_connected() and not _is_stopped(stop_event):
-            yield self.receive()
+            try:
+                yield self.receive()
+            except CanReceiveTimeout:
+                continue
+        if not _is_stopped(stop_event) and not self.is_connected():
+            raise CanConnectionError("CAN connection closed during capture")
 
     def get_status(self) -> DriverStatus:
         state = self._state()

@@ -6,12 +6,16 @@ from prioracan.utils.hex import arbitration_id_hex, data_hex
 
 
 class Direction(Enum):
+    """CAN frame direction; only RX is accepted by this foundation."""
+
     RX = "RX"
     TX = "TX"
 
 
 @dataclass(frozen=True, slots=True)
 class CanFrame:
+    """Immutable validated Classic CAN receive frame."""
+
     timestamp: float
     channel: int | str
     direction: Direction

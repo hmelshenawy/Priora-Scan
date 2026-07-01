@@ -10,6 +10,8 @@ from prioracan.frame import CanFrame
 
 
 class AscLogger:
+    """Frame logger that writes a minimal Vector ASC subset."""
+
     def __init__(self, path: str | Path) -> None:
         self._path = Path(path)
         self._file: TextIO | None = None

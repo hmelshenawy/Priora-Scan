@@ -9,6 +9,8 @@ from prioracan.frame import CanFrame
 
 
 class JsonlLogger:
+    """Frame logger that writes one JSON object per line."""
+
     def __init__(self, path: str | Path) -> None:
         self._path = Path(path)
         self._file: TextIO | None = None

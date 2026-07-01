@@ -5,6 +5,8 @@ from prioracan.errors import CanAdapterError
 
 
 class DriverState(Enum):
+    """Driver lifecycle state snapshot values."""
+
     DISCONNECTED = "disconnected"
     CONNECTED = "connected"
     LISTENING = "listening"
@@ -13,6 +15,8 @@ class DriverState(Enum):
 
 @dataclass(frozen=True, slots=True)
 class DriverStatus:
+    """Immutable status snapshot reported by a CAN driver."""
+
     state: DriverState
     adapter_name: str | None = None
     serial_number: str | None = None
