@@ -1,232 +1,151 @@
-# PrioraScan
+# PrioraScan — Automotive Diagnostic Intelligence Platform
 
-**Intelligent vehicle diagnostic scanner and diagnostic intelligence platform.**
+**From vehicle data and fault codes to structured diagnostic workflows.**
 
-PrioraScan is a diagnostic software platform designed to connect workshop operations with real vehicle diagnostic data. It combines vehicle management, diagnostic sessions, OBD communication, fault code intelligence, live sensor monitoring, and AI-assisted diagnostic reporting.
+PrioraScan is a full-stack automotive diagnostic platform connecting workshop vehicle records, diagnostic sessions, and live OBD-II communication through a local desktop agent. Its longer-term goal is to turn diagnostic evidence into useful guidance for technicians, service advisors, and workshops.
 
-The goal is not only to read fault codes, but to help technicians, advisors, and workshops understand vehicle health faster and make better diagnostic decisions.
+> **Beyond reading a DTC:** collect diagnostic evidence, preserve vehicle history, and build a foundation for explainable diagnostic assistance.
 
----
+## What PrioraScan covers
 
-## What PrioraScan Does
+| Area | Capability |
+| --- | --- |
+| Vehicle management | Vehicle profiles, VIN handling, and diagnostic history |
+| Diagnostic sessions | Session lifecycle and association with vehicles |
+| OBD connectivity | Local desktop agent for adapter communication |
+| Fault codes | DTC reading and structured fault records |
+| Vehicle health | Standard OBD-II measurements and readiness information |
+| Live data | Standard PID polling and current sensor values |
+| Workshop access | Authentication, roles, and organization-scoped data |
+| Diagnostic intelligence | Foundation for future AI-assisted interpretation and reporting |
 
-PrioraScan helps workshops:
-
-* Manage vehicles and diagnostic sessions
-* Connect to OBD adapters through a local desktop agent
-* Read OBD-II data from supported vehicles
-* Capture fault codes, readiness monitors, freeze frame data, and live sensor values
-* Decode and structure diagnostic information
-* Prepare the foundation for AI-assisted diagnostic analysis and reports
-
----
-
-## Core Features
-
-### Vehicle Management
-
-* Create and manage customer vehicles
-* Store VIN, make, model, year, engine, and body information
-* Decode VIN data where supported
-* Track diagnostic history per vehicle
-
-### Authentication & Access Control
-
-* Secure login system
-* Role-based access control
-* Protected workshop/user data
-
-### Diagnostic Sessions
-
-* Open, track, and close diagnostic sessions
-* Prevent duplicate active sessions for the same vehicle
-* Link scan jobs, fault codes, and live data to a session
-
-### OBD Foundation
-
-* Desktop Agent architecture for adapter communication
-* Adapter pairing and heartbeat tracking
-* Scan job lifecycle management
-* Fault code import pipeline
-* Support for mock mode and real adapter testing
-
-### Real Adapter Support
-
-Tested with:
-
-* ELM327 WiFi adapter
-* Toyota OBD-II vehicle data
-* CAN / USB-to-CAN research adapter experiments
-
-Confirmed real readings include:
-
-* Engine RPM
-* Vehicle speed
-* Coolant temperature
-* Engine load
-* Control module voltage
-* Supported PID list
-* Readiness monitor status
-* DTC read response
-* Freeze frame foundation
-
-### Fault Code Intelligence
-
-* Stores diagnostic trouble codes
-* Supports detected, pending, and cleared status flow
-* Prepares fault data for AI analysis and reporting
-
-### Live Data Monitoring
-
-* Reads current sensor values
-* Supports standard OBD-II Mode 01 PIDs
-* Tracks latest values during a live data session
-* Designed for future charting and technician-facing analysis
-
----
-
-## Architecture
-
-PrioraScan is built as a full-stack diagnostic platform.
-
-### Frontend
-
-* Next.js
-* TypeScript
-* Diagnostic dashboard
-* Vehicle pages
-* OBD agent dashboard
-* Vehicle health panel
-* Live data UI foundation
-
-### Backend
-
-* NestJS
-* Prisma ORM
-* PostgreSQL
-* REST APIs
-* Authentication and authorization
-* Diagnostic session and scan job services
-
-### Desktop Agent
-
-* Python
-* OBD adapter communication
-* ELM327 WiFi support
-* Mock adapter mode
-* PID polling
-* Fault code reading
-* VIN and health probe handling
-
----
-
-## Project Structure
+## System architecture
 
 ```text
-priorascan/
-├── backend/          # NestJS backend API
-├── frontend/         # Next.js frontend application
-├── desktop-agent/    # Python local OBD communication agent
-├── specs/            # Feature specifications and implementation plans
-└── research/         # CAN, UDS, ISO-TP, and adapter experiments
+           Technician / Service Advisor
+                      |
+                Next.js Frontend
+                      |
+                 NestJS REST API
+                      |
+          +-----------+-----------+
+          |                       |
+     PostgreSQL              Scan Jobs
+  Vehicles / Sessions     Adapter / Agent State
+                                  |
+                           Python Desktop Agent
+                                  |
+                        ELM327 / OBD-II Adapter
+                                  |
+                            Vehicle ECUs
 ```
 
----
+The web application manages workshop-facing workflows. The backend manages records, access control, sessions, and scan-job coordination. The Python desktop agent handles communication with the local diagnostic adapter, keeping hardware access separate from the web and API layers.
 
-## Current Development Status
+## Core workflows
 
-PrioraScan has completed the main foundation features:
+### 1. Vehicle and session management
 
-* Vehicle Management
-* Authentication
-* Diagnostic Sessions
-* OBD Foundation
-* Fault Code Intelligence
-* Live Data Foundation
-* VIN support handling
-* Vehicle Health real adapter integration
-* Real DTC read path
-* Readiness monitor support
-* Freeze frame foundation
-* Extended PID validation research
+Register a vehicle, associate it with an organization, and open a diagnostic session. Sessions organize diagnostic activity and support a vehicle-centered history.
 
-The platform is currently moving toward deeper CAN / UDS exploration and improved diagnostic discovery.
+### 2. Adapter communication
 
----
+The local Python agent connects to a supported adapter, reports its status, and handles OBD requests. The platform includes mock-adapter support alongside real-hardware experimentation.
 
-## Safety Philosophy
+### 3. Diagnostic data collection
 
-PrioraScan is being developed with a safety-first approach.
+Collect supported standard OBD-II values, readiness information, and DTC responses. Store diagnostic results against the relevant vehicle/session rather than treating them as isolated scanner output.
 
-Current diagnostic exploration focuses on:
+### 4. Diagnostic interpretation — roadmap
 
-* Read-only OBD requests
-* Safe PID polling
-* Passive sniffing
-* ECU discovery
-* ECU identification
-* Service capability detection
+The planned intelligence layer will explain faults, suggest possible causes and next tests, and generate technician- and customer-facing reports. These are product goals, **not claims that AI diagnosis is already implemented**.
 
-The project avoids unsafe write operations, coding changes, ECU programming, or actuator commands unless explicitly researched, validated, and isolated.
+## Real vehicle testing
 
----
+The project README documents testing with an **ELM327 Wi-Fi adapter** and **Toyota OBD-II vehicle data**. Reported observations include:
 
-## Example Real Vehicle Results
+- Engine RPM and vehicle speed
+- Coolant temperature and calculated engine load
+- Control-module voltage
+- Supported PID discovery
+- Emissions readiness status
+- DTC read responses
+- Initial freeze-frame support
 
-During real adapter testing, PrioraScan successfully captured values such as:
+Example values recorded during testing:
 
 ```text
-RPM: 900
-Speed: 0 km/h
-Coolant Temperature: 86°C
-Engine Load: 46.3%
-Control Module Voltage: 13.417V
-VIN: Unsupported by tested vehicle
-Readiness: Available
-DTCs: No active codes detected
+Engine RPM:             900
+Vehicle speed:          0 km/h
+Coolant temperature:    86 °C
+Engine load:            46.3 %
+Control module voltage: 13.417 V
+Readiness:              Available
+Active DTCs:            None detected
+VIN:                    Unsupported by tested vehicle
 ```
 
+These observations describe a tested adapter/vehicle combination, not universal support across makes, models, ECUs, or adapters.
+
+## Technology stack
+
+| Layer | Technologies |
+| --- | --- |
+| Frontend | Next.js, TypeScript |
+| Backend | NestJS, REST APIs |
+| Database | PostgreSQL, Prisma |
+| Desktop agent | Python |
+| Diagnostics | OBD-II, ELM327, standard PID requests |
+| Research | CAN, ISO-TP, UDS, USB-to-CAN experiments |
+| Development | Specification-driven documentation and feature planning |
+
+## Engineering highlights
+
+**Hardware/software separation.** A local Python agent owns adapter communication, while the backend exposes application-level diagnostic workflows.
+
+**Session-oriented data model.** Vehicle, session, scan-job, and fault information are linked so diagnostic evidence can be revisited.
+
+**Multi-tenant architecture.** Organization scoping and role-based access are part of the platform's design for workshop use.
+
+**Mock and real adapter paths.** Mock-mode development supports workflow testing without requiring a vehicle for every change; real adapter testing validates actual OBD communication.
+
+**Protocol-aware expansion.** Standard OBD-II support provides a foundation for deeper CAN, ISO-TP, and UDS research without presenting experimental work as production-grade ECU coverage.
+
+**Safety-first diagnostics.** Current exploration prioritizes read-only requests, passive observation, and safe polling rather than ECU programming, coding, or actuator control.
+
+## Repository structure
+
+```text
+backend/          NestJS API and diagnostic workflows
+frontend/         Next.js workshop and diagnostic UI
+desktop-agent/    Python OBD communication agent
+specs/            Feature specifications and plans
+research/         CAN / ISO-TP / UDS adapter experiments
+docs/             Product and system architecture documents
+```
+
+## Technical documentation
+
+- [Product Requirements Document](docs/PRD.md)
+- [System Analysis & Design](docs/SAD.md)
+- [Frontend Architecture](docs/FRONTEND_ARCHITECTURE.md)
+- [Vehicle Management Specification](specs/001-vehicle-management/spec.md)
+- [Diagnostic Sessions Plan](specs/003-diagnostic-sessions/DIAGNOSTIC_SESSIONS_PLAN.md)
+
+## Current status and roadmap
+
+**Implemented or documented as tested:** vehicle management, authentication foundation, diagnostic sessions, desktop-agent communication, OBD polling, real-adapter readings, fault-code handling, readiness support, and live-data foundations.
+
+**In progress / exploratory:** extended PID coverage, CAN/ISO-TP research, ECU discovery, and deeper UDS capabilities.
+
+**Planned:** AI-assisted fault analysis, professional diagnostic reporting, richer vehicle-specific diagnostic profiles, additional adapters, and PrioraFlow integration.
+
+## Diagnostic safety and limitations
+
+PrioraScan is an engineering project under active development. Standard OBD-II data availability depends on the vehicle, ECU, protocol, and adapter. A successful connection does not imply support for manufacturer-specific systems. Diagnostic suggestions must be verified by qualified technicians before repair decisions.
+
+The project does not claim general-purpose ECU programming or manufacturer-level diagnostic coverage.
+
 ---
 
-## Roadmap
-
-Planned future improvements include:
-
-* Deeper ECU discovery
-* UDS service capability detection
-* Better vehicle-specific diagnostic profiles
-* Diagnostic report generation
-* AI-assisted fault analysis
-* PrioraFlow integration
-* Technician workflow improvements
-* More adapter support
-* CAN sniffing and ISO-TP analysis tools
-
----
-
-## Purpose
-
-PrioraScan is built to become more than a scanner.
-
-The long-term vision is a diagnostic intelligence platform that helps workshops understand:
-
-* What is wrong
-* Which systems are affected
-* What data supports the diagnosis
-* What should be checked next
-* How to explain the issue clearly to advisors, managers, and customers
-
----
-
-## License
-
-This project is currently private and under active development.
-
----
-
-## Author
-
-Built by Haitham Elshenawy as part of the Priora ecosystem:
-
-* PrioraFlow: Workshop operations and priority management
-* PrioraScan: Diagnostic intelligence and vehicle health analysis
+**PrioraScan aims to bridge diagnostic hardware, structured workshop data, and future AI-assisted reasoning — not simply replicate a fault-code reader.**
